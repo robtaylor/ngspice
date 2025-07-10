@@ -56,7 +56,7 @@ jobs:
         if: ${{matrix.sharedlib-flag == '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifact-${{matrix.os}}${{matrix.compiler-flag}}-${{matrix.build-type}}
+          name: build-artifact-${{matrix.os}}-${{matrix.compiler}}-${{matrix.build-type}}
           path: ./${{ matrix.build-type }}
 
       - name: Install
@@ -72,10 +72,11 @@ jobs:
           tools: 'xquartz libx11 libxaw bison flex libtool autoconf automake libomp make gcc'
 
       - name: Configure for macos
-        run: EXIT_AFTER_CONFIGURE=1 ./compile_macos.sh ${{matrix.compiler-flag}} ${{matrix.sharedlib-flag}} ${{matrix.debug-flag}} -i $HOME/test
+        run: EXIT_AFTER_CONFIGURE=1 ./compile_macos.sh -i $HOME/test
 
       - name: Get list of checks
         id: check-list
+        working-directory: ./release
         run: |
           tests=$( gmake -s -C tests --eval='print-tests:;@echo $(SUBDIRS)' print-tests)
           array=($tests)
