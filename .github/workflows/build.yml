@@ -16,8 +16,6 @@ jobs:
         compiler-flag: ['-g', '']
         #compiler-flag: ['']
         sharedlib-flag: ['-l', '']
-        build-type: []
-        debug-flag: []
         include:
           - build-type: 'debug'
             debug-flag: '-d'
@@ -76,7 +74,7 @@ jobs:
     needs: define-tests
     strategy:
       matrix:
-        test: ${{ fromJSON(needs.define-test.outputs.tests) }}
+        test: ${{ fromJSON(needs.define-tests.outputs.tests) }}
         os: [macos-15-large, macos-15, macos-14-large, macos-14, macos-13, macos-13-xlarge]
         compiler-flag: ['-g', '']
         build-type: ['debug', 'release']
