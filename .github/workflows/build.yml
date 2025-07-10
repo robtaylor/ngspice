@@ -13,7 +13,7 @@ jobs:
         # See https://github.com/actions/runner-images?tab=readme-ov-file#available-images
         # os: [macos-15-large, macos-15, macos-14-large, macos-14, macos-13, macos-13-xlarge]
         os: [macos-14]
-        sharedlib-flag: ['-l', '']
+        sharedlib: ['library-only', 'full']
         build-type: ['debug', 'release']
         compiler: ['gcc', 'clang']
         include:
@@ -21,6 +21,10 @@ jobs:
             debug-flag: '-d'
           - build-type: 'release'
             debug-flag: ''
+          - sharedlib: 'library-only'
+            sharedlib-flag: '-l'
+          - sharedlib: 'full'
+            sharedlib-flag: ''
 
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +56,7 @@ jobs:
         run: make -j $NCPUS
 
       - name: Upload build artifact for tests
-        if: ${{matrix.sharedlib-flag == '' }}
+        if: ${{matrix.sharedlib == 'full' }}
         uses: actions/upload-artifact@v4
         with:
           name: build-artifact-${{matrix.os}}-${{matrix.compiler}}-${{matrix.build-type}}
@@ -63,7 +67,8 @@ jobs:
 
   define-tests:
     runs-on: macos-latest
-    needs: build
+    outputs:
+      tests: ${{ steps.check-list.outputs.tests}}
     steps:
       - uses: actions/checkout@v4
       - uses: tecolicom/actions-use-homebrew-tools@v1
@@ -85,7 +90,7 @@ jobs:
 
   run-tests:
     runs-on: ${{matrix.os}}
-    needs: define-tests
+    needs: [build, define-tests]
     strategy:
       matrix:
         test: ${{ fromJSON(needs.define-tests.outputs.tests) }}
