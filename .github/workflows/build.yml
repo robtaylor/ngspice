@@ -94,9 +94,10 @@ jobs:
     strategy:
       matrix:
         test: ${{ fromJSON(needs.define-tests.outputs.tests) }}
-        os: [macos-15-large, macos-15, macos-14-large, macos-14, macos-13, macos-13-xlarge]
-        compiler-flag: ['-g', '']
+        # os: [macos-15-large, macos-15, macos-14-large, macos-14, macos-13, macos-13-xlarge]
+        os: [macos-14]
         build-type: ['debug', 'release']
+        compiler: ['gcc', 'clang']
     steps:
       - uses: actions/checkout@v4
 
@@ -107,7 +108,7 @@ jobs:
       - name: Fetch appropriate build artifact
         uses: actions/download-artifact@v4
         with:
-          name: build-artifact-${{matrix.os}}${{matrix.compiler-flag}}-${{matrix.build-type}}
+          name: build-artifact-${{matrix.os}}-${{matrix.compiler}}-${{matrix.build-type}}
 
       - name: Find number of CPUs
         id: num-cpus
