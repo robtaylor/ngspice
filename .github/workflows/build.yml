@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: tecolicom/actions-use-homebrew-tools@v1
         with:
-          tools: 'xquartz libx11 libxaw bison flex libtool autoconf automake libomp gmake gcc'
+          tools: 'xquartz libx11 libxaw bison flex libtool autoconf automake libomp make gcc'
 
       - name: Find number of CPUs
         id: num-cpus
@@ -54,12 +54,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: tecolicom/actions-use-homebrew-tools@v1
         with:
-          tools: 'xquartz libx11 libxaw bison flex libtool autoconf automake libomp gmake gcc'
+          tools: 'xquartz libx11 libxaw bison flex libtool autoconf automake libomp make gcc'
 
       - name: Configure for macos
         run: EXIT_AFTER_CONFIGURE=1 ./compile_macos.sh ${{matrix.compiler-flag}} ${{matrix.sharedlib-flag}} ${{matrix.debug-flag}} -i $HOME/test
-
-      - run: brew install gmake
 
       - name: Get list of checks
         id: check-list
@@ -83,7 +81,7 @@ jobs:
 
       - uses: tecolicom/actions-use-homebrew-tools@v1
         with:
-          tools: 'xquartz libx11 libxaw bison flex libtool autoconf automake libomp gmake gcc'
+          tools: 'xquartz libx11 libxaw bison flex libtool autoconf automake libomp make gcc'
 
       - name: Fetch appropriate build artifact
         uses: actions/download-artifact@v4
