@@ -51,7 +51,7 @@ MAKE_FLAGS=${MAKE_FLAGS:=""}
 # Process the input options. Add options as needed.        #
 ############################################################
 # Get the options
-while getopts ":hdgit:l" option; do
+while getopts ":hdgi:tl" option; do
   case $option in
     h) # display Help
         Help
