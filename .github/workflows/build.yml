@@ -31,7 +31,7 @@ jobs:
         run: echo "NCPUS=$(sysctl -n hw.logicalcpu)" >> "$GITHUB_ENV"
 
       - name: Configure for macos
-        run: EXIT_AFTER_CONFIGURE=1 ./compile_macos.sh ${{matrix.compiler-flag}} ${{matrix.sharedlib-flag}} ${{matrix.debug-flag}} -i $HOME/test
+        run: EXIT_AFTER_CONFIGURE=1 ./compile_macos.sh ${{matrix.compiler-flag}} ${{matrix.sharedlib-flag}} ${{matrix.debug-flag}} -i$HOME/test
 
       - name: Build
         working-directory: ${{ matrix.build-type }}

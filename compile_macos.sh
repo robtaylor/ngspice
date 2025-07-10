@@ -72,6 +72,7 @@ while getopts ":hdgit:l" option; do
         HOMEBREW_EXTRA="$HOMEBREW_EXTRA gcc"
         ;;
     i) # Install location
+        echo "Install passed: '$OPTARG'"
         if [[ $OPTARG == /usr/* ]] || [[ $OPTARG == /opt/* ]]; then
           USE_SUDO=1
         else
