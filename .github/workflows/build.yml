@@ -1,0 +1,86 @@
+name: C++ Test with Cross-Platform Compilers
+
+on:
+  push:
+    branches: main
+  pull_request:
+
+jobs:
+  test-macos:
+    runs-on: ${{ matrix.os }}  # Use dynamic runner based on OS
+    strategy:
+      matrix:
+        # See https://github.com/actions/runner-images?tab=readme-ov-file#available-images
+        os: [macos-15-large, macos-15, macos-14-large, macos-14, macos-13, macos-13-xlarge]
+        compiler-flag: ['-g', '']
+        sharedlib-flag: ['-l', '']
+        include:
+          - build-type: 'debug'
+            debug-flag: '-d'
+          - build-type: 'release'
+            debug-flag: ''
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find number of CPUs
+        id: num-cpus
+        run: echo "NCPUS=$(sysctl -n hw.logicalcpu)" >> "$GITHUB_ENV"
+
+      - name: Configure for macos
+        run: EXIT_AFTER_CONFIGURE=1 ./compile_macos.sh ${{matrix.compiler-flag}} ${{matrix.sharedlib-flag}} ${{matrix.debug-flag}} -i $HOME/test
+
+      - name: Build
+        working-directory: ${{ matrix.build-type }}
+        run: make -j $NCPUS
+
+      - name: Upload build artifact for tests
+        if: ${{matrix.sharedlib-flag == '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifact-${{matrix.os}}${{matrix.compiler-flag}}-${{matrix.build-type}}
+          path: ./${{ matrix.build-type }}
+
+      - name: Install
+        run: make install
+
+  define-tests:
+    runs-on: macos-latest
+    needs: test-macos
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure for macos
+        run: EXIT_AFTER_CONFIGURE=1 ./compile_macos.sh ${{matrix.compiler-flag}} ${{matrix.sharedlib-flag}} ${{matrix.debug-flag}} -i $HOME/test
+
+      - run: brew install gmake
+
+      - name: Get list of checks
+        id: check-list
+        run: |
+          tests=$( gmake -s -C tests --eval='print-tests:;@echo $(SUBDIRS)' print-tests)
+          array=($tests)
+          joined=$(printf "\"%s\"\n" "${array[@]}" | paste -sd ',' -)
+          echo "tests=[$joined]" >> "$GITHUB_OUTPUT"
+
+  run-tests:
+    runs-on: ${{matrix.os}}
+    needs: define-tests
+    strategy:
+      matrix:
+        test: ${{ fromJSON(needs.define-test.outputs.tests) }}
+        os: [macos-15-large, macos-15, macos-14-large, macos-14, macos-13, macos-13-xlarge]
+        compiler-flag: ['-g', '']
+        build-type: ['debug', 'release']
+    steps:
+      - name: Fetch appropriate build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifact-${{matrix.os}}${{matrix.compiler-flag}}-${{matrix.build-type}}
+
+      - name: Find number of CPUs
+        id: num-cpus
+        run: echo "NCPUS=$(sysctl -n hw.logicalcpu)" >> "$GITHUB_ENV"
+
+      - name: Run Checks, distributed
+        run: make -C tests/${{matrix.test}} -j $NCPUS checks
