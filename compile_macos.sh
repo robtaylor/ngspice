@@ -77,7 +77,7 @@ while getopts ":hdgit:l" option; do
         else
           USE_SUDO=0
         fi
-        CONFIGURE_OPTS="$CONFIGURE_OPTS --prefix=$OPTARG"
+        CONFIGURE_OPTS="$CONFIGURE_OPTS --prefix=${OPTARG##' '}"
         ;;
     t) # Run tests
         RUN_TESTS=1
