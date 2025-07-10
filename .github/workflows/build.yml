@@ -13,9 +13,11 @@ jobs:
         # See https://github.com/actions/runner-images?tab=readme-ov-file#available-images
         #os: [macos-15-large, macos-15, macos-14-large, macos-14, macos-13, macos-13-xlarge]
         os: [macos-14]
-        #compiler-flag: ['-g', '']
-        compiler-flag: ['']
+        compiler-flag: ['-g', '']
+        #compiler-flag: ['']
         sharedlib-flag: ['-l', '']
+        build-type: []
+        debug-flag: []
         include:
           - build-type: 'debug'
             debug-flag: '-d'
@@ -33,7 +35,7 @@ jobs:
         run: echo "NCPUS=$(sysctl -n hw.logicalcpu)" >> "$GITHUB_ENV"
 
       - name: Configure for macos
-        run: EXIT_AFTER_CONFIGURE=1 ./compile_macos.sh ${{matrix.compiler-flag}} ${{matrix.sharedlib-flag}} ${{matrix.debug-flag}} -i $HOME/test
+        run: EXIT_AFTER_CONFIGURE=1 ./compile_macos.sh ${{matrix.compiler-flag}} ${{matrix.sharedlib-flag}} ${{matrix.debug-flag}} -i $HOME/test || cat ${{ matrix.build-type }}/config.log
 
       - name: Build
         working-directory: ${{ matrix.build-type }}
