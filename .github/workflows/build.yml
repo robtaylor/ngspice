@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         # See https://github.com/actions/runner-images?tab=readme-ov-file#available-images
-        #os: [macos-15-large, macos-15, macos-14-large, macos-14, macos-13, macos-13-xlarge]
+        # os: [macos-15-large, macos-15, macos-14-large, macos-14, macos-13, macos-13-xlarge]
         os: [macos-14]
         compiler: ['gcc', 'clang']
         sharedlib-flag: ['-l', '']
