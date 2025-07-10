@@ -13,9 +13,10 @@ jobs:
         # See https://github.com/actions/runner-images?tab=readme-ov-file#available-images
         #os: [macos-15-large, macos-15, macos-14-large, macos-14, macos-13, macos-13-xlarge]
         os: [macos-14]
-        compiler-flag: ['-g', '']
-        #compiler-flag: ['']
+        compiler: ['gcc', 'clang']
         sharedlib-flag: ['-l', '']
+        build-type: ['debug', 'release']
+        debug-flag: ['']
         include:
           - build-type: 'debug'
             debug-flag: '-d'
@@ -28,12 +29,24 @@ jobs:
         with:
           tools: 'xquartz libx11 libxaw bison flex libtool autoconf automake libomp make gcc'
 
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+
       - name: Find number of CPUs
         id: num-cpus
         run: echo "NCPUS=$(sysctl -n hw.logicalcpu)" >> "$GITHUB_ENV"
 
       - name: Configure for macos
-        run: EXIT_AFTER_CONFIGURE=1 ./compile_macos.sh ${{matrix.compiler-flag}} ${{matrix.sharedlib-flag}} ${{matrix.debug-flag}} -i $HOME/test || cat ${{ matrix.build-type }}/config.log
+        run: |
+          if [[ "${{matrix.compiler}}" == 'gcc' ]]; then
+            export CC='ccache gcc'
+            export CXX='ccache g++'
+          else
+            export CC='ccache clang'
+            export CXX='ccache clang++'
+          fi
+
+          EXIT_AFTER_CONFIGURE=1 ./compile_macos.sh ${{matrix.sharedlib-flag}} ${{matrix.debug-flag}} -i $HOME/test || cat ${{ matrix.build-type }}/config.log
 
       - name: Build
         working-directory: ${{ matrix.build-type }}
@@ -68,6 +81,7 @@ jobs:
           array=($tests)
           joined=$(printf "\"%s\"\n" "${array[@]}" | paste -sd ',' -)
           echo "tests=[$joined]" >> "$GITHUB_OUTPUT"
+          echo "tests=[$joined]"
 
   run-tests:
     runs-on: ${{matrix.os}}
