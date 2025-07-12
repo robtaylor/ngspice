@@ -222,6 +222,11 @@ check_function_exists(atanh HAVE_ATANH)
 check_function_exists(finite HAVE_FINITE)
 check_function_exists(isinf HAVE_ISINF)
 check_function_exists(isnan HAVE_ISNAN)
+
+# Check if functions are declared (as macros or functions)
+include(CheckSymbolExists)
+check_symbol_exists(isinf "math.h" HAVE_DECL_ISINF)
+check_symbol_exists(isnan "math.h" HAVE_DECL_ISNAN)
 check_function_exists(snprintf HAVE_SNPRINTF)
 check_function_exists(dirname HAVE_DIRNAME)
 check_function_exists(getopt_long HAVE_GETOPT_LONG)
@@ -401,13 +406,13 @@ configure_file(
 # Add subdirectories
 add_subdirectory(src)
 
-# Add tests
-if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-    include(CTest)
-    if(BUILD_TESTING)
-        add_subdirectory(tests)
-    endif()
-endif()
+# Add tests (disabled for now - tests directory not converted yet)
+# if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+#     include(CTest)
+#     if(BUILD_TESTING)
+#         add_subdirectory(tests)
+#     endif()
+# endif()
 
 # Installation
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/src/include/ngspice/config.h

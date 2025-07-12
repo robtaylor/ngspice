@@ -165,6 +165,12 @@
 /* Define to 1 if you have the `isnan' function. */
 #cmakedefine HAVE_ISNAN 1
 
+/* Define to 1 if you have the declaration of `isinf' function. */
+#cmakedefine HAVE_DECL_ISINF 1
+
+/* Define to 1 if you have the declaration of `isnan' function. */
+#cmakedefine HAVE_DECL_ISNAN 1
+
 /* Define to 1 if you have the `localtime' function. */
 #cmakedefine HAVE_LOCALTIME 1
 
