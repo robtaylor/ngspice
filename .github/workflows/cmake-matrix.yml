@@ -1,0 +1,167 @@
+name: CMake Configuration Matrix
+
+on:
+  push:
+    branches: 
+      - cmake-conversion
+      - macos-ci
+  pull_request:
+    branches:
+      - main
+      - cmake-conversion
+
+jobs:
+  cmake-configuration-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Minimal build
+          - name: "Minimal"
+            config: |
+              -DNGSPICE_ENABLE_XSPICE=OFF \
+              -DNGSPICE_ENABLE_CIDER=OFF \
+              -DNGSPICE_ENABLE_OSDI=OFF \
+              -DNGSPICE_ENABLE_OPENMP=OFF \
+              -DNGSPICE_ENABLE_X11=OFF \
+              -DNGSPICE_ENABLE_READLINE=OFF \
+              -DNGSPICE_ENABLE_FFTW3=OFF
+
+          # Math-focused build
+          - name: "Math Features"
+            config: |
+              -DNGSPICE_ENABLE_XSPICE=OFF \
+              -DNGSPICE_ENABLE_CIDER=OFF \
+              -DNGSPICE_ENABLE_OSDI=OFF \
+              -DNGSPICE_ENABLE_OPENMP=ON \
+              -DNGSPICE_ENABLE_X11=OFF \
+              -DNGSPICE_ENABLE_READLINE=OFF \
+              -DNGSPICE_ENABLE_FFTW3=ON \
+              -DNGSPICE_ENABLE_KLU=ON
+
+          # UI-focused build
+          - name: "UI Features"
+            config: |
+              -DNGSPICE_ENABLE_XSPICE=OFF \
+              -DNGSPICE_ENABLE_CIDER=OFF \
+              -DNGSPICE_ENABLE_OSDI=OFF \
+              -DNGSPICE_ENABLE_OPENMP=OFF \
+              -DNGSPICE_ENABLE_X11=ON \
+              -DNGSPICE_ENABLE_READLINE=ON \
+              -DNGSPICE_ENABLE_FFTW3=ON
+
+          # Shared library build
+          - name: "Shared Library"
+            config: |
+              -DNGSPICE_ENABLE_XSPICE=OFF \
+              -DNGSPICE_ENABLE_CIDER=OFF \
+              -DNGSPICE_ENABLE_OSDI=OFF \
+              -DNGSPICE_ENABLE_OPENMP=OFF \
+              -DNGSPICE_ENABLE_X11=OFF \
+              -DNGSPICE_ENABLE_SHARED=ON
+
+          # Debug build
+          - name: "Debug Mode"
+            config: |
+              -DCMAKE_BUILD_TYPE=Debug \
+              -DNGSPICE_ENABLE_XSPICE=OFF \
+              -DNGSPICE_ENABLE_CIDER=OFF \
+              -DNGSPICE_ENABLE_OSDI=OFF \
+              -DNGSPICE_ENABLE_OPENMP=OFF \
+              -DNGSPICE_ENABLE_X11=OFF \
+              -DNGSPICE_ENABLE_DEBUG=ON
+
+    name: "Test ${{ matrix.name }}"
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential bison flex
+          sudo apt-get install -y libx11-dev libxaw7-dev libxext-dev libxft-dev
+          sudo apt-get install -y libreadline-dev libfftw3-dev pkg-config
+          sudo apt-get install -y libomp-dev
+
+      - name: Configure CMake (${{ matrix.name }})
+        run: |
+          cmake -B build-${{ matrix.name }} \
+            ${{ matrix.config }}
+
+      - name: Build (${{ matrix.name }})
+        run: |
+          cmake --build build-${{ matrix.name }} -j 4
+
+      - name: Check build artifacts (${{ matrix.name }})
+        run: |
+          echo "Build artifacts for ${{ matrix.name }}:"
+          find build-${{ matrix.name }} -name "*.a" | wc -l | xargs echo "Static libraries:"
+          find build-${{ matrix.name }} -name "*.so" | wc -l | xargs echo "Shared libraries:"
+          
+          # Check if main targets exist
+          if [ "${{ matrix.name }}" = "Shared Library" ]; then
+            test -f build-${{ matrix.name }}/src/libngspice.so && echo "✓ Shared library built" || echo "✗ Shared library missing"
+          else
+            ls build-${{ matrix.name }}/src/ | grep -E "(ngspice|libngspice)" || echo "No main executable/library found"
+          fi
+
+      - name: Upload configuration artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmake-config-${{ matrix.name }}
+          path: |
+            build-${{ matrix.name }}/CMakeCache.txt
+            build-${{ matrix.name }}/src/include/ngspice/config.h
+
+  cmake-compiler-matrix:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        compiler: [gcc, clang]
+        include:
+          - compiler: gcc
+            cc: gcc
+            cxx: g++
+          - compiler: clang  
+            cc: clang
+            cxx: clang++
+
+    name: "Test ${{ matrix.compiler }} on ${{ matrix.os }}"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential bison flex
+          sudo apt-get install -y libreadline-dev libfftw3-dev pkg-config
+          sudo apt-get install -y gcc clang
+
+      - name: Configure CMake with ${{ matrix.compiler }}
+        run: |
+          export CC=${{ matrix.cc }}
+          export CXX=${{ matrix.cxx }}
+          cmake -B build-${{ matrix.compiler }} \
+            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DNGSPICE_ENABLE_XSPICE=OFF \
+            -DNGSPICE_ENABLE_CIDER=OFF \
+            -DNGSPICE_ENABLE_OSDI=OFF \
+            -DNGSPICE_ENABLE_OPENMP=OFF \
+            -DNGSPICE_ENABLE_X11=OFF
+
+      - name: Build with ${{ matrix.compiler }}
+        run: |
+          cmake --build build-${{ matrix.compiler }} -j 4
+
+      - name: Test build artifacts
+        run: |
+          echo "Build completed successfully with ${{ matrix.compiler }}"
+          find build-${{ matrix.compiler }} -name "*.a" | wc -l | xargs echo "Libraries built:"

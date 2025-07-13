@@ -1,0 +1,125 @@
+name: CMake vs Autotools Comparison
+
+on:
+  push:
+    branches: 
+      - cmake-conversion
+      - macos-ci
+  pull_request:
+    branches:
+      - main
+      - cmake-conversion
+
+jobs:
+  compare-builds:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            deps-install: |
+              sudo apt-get update
+              sudo apt-get install -y cmake build-essential bison flex
+              sudo apt-get install -y libx11-dev libxaw7-dev libxext-dev libxft-dev
+              sudo apt-get install -y libreadline-dev libfftw3-dev pkg-config
+              sudo apt-get install -y libtool autoconf automake
+
+          - os: macos-latest
+            deps-install: |
+              brew install cmake bison flex
+              brew install xquartz libx11 libxaw
+              brew install readline fftw pkg-config
+              brew install libtool autoconf automake
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: ${{ matrix.deps-install }}
+
+      - name: Build with Autotools (if available)
+        id: autotools-build
+        continue-on-error: true
+        run: |
+          if [ -f "autogen.sh" ] && [ -f "configure.ac" ]; then
+            echo "Building with autotools..."
+            ./autogen.sh
+            mkdir autotools-build
+            cd autotools-build
+            ../configure --disable-debug --disable-xspice --without-x --enable-shared=no
+            make -j4
+            echo "autotools-success=true" >> $GITHUB_OUTPUT
+          else
+            echo "Autotools files not found, skipping"
+            echo "autotools-success=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build with CMake
+        id: cmake-build
+        run: |
+          echo "Building with CMake..."
+          ./build_cmake.sh --clean --disable-x11 --disable-xspice --disable-osdi --disable-openmp --jobs 4
+          echo "cmake-success=true" >> $GITHUB_OUTPUT
+
+      - name: Compare build outputs
+        if: steps.autotools-build.outputs.autotools-success == 'true'
+        run: |
+          echo "Comparing build outputs..."
+          
+          # Compare library counts
+          if [ -d "autotools-build" ]; then
+            autotools_libs=$(find autotools-build -name "*.a" | wc -l)
+            echo "Autotools static libraries: $autotools_libs"
+          fi
+          
+          cmake_libs=$(find build -name "*.a" | wc -l)
+          echo "CMake static libraries: $cmake_libs"
+          
+          # List CMake libraries
+          echo "CMake libraries found:"
+          find build -name "*.a" | sort
+          
+          # Check for key executables/libraries
+          echo "Checking for key build artifacts in CMake build:"
+          test -f build/src/ngspice && echo "✓ ngspice executable found" || echo "? ngspice executable not found"
+          find build -name "*ngspice*" -type f | head -10
+
+      - name: Configuration comparison
+        run: |
+          echo "CMake configuration summary:"
+          if [ -f "build/CMakeCache.txt" ]; then
+            grep "NGSPICE_ENABLE" build/CMakeCache.txt | head -20
+          fi
+          
+          echo "CMake detected features:"
+          if [ -f "build/src/include/ngspice/config.h" ]; then
+            grep "^#define HAVE_" build/src/include/ngspice/config.h | head -20
+          fi
+
+  performance-comparison:
+    runs-on: ubuntu-latest
+    needs: compare-builds
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential bison flex time
+          sudo apt-get install -y libreadline-dev libfftw3-dev pkg-config
+
+      - name: Time CMake build
+        run: |
+          echo "Timing CMake build..."
+          time -p ./build_cmake.sh --clean --disable-x11 --disable-xspice --disable-osdi --disable-openmp --jobs 4 2>&1 | tee cmake-timing.log
+
+      - name: Upload timing results
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-timing-comparison
+          path: |
+            cmake-timing.log
