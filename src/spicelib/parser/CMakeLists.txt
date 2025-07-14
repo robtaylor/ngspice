@@ -70,6 +70,8 @@ add_library(ngspice_spicelib_parser STATIC ${PARSER_SOURCES})
 
 target_include_directories(ngspice_spicelib_parser PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/frontend>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
