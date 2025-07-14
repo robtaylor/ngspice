@@ -87,10 +87,12 @@ void INP2N(CKTcircuit *ckt, INPtables *tab, struct card *current) {
   mdfast = thismodel->INPmodfast;
   dev = ft_sim->devices[type];
 
+#ifdef OSDI
   if (!dev->registry_entry) {
     LITERR("incorrect model type! Expected OSDI device");
     return;
   }
+#endif
 
   numnodes = i - 1;
   if (numnodes > *dev->terms) {
