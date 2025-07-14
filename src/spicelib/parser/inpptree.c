@@ -16,6 +16,7 @@ Author: 1987 Wayne A. Christopher, U. C. Berkeley CAD Group
 #include "inpxx.h"
 
 #include "inpptree-parser.h"
+#include "inpptree-parser-y.h"
 
 extern bool ft_stricterror;
 

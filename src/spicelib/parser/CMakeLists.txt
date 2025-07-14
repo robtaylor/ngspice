@@ -59,6 +59,7 @@ set(PARSER_SOURCES
     inppas4.h
     inppname.c
     inpptree.c
+    inpptree-parser-y.h
     inpsymt.c
     inptyplk.c
     inpxx.h
