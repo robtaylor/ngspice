@@ -10,11 +10,10 @@
   #include <stdio.h>
   #include <stdlib.h>
 
-  #include "inpptree-parser-y.h"
-  
   # define YYLTYPE struct PTltype
 
   #include "inpptree-parser.h"
+  #include "inpptree-parser-y.h"
 
 
   # define YYLLOC_DEFAULT(Current, Rhs, N)                               \
