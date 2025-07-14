@@ -14,6 +14,8 @@
   
   # define YYLTYPE struct PTltype
 
+  #include "inpptree-parser.h"
+
 
   # define YYLLOC_DEFAULT(Current, Rhs, N)                               \
      do                                                                  \

@@ -88,9 +88,10 @@ target_sources(ngspice_spicelib_parser PRIVATE
     ${BISON_InpPtreeParser_OUTPUTS}
 )
 
-# Include generated headers
+# Include generated headers and source directory for hand-written headers
 target_include_directories(ngspice_spicelib_parser PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 # Link dependencies
