@@ -63,7 +63,8 @@ ft_sigintr_cleanup(void)
     /*  One or all of these might be superfluous  */
     (void) rl_free_line_state();
     (void) rl_cleanup_after_signal();
-    (void) rl_reset_after_signal();
+    /* rl_reset_after_signal() not available in all readline versions */
+    /* (void) rl_reset_after_signal(); */
 #endif /* defined(HAVE_GNUREADLINE) || defined(HAVE_BSDEDITLINE) */
 
     /* To restore screen after an interrupt to a plot for instance */

@@ -220,6 +220,7 @@ bison_target(FrontendParser
     parse-bison.y
     ${CMAKE_CURRENT_BINARY_DIR}/parse-bison.c
     DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/parse-bison.h
+    COMPILE_FLAGS "-y"
 )
 
 # Create frontend library

@@ -44,6 +44,11 @@ option(NGSPICE_ENABLE_SMOKETEST "Enable smoke test compile" OFF)
 option(NGSPICE_ENABLE_RELPATH "Enable relative paths" OFF)
 option(NGSPICE_ENABLE_UTF8 "Enable UTF-8 support" ON)
 
+# Test-related options
+option(NGSPICE_ENABLE_TESTS "Enable test suite" ON)
+option(NGSPICE_ENABLE_SHORT_CHECK "Run only short test suite" OFF)
+option(NGSPICE_INSTALL_TESTS "Install test files" OFF)
+
 # Build type
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
@@ -212,13 +217,18 @@ check_function_exists(strrchr HAVE_STRRCHR)
 check_function_exists(rindex HAVE_RINDEX)
 check_function_exists(getcwd HAVE_GETCWD)
 check_function_exists(getwd HAVE_GETWD)
-check_function_exists(erfc HAVE_ERFC)
-check_function_exists(logb HAVE_LOGB)
-check_function_exists(scalb HAVE_SCALB)
-check_function_exists(scalbn HAVE_SCALBN)
-check_function_exists(asinh HAVE_ASINH)
-check_function_exists(acosh HAVE_ACOSH)
-check_function_exists(atanh HAVE_ATANH)
+
+# Set math library for symbol checking
+set(CMAKE_REQUIRED_LIBRARIES m)
+check_symbol_exists(erfc "math.h" HAVE_ERFC)
+check_symbol_exists(logb "math.h" HAVE_LOGB)
+check_symbol_exists(scalb "math.h" HAVE_SCALB)
+check_symbol_exists(scalbn "math.h" HAVE_SCALBN)
+check_symbol_exists(asinh "math.h" HAVE_ASINH)
+check_symbol_exists(acosh "math.h" HAVE_ACOSH)
+check_symbol_exists(atanh "math.h" HAVE_ATANH)
+# Reset CMAKE_REQUIRED_LIBRARIES after math checks
+set(CMAKE_REQUIRED_LIBRARIES)
 check_function_exists(finite HAVE_FINITE)
 check_function_exists(isinf HAVE_ISINF)
 check_function_exists(isnan HAVE_ISNAN)
@@ -397,6 +407,14 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/spicelib/devices
 )
 
+# Set X11 configuration variables
+if(NOT NGSPICE_ENABLE_X11)
+    set(X_DISPLAY_MISSING 1)
+endif()
+
+# Set OLD_BISON for older Bison versions
+add_compile_definitions(OLD_BISON=1)
+
 # Generate config.h
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/include/ngspice/config.h.cmake.in
@@ -406,13 +424,13 @@ configure_file(
 # Add subdirectories
 add_subdirectory(src)
 
-# Add tests (disabled for now - tests directory not converted yet)
-# if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-#     include(CTest)
-#     if(BUILD_TESTING)
-#         add_subdirectory(tests)
-#     endif()
-# endif()
+# Add tests
+if(NGSPICE_ENABLE_TESTS AND CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+    include(CTest)
+    if(BUILD_TESTING AND IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/tests")
+        add_subdirectory(tests)
+    endif()
+endif()
 
 # Installation
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/src/include/ngspice/config.h

@@ -23,6 +23,13 @@ target_link_libraries(ngspice_frontend_trannoise PUBLIC
     ngspice_maths_sparse
 )
 
+# Add FFTW3 support if enabled
+if(NGSPICE_ENABLE_FFTW3)
+    target_link_libraries(ngspice_frontend_trannoise PUBLIC ${FFTW3_LIBRARIES})
+    target_include_directories(ngspice_frontend_trannoise PUBLIC ${FFTW3_INCLUDE_DIRS})
+    target_compile_definitions(ngspice_frontend_trannoise PUBLIC HAVE_FFTW3)
+endif()
+
 # Export target
 install(TARGETS ngspice_frontend_trannoise
     EXPORT ngspice-targets

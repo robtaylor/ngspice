@@ -12,7 +12,6 @@ set(PLOTTING_SOURCES
     plotit.c
     plotting.c
     pvec.c
-    x11.c
 )
 
 set(PLOTTING_HEADERS
@@ -26,8 +25,13 @@ set(PLOTTING_HEADERS
     plotit.h
     plotting.h
     pvec.h
-    x11.h
 )
+
+# Add X11 sources only if X11 is enabled
+if(NGSPICE_ENABLE_X11)
+    list(APPEND PLOTTING_SOURCES x11.c)
+    list(APPEND PLOTTING_HEADERS x11.h)
+endif()
 
 add_library(ngspice_frontend_plotting STATIC 
     ${PLOTTING_SOURCES}
@@ -36,6 +40,8 @@ add_library(ngspice_frontend_plotting STATIC
 
 target_include_directories(ngspice_frontend_plotting PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 

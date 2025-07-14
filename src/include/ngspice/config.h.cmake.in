@@ -378,6 +378,12 @@
 /* Define if we have relative paths for libraries and scripts */
 #cmakedefine HAS_RELPATH 1
 
+/* Define to 1 if tests are enabled. */
+#cmakedefine NGSPICE_ENABLE_TESTS 1
+
+/* Define to 1 if short check tests are enabled. */
+#cmakedefine NGSPICE_ENABLE_SHORT_CHECK 1
+
 /* Define the operating system */
 #cmakedefine OS_COMPILED @OS_COMPILED@
 

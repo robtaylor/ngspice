@@ -243,9 +243,7 @@ com_iplot(wordlist *wl)
 
     struct dbcomm *d, *td, *currentdb = NULL;
     double         window = 0.0;
-#ifdef XSPICE
     int            event_auto_incr = 0;
-#endif
     char          *s;
     int            initial_steps = IPOINTMIN;
 

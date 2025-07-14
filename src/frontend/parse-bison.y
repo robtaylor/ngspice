@@ -31,7 +31,7 @@
   static char *keepline;
 %}
 
-%name-prefix "PP"
+%name-prefix="PP"
 
 %defines
 %locations
