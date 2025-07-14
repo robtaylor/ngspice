@@ -79,7 +79,7 @@ target_include_directories(ngspice_spicelib_parser PUBLIC
 bison_target(InpPtreeParser
     inpptree-parser.y
     ${CMAKE_CURRENT_BINARY_DIR}/inpptree-parser.c
-    DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/inpptree-parser-y.h
+    DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/inpptree-parser.h
 )
 
 # Add generated parser to sources
