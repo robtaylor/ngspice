@@ -4,31 +4,40 @@ Author: 1987 Wayne A. Christopher, U. C. Berkeley CAD Group
 **********/
 //#define TRACE
 
+/* Tree generator for B-Source parser */
+
 #include "ngspice/ngspice.h"
+#include "ngspice/compatmode.h"
 #include "ngspice/ifsim.h"
 #include "ngspice/iferrmsg.h"
 #include "ngspice/inpdefs.h"
 #include "ngspice/inpptree.h"
+#include "ngspice/randnumb.h"
 #include "inpxx.h"
 
+#include "inpptree-parser.h"
+#include "inpptree-parser-y.h"
+
+extern bool ft_stricterror;
+
+#ifdef OLD_BISON
+int PTparse(char **line, INPparseNode **p, CKTcircuit *ckt);
+#endif
 
 static INPparseNode *mkcon(double value);
 static INPparseNode *mkb(int type, INPparseNode * left,
                          INPparseNode * right);
 static INPparseNode *mkf(int type, INPparseNode * arg);
-static int PTcheck(INPparseNode * p);
-static INPparseNode *mkbnode(const char *opstr, INPparseNode * arg1,
-                             INPparseNode * arg2);
-static INPparseNode *mkfnode(const char *fname, INPparseNode * arg);
+static int PTcheck(INPparseNode * p, char* tline);
 static INPparseNode *mkvnode(char *name);
 static INPparseNode *mkinode(char *name);
 
-static INPparseNode *mknnode(double number);
-static INPparseNode *mksnode(const char *string, void *ckt);
 static INPparseNode *PTdifferentiate(INPparseNode * p, int varnum);
 
 static void free_tree(INPparseNode *);
 static void printTree(INPparseNode *);
+
+static double gauss(double nominal_val, double rel_variation, double sigma);
 
 
 /*
@@ -96,17 +105,11 @@ mkfirst(INPparseNode *fst, INPparseNode *snd)
 }
 
 
-#include "inpptree-parser.c"
-
 static IFvalue *values = NULL;
 static int *types;
 static int numvalues;
 static CKTcircuit *circuit;
 static INPtables *tables;
-
-#if defined (_MSC_VER)
-# define __func__ __FUNCTION__ /* __func__ is C99, but MSC can't */
-#endif
 
 extern IFsimulator *ft_sim;        /* XXX */
 
@@ -123,7 +126,7 @@ static struct op {
     PT_MINUS,  "-", (void(*)(void)) PTminus}, {
     PT_TIMES,  "*", (void(*)(void)) PTtimes}, {
     PT_DIVIDE, "/", (void(*)(void)) PTdivide}, {
-    PT_POWER,  "^", (void(*)(void)) PTpower}
+    PT_POWER,  "^", (void(*)(void)) PTpowerH}
 };
 
 #define NUM_OPS (int)NUMELEMS(ops)
@@ -158,7 +161,6 @@ static struct func {
     { "floor",  PTF_FLOOR,  (void(*)(void)) PTfloor } ,
     { "nint",   PTF_NINT,   (void(*)(void)) PTnint } ,
     { "-",      PTF_UMINUS, (void(*)(void)) PTuminus },
-    /* MW. cif function added */
     { "u2",     PTF_USTEP2, (void(*)(void)) PTustep2},
     { "pwl",    PTF_PWL,    (void(*)(void)) PTpwl},
     { "pwl_derivative", PTF_PWL_DERIVATIVE, (void(*)(void)) PTpwl_derivative},
@@ -172,6 +174,7 @@ static struct func {
     { "pwr",    PTF_PWR,    (void(*)(void)) PTpwr},
     { "min",    PTF_MIN,    (void(*)(void)) PTmin},
     { "max",    PTF_MAX,    (void(*)(void)) PTmax},
+    { "ddt",    PTF_DDT,    (void(*)(void)) PTddt},
 } ;
 
 #define NUM_FUNCS (int)NUMELEMS(funcs)
@@ -199,6 +202,7 @@ INPgetTree(char **line, INPparseTree ** pt, CKTcircuit *ckt, INPtables * tab)
 {
     INPparseNode *p = NULL;
     int i, rv;
+    char* treeline = *line;
 
     values = NULL;
     types = NULL;
@@ -213,7 +217,7 @@ INPgetTree(char **line, INPparseTree ** pt, CKTcircuit *ckt, INPtables * tab)
 
     rv = PTparse(line, &p, ckt);
 
-    if (rv || !p || !PTcheck(p)) {
+    if (rv || !p || !PTcheck(p, treeline)) {
 
         *pt = NULL;
         release_tree(p);
@@ -301,52 +305,85 @@ static INPparseNode *PTdifferentiate(INPparseNode * p, int varnum)
         break;
 
     case PT_POWER:
-        if (p->right->type == PT_CONSTANT) {
-            /*
-             * D(f^C) = C * f^(C-1) * D(f)
-             */
-            arg1 = PTdifferentiate(p->left, varnum);
-
-            newp = mkb(PT_TIMES, mkb(PT_TIMES,
-                                     mkcon(p->right->constant),
-                                     mkb(PT_POWER, p->left,
-                                         mkcon(p->right->constant - 1))),
-                       arg1);
-        } else {
-            /*
-             * D(f^g) = D(exp(g*log(f)))
-             *              = exp(g*log(f)) * D(g*log(f))
-             *              = exp(g*log(f)) * (D(g)*log(f) + g*D(f)/f)
-             */
-            arg1 = PTdifferentiate(p->left, varnum);
-            arg2 = PTdifferentiate(p->right, varnum);
-            newp = mkb(PT_TIMES, mkf(PTF_EXP, mkb(PT_TIMES,
-                                                  p->right, mkf(PTF_LOG,
-                                                                p->left))),
-                       mkb(PT_PLUS,
-                           mkb(PT_TIMES, p->right,
-                               mkb(PT_DIVIDE, arg1, p->left)),
-                           mkb(PT_TIMES, arg2, mkf(PTF_LOG, p->left))));
+        /*
+         * ^ : a^b -> |a| math^ b
+         *
+         * D(pow(a,b))
+         *   = D(exp(b*log(abs(a))))
+         *   = exp(b*log(abs(a))) * D(b*log(abs(a)))
+         *   = pow(a,b) * (D(b)*log(abs(a)) + b*D(abs(a))/abs(a))
+         *   = pow(a,b) * (D(b)*log(abs(a)) + b*sgn(a)*D(a)/abs(a))
+         *   = pow(a,b) * (D(b)*log(abs(a)) + b*D(a)/a)
+         *
+         * when D(b) == 0, then
+         *
+         * D(pow(a,b))
+         *    = pow(a,b) * (D(b)*log(abs(a)) + b*D(a)/a)
+         *    = pow(a,b) * b * D(a)/a
+         *    = pow(a,b) * b * D(a)/(signum(a) * abs(a))
+         *    = pow(a, b-1) * b * D(a) / signum(a)
+         *    = pwr(a, b-1) * b * D(a)
+         *
+         * when D(a) == 0, then
+         *
+         * D(pow(a,b))
+         *    = pow(a,b) * (D(b)*log(abs(a)) + b*D(a)/a)
+         *    = pow(a,b) * D(b)*log(abs(a))
+         */
+#define a  p->left
+#define b  p->right
+        if (b->type == PT_CONSTANT) {
+            arg1 = PTdifferentiate(a, varnum);
+            if (newcompat.hs || newcompat.lt) {
+                newp = mkb(PT_TIMES,
+                    mkb(PT_TIMES,
+                        mkcon(b->constant),
+                        mkf(PTF_POW,
+                            mkb(PT_COMMA, a, mkcon(b->constant - 1.0)))),
+                    arg1);
+            }
+            else {
+                newp = mkb(PT_TIMES,
+                    mkb(PT_TIMES,
+                        mkcon(b->constant),
+                        mkf(PTF_PWR,
+                            mkb(PT_COMMA, a, mkcon(b->constant - 1.0)))),
+                    arg1);
+            }
         }
+        else if (a->type == PT_CONSTANT){
+            arg2 = PTdifferentiate(b, varnum);
+            newp = mkb(PT_TIMES,
+                       mkf(PTF_POW, mkb(PT_COMMA, a, b)),
+                           mkb(PT_TIMES, arg2, mkf(PTF_LOG, mkf(PTF_ABS, a))));
+        }
+        else {
+            arg1 = PTdifferentiate(a, varnum);
+            arg2 = PTdifferentiate(b, varnum);
+            newp = mkb(PT_TIMES,
+                       mkf(PTF_POW, mkb(PT_COMMA, a, b)),
+                       mkb(PT_PLUS,
+                           mkb(PT_TIMES, b,
+                               mkb(PT_DIVIDE, arg1, a)),
+                           mkb(PT_TIMES, arg2, mkf(PTF_LOG, mkf(PTF_ABS, a)))));
+        }
+#undef b
+#undef a
         break;
 
     case PT_TERN: /* ternary_fcn(cond,exp1,exp2) */
       // naive:
       //   d/d ternary_fcn(cond,exp1,exp2) --> ternary_fcn(cond, d/d exp1, d/d exp2)
       {
-        INPparseNode *arg1 = p->left;
-        INPparseNode *arg2 = p->right->left;
-        INPparseNode *arg3 = p->right->right;
-
 //        extern void printTree(INPparseNode *);
 //
 //        printf("debug: %s, PT_TERN: ", __func__);
 //        printTree(p);
 //        printf("\n");
 
-        newp = mkb(PT_TERN, arg1, mkb(PT_COMMA,
-                                      PTdifferentiate(arg2, varnum),
-                                      PTdifferentiate(arg3, varnum)));
+        newp = mkb(PT_TERN, p->left, mkb(PT_COMMA,
+                                         PTdifferentiate(p->right->left, varnum),
+                                         PTdifferentiate(p->right->right, varnum)));
 
 //        printf("debug, %s, returns; ", __func__);
 //        printTree(newp);
@@ -429,8 +466,23 @@ static INPparseNode *PTdifferentiate(INPparseNode * p, int varnum)
             arg1 = mkf(PTF_SINH, p->left);
             break;
 
-        case PTF_EXP:                /* exp(u) */
-            arg1 = mkf(PTF_EXP, p->left);
+        case PTF_EXP:                /* u > EXPARGMAX -> EXPMAX, that is exp(EXPARGMAX), else exp(u) */
+            if (newcompat.ps) {
+                arg1 = mkb(PT_TERN,
+                    mkf(PTF_GT0, mkb(PT_MINUS, p->left, mkcon(EXPARGMAX))),
+                    mkb(PT_COMMA,
+                        mkcon(EXPMAX),
+                        mkf(PTF_EXP, p->left)));
+            }
+            else {                   /* exp(u) */
+                arg1 = mkf(PTF_EXP, p->left);
+            }
+
+#ifdef TRACE1
+            printf("debug exp, %s, returns; ", __func__);
+            printTree(arg1);
+            printf("\n");
+#endif
             break;
 
         case PTF_LOG:               /* 1 / u */
@@ -456,16 +508,16 @@ static INPparseNode *PTdifferentiate(INPparseNode * p, int varnum)
                                                              p->left)));
             break;
 
-        case PTF_TAN:                /* 1 / (cos(u) ^ 2) */
-            arg1 = mkb(PT_DIVIDE, mkcon(1.0), mkb(PT_POWER,
-                                                         mkf(PTF_COS,
+        case PTF_TAN:                /* 1 + (tan(u) ^ 2) */
+            arg1 = mkb(PT_PLUS, mkcon(1.0), mkb(PT_POWER,
+                                                         mkf(PTF_TAN,
                                                              p->left),
                                                          mkcon(2.0)));
             break;
 
-        case PTF_TANH:                /* 1 / (cosh(u) ^ 2) */
-            arg1 = mkb(PT_DIVIDE, mkcon(1.0), mkb(PT_POWER,
-                                                         mkf(PTF_COSH,
+        case PTF_TANH:                /* 1 - (tanh(u) ^ 2) */
+            arg1 = mkb(PT_MINUS, mkcon(1.0), mkb(PT_POWER,
+                                                         mkf(PTF_TANH,
                                                              p->left),
                                                          mkcon(2.0)));
             break;
@@ -496,8 +548,6 @@ static INPparseNode *PTdifferentiate(INPparseNode * p, int varnum)
             arg1 = mkcon(0.0);
             break;
 
-
-            /* MW. PTF_CIF for new cif function */
         case PTF_USTEP2: /* ustep2=uramp(x)-uramp(x-1) ustep2'=ustep(x)-ustep(x-1) */
             arg1 = mkb(PT_MINUS,
                        mkf(PTF_USTEP, p->left),
@@ -520,6 +570,11 @@ static INPparseNode *PTdifferentiate(INPparseNode * p, int varnum)
             arg1 = mkcon(0.0);
             break;
 
+        case PTF_DDT:
+            arg1 = mkcon(0.0);
+            arg1->data = p->data;
+            break;
+
         case PTF_MIN:
         case PTF_MAX:
         /* min(a,b) -->   (a<b)       ? a : b
@@ -529,7 +584,7 @@ static INPparseNode *PTdifferentiate(INPparseNode * p, int varnum)
             INPparseNode *a = p->left->left;
             INPparseNode *b = p->left->right;
             int comparison = (p->funcnum == PTF_MIN) ? PTF_LT0 : PTF_GT0;
-#ifdef TRACE
+#ifdef TRACE1
             printf("debug: %s, PTF_MIN: ", __func__);
             printTree(p);
             printf("\n");
@@ -545,7 +600,7 @@ static INPparseNode *PTdifferentiate(INPparseNode * p, int varnum)
                        mkb(PT_COMMA,
                            PTdifferentiate(a, varnum),
                            PTdifferentiate(b, varnum)));
-#ifdef TRACE
+#ifdef TRACE1
             printf("debug, %s, returns; ", __func__);
             printTree(newp);
             printf("\n");
@@ -556,50 +611,99 @@ static INPparseNode *PTdifferentiate(INPparseNode * p, int varnum)
         break;
 
         case PTF_POW:
+            /*
+             * pow : pow(a,b) -> |a| math^ b
+             *
+             * D(pow(a,b))
+             *   = D(exp(b*log(abs(a))))
+             *   = exp(b*log(abs(a))) * D(b*log(abs(a)))
+             *   = pow(a,b) * (D(b)*log(abs(a)) + b*D(abs(a))/abs(a))
+             *   = pow(a,b) * (D(b)*log(abs(a)) + b*sgn(a)*D(a)/abs(a))
+             *   = pow(a,b) * (D(b)*log(abs(a)) + b*D(a)/a)
+             *
+             * when D(b) == 0, then
+             *
+             * D(pow(a,b))
+             *    = pow(a,b) * (D(b)*log(abs(a)) + b*D(a)/a)
+             *    = pow(a,b) * b * D(a)/a
+             *    = pow(a,b) * b * D(a)/(signum(a) * abs(a))
+             *    = pow(a, b-1) * b * D(a) / signum(a)
+             *    = pwr(a, b-1) * b * D(a)
+             *
+             * when D(a) == 0, then
+             *
+             * D(pow(a,b))
+             *    = pow(a,b) * (D(b)*log(abs(a)) + b*D(a)/a)
+             *    = pow(a,b) * D(b)*log(abs(a))
+             */
         {
         /*
         pow(a,b)
         p->left: ','    p->left->left: a       p->left->right: b
         */
+#define a  p->left->left
+#define b  p->left->right
 
-            if (p->left->right->type == PT_CONSTANT) {
-                /*
-                 * D(f^C) = C * f^(C-1) * D(f)
-                 */
-                arg1 = PTdifferentiate(p->left->left, varnum);
+            if (b->type == PT_CONSTANT) {
+                arg1 = PTdifferentiate(a, varnum);
+                newp = mkb(PT_TIMES,
+                           mkb(PT_TIMES,
+                               mkcon(b->constant),
+                               mkf(PTF_PWR,
+                                   mkb(PT_COMMA, a, mkcon(b->constant - 1)))),
+                           arg1);
+            } else if (a->type == PT_CONSTANT) {
+                arg2 = PTdifferentiate(b, varnum);
+                newp = mkb(PT_TIMES,
+                    mkf(PTF_POW, mkb(PT_COMMA, a, b)),
+                    mkb(PT_TIMES, arg2, mkf(PTF_LOG, mkf(PTF_ABS, a))));
 
-                newp = mkb(PT_TIMES, mkb(PT_TIMES,
-                                     mkcon(p->left->right->constant),
-                                     mkb(PT_POWER, p->left->left,
-                                         mkcon(p->left->right->constant - 1))),
-                             arg1);
+            } else {
+                arg1 = PTdifferentiate(a, varnum);
+                arg2 = PTdifferentiate(b, varnum);
+                newp = mkb(PT_TIMES,
+                           mkf(PTF_POW, mkb(PT_COMMA, a, b)),
+                           mkb(PT_PLUS,
+                               mkb(PT_TIMES,
+                                   b,
+                                   mkb(PT_DIVIDE, arg1, a)),
+                               mkb(PT_TIMES,
+                                   arg2,
+                                   mkf(PTF_LOG, mkf(PTF_ABS, a)))));
+            }
 #ifdef TRACE
-            printf("pow, %s, returns; ", __func__);
+            printf("debug pow, %s, returns; ", __func__);
             printTree(newp);
             printf("\n");
 #endif
-            } else {
-            /*
-             * D(f^g) = D(exp(g*log(f)))
-             *              = exp(g*log(f)) * D(g*log(f))
-             *              = exp(g*log(f)) * (D(g)*log(f) + g*D(f)/f)
-             */
-             arg1 = PTdifferentiate(p->left->left, varnum);
-             arg2 = PTdifferentiate(p->left->right, varnum);
-             newp = mkb(PT_TIMES, mkf(PTF_EXP, mkb(PT_TIMES,
-                                                p->left->right, mkf(PTF_LOG,
-                                                p->left->left))),
-                                mkb(PT_PLUS,
-                                    mkb(PT_TIMES, p->left->right,
-                                    mkb(PT_DIVIDE, arg1, p->left->left)),
-                                    mkb(PT_TIMES, arg2, mkf(PTF_LOG, p->left->left))));
-            }
             return mkfirst(newp, p);
+#undef b
+#undef a
         }
 
         break;
 
         case PTF_PWR:
+            /*
+             * pwr : pwr(a,b) -> signum(a) * (|a| math^ b)
+             *                -> signum(a) * pow(a, b)
+             *
+             * Note:
+             *   D(pow(a,b)) = pow(a,b) * (D(b)*log(abs(a)) + b*D(a)/a)
+             *
+             * D(pwr(a,b))
+             *   = D(signum(a) * pow(a,b))
+             *   = D(signum(a)) * pow(a,b) + signum(a) * D(pow(a,b))
+             *   = 0 + signum(a) * pow(a,b) * (D(b)*log(abs(a)) + b*D(a)/a)
+             *   = pwr(a,b) * (D(b)*log(abs(a)) + b*D(a)/a)
+             *
+             * with D(b) == 0
+             *
+             * D(pwr(a,b))
+             *   = pwr(a,b) * b * D(a)/a
+             *   = signum(a) * pow(a,b) * b * D(a)/(signum(a) * abs(a))
+             *   = pow(a, b-1) * b * D(a)
+             */
         {
         /*
         pwr(a,b)
@@ -608,63 +712,29 @@ static INPparseNode *PTdifferentiate(INPparseNode * p, int varnum)
 #define a  p->left->left
 #define b  p->left->right
             if (b->type == PT_CONSTANT) {
-                /* b is a constant
-                 *
-                 * f(a,b) = signum(a) * abs(a)^b
-                 *        = signum(a) * exp(b*log(abs(a)))
-                 * D(f)   = signum(a) * D(exp(b*log(abs(a))))
-                 *        = signum(a) * exp(b*log(abs(a))) * D(b*log(abs(a)))
-                 *        = signum(a) * abs(a)^b * D(b*log(abs(a)))
-                 *        = signum(a) * abs(a)^b * b * 1/abs(a) * D(abs(a))
-                 *        = signum(a) * abs(a)^(b-1) * b * D(abs(a))
-                 *        = signum(a) * abs(a)^(b-1) * b * signum(a) * D(a)
-                 *        = abs(a)^(b-1) * b * D(a)
-                 */
                 arg1 = PTdifferentiate(a, varnum);
 
                 newp = mkb(PT_TIMES,
                            mkb(PT_TIMES,
                                mkcon(b->constant),
-                               mkb(PT_POWER,
-                                   mkf(PTF_ABS, a),
-                                   mkcon(b->constant - 1.0))),
+                               mkf(PTF_POW,
+                                   mkb(PT_COMMA, a, mkcon(b->constant - 1.0)))),
                            arg1);
-#ifdef TRACE
-            printf("pwr, %s, returns; ", __func__);
-            printTree(newp);
-            printf("\n");
-#endif
+
             } else {
-            /* b is a function
-             *
-             * f(a,b) = signum(a) * abs(a)^b
-             *        = signum(a) * exp(b*log(abs(a)))
-             * D(f)   = signum(a) * D(exp(b*log(abs(a))))
-             *        = signum(a) * exp(b*log(abs(a))) * D(b*log(abs(a)))
-             *        = signum(a) * exp(b*log(abs(a))) * (D(b) * log(abs(a)) + b * D(log(abs(a))))
-             *        = signum(a) * exp(b*log(abs(a))) * (D(b) * log(abs(a)) + b * 1/abs(a) * D(abs(a)))
-             *        = signum(a) * exp(b*log(abs(a))) * (D(b) * log(abs(a)) + b * 1/abs(a) * signum(a)*D(a))
-             *        = signum(a) * exp(b*log(abs(a))) * (D(b) * log(abs(a)) + b/a*D(a))
-             *        = signum(a) * exp(b*log(abs(a))) * D(b) * log(abs(a) + signum(a) * exp(b*log(abs(a))) / a * b * D(a)
-             *        = signum(a) * exp(b*log(abs(a))) * D(b) * log(abs(a) + abs(a)^(b-1) * b * D(a)
-             */
-             arg1 = PTdifferentiate(a, varnum);
-             arg2 = PTdifferentiate(b, varnum);
-             newp = mkb(PT_PLUS,
-                        mkb(PT_TIMES,
-                            mkf(PTF_SGN, a),
-                            mkb(PT_TIMES,
-                                mkb(PT_POWER, mkf(PTF_ABS, a), b),
-                                mkb(PT_TIMES, arg2,
-                                    mkf(PTF_LOG, mkf(PTF_ABS, a))))),
-                        mkb(PT_TIMES,
-                            mkb(PT_TIMES,
-                                mkb(PT_POWER,
-                                    mkf(PTF_ABS, a),
-                                    mkb(PT_MINUS, b, mkcon(1.0))),
-                                b),
-                            arg1));
+                arg1 = PTdifferentiate(a, varnum);
+                arg2 = PTdifferentiate(b, varnum);
+                newp = mkb(PT_TIMES,
+                           mkf(PTF_PWR, mkb(PT_COMMA, a, b)),
+                           mkb(PT_PLUS,
+                               mkb(PT_TIMES, b, mkb(PT_DIVIDE, arg1, a)),
+                               mkb(PT_TIMES, arg2, mkf(PTF_LOG, mkf(PTF_ABS, a)))));
             }
+#ifdef TRACE
+                printf("debug pwr, %s, returns; ", __func__);
+                printTree(newp);
+                printf("\n");
+#endif
             return mkfirst(newp, p);
 #undef b
 #undef a
@@ -683,7 +753,7 @@ static INPparseNode *PTdifferentiate(INPparseNode * p, int varnum)
         break;
 
     default:
-        fprintf(stderr, "Internal error: bad node type %d\n", p->type);
+        fprintf(stderr, "Error: bad node type %d\n", p->type);
         newp = NULL;
         break;
     }
@@ -707,6 +777,10 @@ static INPparseNode *mkb(int type, INPparseNode * left,
 {
     INPparseNode *p;
     int i;
+
+    if (!right || !left) {
+        return (NULL);
+    }
 
     if ((right->type == PT_CONSTANT) && (left->type == PT_CONSTANT)) {
         double value;
@@ -820,6 +894,9 @@ static INPparseNode *mkf(int type, INPparseNode * arg)
     INPparseNode *p;
     int i;
 
+    if (!arg)
+        return NULL;
+
     for (i = 0; i < NUM_FUNCS; i++)
         if (funcs[i].number == type)
             break;
@@ -840,7 +917,7 @@ static INPparseNode *mkf(int type, INPparseNode * arg)
 
     p->left = inc_usage(arg);
 
-    p->funcnum = i;
+    p->funcnum = funcs[i].number;
     p->function = funcs[i].funcptr;
     p->funcname = funcs[i].name;
 
@@ -849,10 +926,13 @@ static INPparseNode *mkf(int type, INPparseNode * arg)
     return (p);
 }
 
-/* Check for remaining PT_PLACEHOLDERs in the parse tree.  Returns 1 if ok. */
+/* Check for remaining PT_PLACEHOLDERs in the parse tree.  Returns 1 if ok. 
+   Returns 0 and error message containing expression to parsed, if not ok. */
 
-static int PTcheck(INPparseNode * p)
+static int PTcheck(INPparseNode * p, char *tline)
 {
+    int ret;
+    static bool msgsent = FALSE;
     switch (p->type) {
     case PT_PLACEHOLDER:
         return (0);
@@ -865,7 +945,12 @@ static int PTcheck(INPparseNode * p)
         return (1);
 
     case PT_FUNCTION:
-        return (PTcheck(p->left));
+        ret = (PTcheck(p->left, tline));
+        if (ret == 0 && !msgsent) {
+            fprintf(stderr, "\nError: The internal check of parse tree \n%s\nfailed\n", tline);
+            msgsent = TRUE;
+        }
+        return ret;
 
     case PT_PLUS:
     case PT_MINUS:
@@ -873,9 +958,19 @@ static int PTcheck(INPparseNode * p)
     case PT_DIVIDE:
     case PT_POWER:
     case PT_COMMA:
-        return (PTcheck(p->left) && PTcheck(p->right));
+        ret = (PTcheck(p->left, tline) && PTcheck(p->right, tline));
+        if (ret == 0 && !msgsent) {
+            fprintf(stderr, "\nError: The internal check of parse tree \n%s\nfailed\n", tline);
+            msgsent = TRUE;
+        }
+        return ret;
     case PT_TERN:
-        return (PTcheck(p->left) && PTcheck(p->right->left) && PTcheck(p->right->right));
+        ret = (PTcheck(p->left, tline) && PTcheck(p->right->left, tline) && PTcheck(p->right->right, tline));
+        if (ret == 0 && !msgsent) {
+            fprintf(stderr, "\nError: The internal check of parse tree \n%s\nfailed\n", tline);
+            msgsent = TRUE;
+        }
+        return ret;
 
     default:
         fprintf(stderr, "Internal error: bad node type %d\n", p->type);
@@ -885,7 +980,7 @@ static int PTcheck(INPparseNode * p)
 
 /* Binop node. */
 
-static INPparseNode *mkbnode(const char *opstr, INPparseNode * arg1,
+INPparseNode *PT_mkbnode(const char *opstr, INPparseNode * arg1,
                              INPparseNode * arg2)
 {
     INPparseNode *p;
@@ -941,8 +1036,9 @@ static INPparseNode *prepare_PTF_PWL(INPparseNode *p)
     int i;
 
     if (p->funcnum != PTF_PWL) {
-        fprintf(stderr, "PWL-INFO: %s, very unexpected\n", __func__);
-        controlled_exit(1);
+        fprintf(stderr, "PWL-INFO: %s, very unexpected at line %d\nfrom file\n  %s\n\n",
+            __func__, Current_parse_line, Sourcefile);
+        controlled_exit(EXIT_BAD);
     }
 
 #ifdef TRACE
@@ -953,8 +1049,11 @@ static INPparseNode *prepare_PTF_PWL(INPparseNode *p)
         i++;
 
     if (i<2 || (i%1)) {
-        fprintf(stderr, "Error: PWL(expr, points...) needs an even and >=2 number of constant args\n");
-        return mkfirst(NULL, p);
+        fprintf(stderr,
+            "Error: PWL(expr, points...) needs an even and >=2 number "
+             "of constant args at line %d\nfrom file\n  %s\n\n",
+            Current_parse_line, Sourcefile);
+        controlled_exit(EXIT_BAD);
     }
 
     data = TMALLOC(struct pwldata, 1);
@@ -972,11 +1071,13 @@ static INPparseNode *prepare_PTF_PWL(INPparseNode *p)
                    w->right->left->type == PT_CONSTANT) {
             data->vals[i] = - w->right->left->constant;
         } else {
-            fprintf(stderr, "PWL-ERROR: %s, not a constant\n", __func__);
-            fprintf(stderr, "   type = %d\n", w->right->type);
-            //Breakpoint;
-            fprintf(stderr, "Error: PWL(expr, points...) only *literal* points are supported\n");
-            return mkfirst(NULL, p);
+            fprintf(stderr,
+                "Error: PWL(expr, points...) only *literal* points "
+                "are supported at line %d\nfrom file\n  %s\n",
+                Current_parse_line, Sourcefile);
+                // In case #671, "Crash when loading an Infineon model: IR4427S",
+                // a crash occurred after this error.  There can be no recovery.
+                controlled_exit(EXIT_BAD);
         }
 
 #ifdef TRACE
@@ -984,11 +1085,31 @@ static INPparseNode *prepare_PTF_PWL(INPparseNode *p)
         fprintf(stderr, "  (%lf %lf)\n", data->vals[i], data->vals[i+1]);
 #endif
 
-    for (i = 2 ; i < data->n ; i += 2)
-        if(data->vals[i-2] >= data->vals[i]) {
-            fprintf(stderr, "Error: PWL(expr, points...) the abscissa of points must be ascending\n");
-            return mkfirst(NULL, p);
-        }
+    /* check for monotonic abscissa */
+    if (data->vals[0] > data->vals[2]) {
+        for (i = 2; i < data->n; i += 2)
+            if (data->vals[i - 2] < data->vals[i]) {
+                fprintf(stderr,
+                    "Error: PWL(expr, points...) the abscissa of points "
+                    "must be descending at line %d\nfrom file\n  %s\n", Current_parse_line, Sourcefile);
+                controlled_exit(EXIT_BAD);
+            }
+    }
+    else if (data->vals[0] < data->vals[2]) {
+        for (i = 2; i < data->n; i += 2)
+            if (data->vals[i - 2] > data->vals[i]) {
+                fprintf(stderr,
+                    "Error: PWL(expr, points...) the abscissa of points "
+                    "must be ascending at line %d\nfrom file\n  %s\n", Current_parse_line, Sourcefile);
+                controlled_exit(EXIT_BAD);
+            }
+    }
+    else {
+        fprintf(stderr,
+            "Error: PWL(expr, points...) the abscissa of points "
+            "must be monotonic at line %d\nfrom file\n  %s\n", Current_parse_line, Sourcefile);
+        controlled_exit(EXIT_BAD);
+    }
 
     /* strip all but the first arg,
      *   and attach the rest as opaque data to the INPparseNode
@@ -1001,15 +1122,42 @@ static INPparseNode *prepare_PTF_PWL(INPparseNode *p)
     return (p);
 }
 
+static INPparseNode* prepare_PTF_DDT(INPparseNode* p)
+{
+    struct ddtdata { int n; double* vals; } *data;
+    int i, ii;
+    /* store 3 recent times and 3 recent values in pairs t0, v0, t1, v1, t2, v2  */
+    i = 0;
+    data = TMALLOC(struct ddtdata, 1);
+    data->vals = TMALLOC(double, 7);
+    for (ii = 0; ii < 7; ii++) {
+        data->vals[ii] = 0;
+    }
+    p->data = (void*)data;
+    return (p);
+}
 
-static INPparseNode *mkfnode(const char *fname, INPparseNode * arg)
+INPparseNode *PT_mkfnode(const char *fname, INPparseNode * arg)
 {
     int i;
     INPparseNode *p;
     char buf[128];
 
+    if (!fname) {
+        fprintf(stderr, "Error: bogus function name at line %d\nfrom file\n  %s\n",
+            Current_parse_line, Sourcefile);
+        controlled_exit(EXIT_BAD);
+    }
+
+    if (!arg) {
+        fprintf(stderr, "Error: bad function arguments at line %d\nfrom file\n  %s\n",
+            Current_parse_line, Sourcefile);
+        controlled_exit(EXIT_BAD);
+    }
+
     /* Make sure the case is ok. */
-    (void) strcpy(buf, fname);
+    (void)strncpy(buf, fname, 127);
+    buf[127] = 0;
     strtolower(buf);
 
     if(!strcmp("ternary_fcn", buf)) {
@@ -1031,7 +1179,33 @@ static INPparseNode *mkfnode(const char *fname, INPparseNode * arg)
             return mkfirst(p, arg);
         }
 
-        fprintf(stderr, "Error: bogus ternary_fcn form\n");
+        fprintf(stderr, "Error: bogus ternary_fcn form at line %d\nfrom file\n  %s\n",
+            Current_parse_line, Sourcefile);
+        controlled_exit(EXIT_BAD);
+    }
+
+    /* This is used only to evaluate fcn gauss(a1, a2, a3) in .model files, where 
+       temper is used also. a1, a2, and a3 have to be constant double values. */
+    if (!strcmp("gauss", buf)) {
+        if (arg->type == PT_COMMA && arg->left->type == PT_COMMA) {
+
+            INPparseNode* arg1 = arg->left->left;
+            INPparseNode* arg2 = arg->left->right;
+            INPparseNode* arg3 = arg->right;
+            double a1 = arg1->constant;
+            double a2 = arg2->constant;
+            double a3 = arg3->constant;
+
+            if (a2 == 0.0 || a3 == 0.0) {
+                fprintf(stderr, "Error: bogus gauss form at line %d\nfrom file\n  %s\n",
+                    Current_parse_line, Sourcefile);
+                controlled_exit(EXIT_BAD);
+            }
+
+            return mkcon(gauss(a1, a2, a3));
+        }
+
+        fprintf(stderr, "Error: bogus gauss form\n");
         return mkfirst(NULL, arg);
     }
 
@@ -1040,8 +1214,9 @@ static INPparseNode *mkfnode(const char *fname, INPparseNode * arg)
             break;
 
     if (i == NUM_FUNCS) {
-        fprintf(stderr, "Error: no such function '%s'\n", buf);
-        return mkfirst(NULL, arg);
+        fprintf(stderr, "Error: no such function '%s' at line %d\nfrom file\n  %s\n",
+            buf, Current_parse_line, Sourcefile);
+        controlled_exit(EXIT_BAD);
     }
 
     p = TMALLOC(INPparseNode, 1);
@@ -1055,8 +1230,18 @@ static INPparseNode *mkfnode(const char *fname, INPparseNode * arg)
     p->function = funcs[i].funcptr;
     p->data = NULL;
 
-    if(p->funcnum == PTF_PWL)
+    if (p->funcnum == PTF_PWL) {
         p = prepare_PTF_PWL(p);
+        if (p == NULL) {
+            fprintf(stderr, "Error while parsing function '%s' at line %d\nfrom file\n  %s\n",
+                buf, Current_parse_line, Sourcefile);
+            controlled_exit(EXIT_BAD);
+        }
+    }
+
+    if (p->funcnum == PTF_DDT)
+        p = prepare_PTF_DDT(p);
+
 
     return (p);
 }
@@ -1122,7 +1307,7 @@ static INPparseNode *mkinode(char *name)
 
 /* Number node. */
 
-static INPparseNode *mknnode(double number)
+INPparseNode *PT_mknnode(double number)
 {
     struct INPparseNode *p;
 
@@ -1138,14 +1323,15 @@ static INPparseNode *mknnode(double number)
 
 /* String node. */
 
-static INPparseNode *mksnode(const char *string, void *ckt)
+INPparseNode *PT_mksnode(const char *string, void *ckt)
 {
     int i, j;
     char buf[128];
     INPparseNode *p;
 
     /* Make sure the case is ok. */
-    (void) strcpy(buf, string);
+    (void) strncpy(buf, string, 127);
+    buf[127] = 0;
     strtolower(buf);
 
     p = TMALLOC(INPparseNode, 1);
@@ -1223,6 +1409,8 @@ int PTlex (YYSTYPE *lvalp, struct PTltype *llocp, char **line)
     int token;
 
     sbuf = *line;
+
+
 #ifdef TRACE
 //    printf("entering lexer, sbuf = '%s', lastoken = %d, lasttype = %d\n",
 //        sbuf, lasttoken, lasttype);
@@ -1325,7 +1513,26 @@ int PTlex (YYSTYPE *lvalp, struct PTltype *llocp, char **line)
         token = TOK_LT;
         break;
       }
-
+    /* Don't parse the B source instance parameters, thus prevent memory leak.
+       As soon as we meet such parameter, token=0 is returned. */
+    case 't':
+        if (ciprefix("tc1=", sbuf) || ciprefix("tc2=", sbuf) || ciprefix("temp=", sbuf)) {
+            token = 0;
+            break;
+        }
+        /* FALLTHROUGH */
+    case 'd':
+        if (ciprefix("dtemp=", sbuf)) {
+            token = 0;
+            break;
+        }
+        /* FALLTHROUGH */
+    case 'r':
+        if (ciprefix("reciproctc=", sbuf)) {
+            token = 0;
+            break;
+        }
+        /* FALLTHROUGH */
     default:
         {
             int n1 = -1;
@@ -1409,6 +1616,9 @@ void INPfreeTree(IFparseTree *ptree)
 
     int i;
 
+    if (!pt)
+        return;
+
     for (i = 0; i < pt->p.numVars; i++)
         dec_usage(pt->derivs[i]);
 
@@ -1431,6 +1641,8 @@ void free_tree(INPparseNode *pt)
         controlled_exit(1);
     }
 
+    /* FALLTHROUGH added to suppress GCC warning due to
+     * -Wimplicit-fallthrough flag */
     switch (pt->type) {
     case PT_TIME:
     case PT_TEMPERATURE:
@@ -1447,12 +1659,13 @@ void free_tree(INPparseNode *pt)
     case PT_COMMA:
     case PT_TERN:
         dec_usage(pt->right);
+        /* FALLTHROUGH */
     case PT_FUNCTION:
         dec_usage(pt->left);
         break;
 
     default:
-        printf("oops");
+        printf("oops ");
         break;
     }
 
@@ -1464,7 +1677,25 @@ void free_tree(INPparseNode *pt)
         }
     }
 
+    if (pt->type == PT_FUNCTION && (pt->funcnum == PTF_DDT)) {
+        struct ddtdata { int n; double* vals; } *data = (struct ddtdata*)(pt->data);
+        if (data) {
+            txfree(data->vals);
+            txfree(data);
+        }
+    }
+
     txfree(pt);
+}
+
+static double
+gauss(double nominal_val, double rel_variation, double sigma)
+{
+    double stdvar;
+    if (rel_variation <= 0 || sigma <= 0)
+        return nominal_val;
+    stdvar = nominal_val * rel_variation / sigma;
+    return (nominal_val + stdvar * gauss1());
 }
 
 
@@ -1571,7 +1802,7 @@ void printTree(INPparseNode * pt)
         break;
 
     default:
-        printf("oops");
+        printf("oops ");
         break;
     }
     return;

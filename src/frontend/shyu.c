@@ -29,7 +29,7 @@ if_sens_run(CKTcircuit *ckt, wordlist *args, INPtables *tab)
 {
     JOB *senseJob;
     JOB *opJob;
-    card *current;
+    struct card *current;
     IFvalue ptemp;
     IFvalue *parm;
     char buf[BSIZE_SP];
@@ -38,7 +38,7 @@ if_sens_run(CKTcircuit *ckt, wordlist *args, INPtables *tab)
     char *steptype;
     char *name;
     char *line;
-    card deck;
+    struct card deck;
     int error;
     int save;
     int flag = 0;
@@ -51,9 +51,10 @@ if_sens_run(CKTcircuit *ckt, wordlist *args, INPtables *tab)
     deck.error        = NULL;
     deck.linenum      = 0;
     deck.linenum_orig = 0;
+    deck.compmod = 0;
     deck.line         = buf;
 
-    current = (card *) &deck;
+    current = &deck;
     line = current->line;
     INPgetTok(&line, &token, 1);
 
@@ -312,6 +313,87 @@ if_sens_run(CKTcircuit *ckt, wordlist *args, INPtables *tab)
         if (error)
             current->error = INPerrCat(current->error, INPerror(error));
     }
+#endif
+
+#ifdef RFSPICE
+    if (strcmp(token, "sp") == 0) {
+        JOB* spJob;
+        which = ft_find_analysis("SP");
+        if (which == -1) {
+            current->error = INPerrCat
+            (current->error,
+                INPmkTemp("S-Param analysis unsupported\n"));
+            return (0); /* temporary */
+        }
+        err = ft_sim->newAnalysis(ft_curckt->ci_ckt, which, "span",
+            &spJob, ft_curckt->ci_specTask);
+        if (err) {
+            ft_sperror(err, "createSP"); /* or similar error message */
+            return (0); /* temporary */
+        }
+
+        INPgetTok(&line, &steptype, 1); /* get DEC, OCT, or LIN */
+        ptemp.iValue = 1;
+        error = INPapName(ckt, which, spJob, steptype, &ptemp);
+        if (error)
+            current->error = INPerrCat(current->error, INPerror(error));
+        parm = INPgetValue(ckt, &line, IF_INTEGER, tab);/* number of points*/
+        error = INPapName(ckt, which, spJob, "numsteps", parm);
+        if (error)
+            current->error = INPerrCat(current->error, INPerror(error));
+        parm = INPgetValue(ckt, &line, IF_REAL, tab); /* fstart */
+        error = INPapName(ckt, which, spJob, "start", parm);
+        if (error)
+            current->error = INPerrCat(current->error, INPerror(error));
+        parm = INPgetValue(ckt, &line, IF_REAL, tab); /* fstop */
+        error = INPapName(ckt, which, spJob, "stop", parm);
+        if (error)
+            current->error = INPerrCat(current->error, INPerror(error));
+        parm = INPgetValue(ckt, &line, IF_INTEGER, tab); /* fstop */
+        error = INPapName(ckt, which, spJob, "donoise", parm);
+        if (error)
+            current->error = INPerrCat(current->error, INPerror(error));
+    }
+#ifdef WITH_HB
+    if (strcmp(token, "hb") == 0) {
+        JOB* spJob;
+        which = ft_find_analysis("HB");
+        if (which == -1) {
+            current->error = INPerrCat
+            (current->error,
+                INPmkTemp("S-Param analysis unsupported\n"));
+            return (0); /* temporary */
+        }
+        err = ft_sim->newAnalysis(ft_curckt->ci_ckt, which, "hban",
+            &spJob, ft_curckt->ci_specTask);
+        if (err) {
+            ft_sperror(err, "createHB"); /* or similar error message */
+            return (0); /* temporary */
+        }
+
+        INPgetTok(&line, &steptype, 1); /* get DEC, OCT, or LIN */
+        ptemp.iValue = 1;
+        error = INPapName(ckt, which, spJob, steptype, &ptemp);
+        if (error)
+            current->error = INPerrCat(current->error, INPerror(error));
+        parm = INPgetValue(ckt, &line, IF_INTEGER, tab);/* number of points*/
+        error = INPapName(ckt, which, spJob, "numsteps", parm);
+        if (error)
+            current->error = INPerrCat(current->error, INPerror(error));
+        parm = INPgetValue(ckt, &line, IF_REAL, tab); /* fstart */
+        error = INPapName(ckt, which, spJob, "start", parm);
+        if (error)
+            current->error = INPerrCat(current->error, INPerror(error));
+        parm = INPgetValue(ckt, &line, IF_REAL, tab); /* fstop */
+        error = INPapName(ckt, which, spJob, "stop", parm);
+        if (error)
+            current->error = INPerrCat(current->error, INPerror(error));
+        parm = INPgetValue(ckt, &line, IF_INTEGER, tab); /* fstop */
+        error = INPapName(ckt, which, spJob, "donoise", parm);
+        if (error)
+            current->error = INPerrCat(current->error, INPerror(error));
+    }
+#endif
 #endif
 
 next:

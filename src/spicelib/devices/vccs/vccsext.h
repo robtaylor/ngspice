@@ -4,10 +4,7 @@ Author: 1985 Thomas L. Quarles
 **********/
 
 extern int VCCSask(CKTcircuit*,GENinstance*,int,IFvalue*,IFvalue*);
-extern int VCCSdelete(GENmodel*,IFuid,GENinstance**);
-extern void VCCSdestroy(GENmodel**);
 extern int VCCSload(GENmodel*,CKTcircuit*);
-extern int VCCSmDelete(GENmodel**,IFuid,GENmodel*);
 extern int VCCSparam(int,IFvalue*,GENinstance*,IFvalue*);
 extern int VCCSpzLoad(GENmodel*,CKTcircuit*,SPcomplex*);
 extern int VCCSsAcLoad(GENmodel*,CKTcircuit*);
@@ -15,3 +12,9 @@ extern int VCCSsLoad(GENmodel*,CKTcircuit*);
 extern int VCCSsSetup(SENstruct*,GENmodel*);
 extern void VCCSsPrint(GENmodel*,CKTcircuit*);
 extern int VCCSsetup(SMPmatrix*,GENmodel*,CKTcircuit*,int*);
+
+#ifdef KLU
+extern int VCCSbindCSC (GENmodel*, CKTcircuit*) ;
+extern int VCCSbindCSCComplex (GENmodel*, CKTcircuit*) ;
+extern int VCCSbindCSCComplexToReal (GENmodel*, CKTcircuit*) ;
+#endif

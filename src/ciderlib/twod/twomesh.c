@@ -19,6 +19,7 @@ Author:	1991 David A. Gates, U. C. Berkeley CAD Group
 static void doMobCoeffs(TWOelem *, int); 
 static void resetEvalFlag(TWOdevice *pDevice);
 
+extern void CiderLoaded(int);
 
 void
 TWObuildMesh(TWOdevice *pDevice, TWOdomain *pDomain, 
@@ -34,7 +35,7 @@ TWObuildMesh(TWOdevice *pDevice, TWOdomain *pDomain,
   TWOdomain *pD;
   TWOelectrode *pE;
   TWOmaterial *pM;
-  BOOLEAN interiorNode;
+  bool interiorNode;
   int poiEqn, numEqn, numElem, numNodes, numEdges;
   int numXNodes = pDevice->numXNodes;
   int numYNodes = pDevice->numYNodes;
@@ -458,6 +459,9 @@ TWObuildMesh(TWOdevice *pDevice, TWOdomain *pDomain,
   FREE(edgeArrayV);
   FREE(edgeArrayH);
 
+  {
+    CiderLoaded(1);
+  }
   /*
    * TWOprnMesh( pDevice );
    */

@@ -3,10 +3,10 @@
 
 FILE d_source/cfunc.mod
 
-Copyright 1991
-Georgia Tech Research Corporation, Atlanta, Ga. 30332
-All Rights Reserved
+Public Domain
 
+Georgia Tech Research Corporation
+Atlanta, Georgia 30332
 PROJECT A-8503-405
 
 
@@ -61,7 +61,7 @@ NON-STANDARD FEATURES
 
 /*=== CONSTANTS ========================*/
 
-#define MAX_STRING_SIZE 200
+#define MAX_STRING_SIZE 1024
 
 
 /*=== MACROS ===========================*/
@@ -72,18 +72,16 @@ NON-STANDARD FEATURES
 #define DIR_PATHSEP    "/"
 #endif
 
-#ifdef _MSC_VER
-#define snprintf _snprintf
-#endif
 
 /*=== LOCAL VARIABLES & TYPEDEFS =======*/
 
 typedef struct {
     int width,  /* width of table...equal to size of out port */
-        depth;  /* depth of table...equal to size of
+        depth,  /* depth of table...equal to size of
                    "timepoints" array, and to the total
                    number of vectors retrieved from the
-                   source.in file.                                  */
+                   source.in file. */
+        imal;   /* array size malloced */
 
     double   *all_timepoints;   /* the storage array for the
                                    timepoints, as read from file.
@@ -96,6 +94,8 @@ typedef struct {
                                    to width*depth, one short will hold a
                                    12-state bit description.    */
 
+    bool   init_ok;             /* set to true if init is succeful */
+
 } Local_Data_t;
 
 
@@ -107,7 +107,7 @@ typedef enum token_type_s {CNV_NO_TOK,CNV_STRING_TOK} Cnv_Token_Type_t;
 /*=== FUNCTION PROTOTYPE DEFINITIONS ===*/
 
 
-
+static void free_local_data(Local_Data_t *loc);
 
 
 
@@ -174,7 +174,7 @@ static char  *CNVgettok(char **s)
 
     /* skip over any white space */
 
-    while(isspace(**s) || (**s == '=') ||
+    while(isspace_c(**s) || (**s == '=') ||
           (**s == '(') || (**s == ')') || (**s == ','))
           (*s)++;
 
@@ -192,7 +192,7 @@ static char  *CNVgettok(char **s)
                          /* or a mess o' characters.            */
         i = 0;
         while( (**s != '\0') &&
-               (! ( isspace(**s) || (**s == '=') ||
+               (! ( isspace_c(**s) || (**s == '=') ||
                     (**s == '(') || (**s == ')') ||
                     (**s == ',')
              ) )  ) {
@@ -206,7 +206,7 @@ static char  *CNVgettok(char **s)
 
     /* skip over white space up to next token */
 
-    while(isspace(**s) || (**s == '=') ||
+    while(isspace_c(**s) || (**s == '=') ||
           (**s == '(') || (**s == ')') || (**s == ','))
           (*s)++;
 
@@ -380,9 +380,9 @@ double  *p_value )   /* OUT - The numerical value     */
 
     for(i = 0; i < len; i++) {
         c = str[i];
-        if( isalpha(c) && (c != 'E') && (c != 'e') )
+        if( isalpha_c(c) && (c != 'E') && (c != 'e') )
             break;
-        else if( isspace(c) )
+        else if( isspace_c(c) )
             break;
         else
             val_str[i] = c;
@@ -392,12 +392,12 @@ double  *p_value )   /* OUT - The numerical value     */
 
     /* Determine the scale factor */
 
-    if( (i >= len) || (! isalpha(c)) )
+    if( (i >= len) || (! isalpha_c(c)) )
         scale_factor = 1.0;
     else {
 
-        if(isupper(c))
-            c = (char) tolower(c);
+        if(isupper_c(c))
+            c = tolower_c(c);
 
         switch(c) {
 
@@ -429,6 +429,10 @@ double  *p_value )   /* OUT - The numerical value     */
             scale_factor = 1.0e-15;
             break;
 
+        case 'a':
+            scale_factor = 1.0e-18;
+            break;
+
         case 'm':
             i++;
             if(i >= len) {
@@ -436,12 +440,12 @@ double  *p_value )   /* OUT - The numerical value     */
                 break;
             }
             c1 = str[i];
-            if(! isalpha(c1)) {
+            if(! isalpha_c(c1)) {
                 scale_factor = 1.0e-3;
                 break;
             }
-            if(islower(c1))
-                c1 = (char) toupper(c1);
+            if(islower_c(c1))
+                c1 = toupper_c(c1);
             if(c1 == 'E')
                 scale_factor = 1.0e6;
             else if(c1 == 'I')
@@ -698,7 +702,7 @@ NON-STANDARD FEATURES
 
 static int cm_read_source(FILE *source, Local_Data_t *loc)
 {
-    size_t      n;  /* loop index */
+    int         n;  /* loop index */
     int         i,  /* indexing variable    */
                 j,  /* indexing variable    */
        num_tokens;  /* number of tokens in a given string    */
@@ -719,13 +723,14 @@ static int cm_read_source(FILE *source, Local_Data_t *loc)
                                        source file which needs to be stored */
 
     i = 0;
+    loc->imal = 0;
     s = temp;
     while ( fgets(s,MAX_STRING_SIZE,source) != NULL) {
 
         /* Test this string to see if it is whitespace... */
 
         base_address = s;
-        while(isspace(*s) || (*s == '*'))
+        while(isspace_c(*s) || (*s == '*'))
               (s)++;
         if ( *s != '\0' ) {     /* This is not a blank line, so process... */
             s = base_address;
@@ -752,8 +757,9 @@ static int cm_read_source(FILE *source, Local_Data_t *loc)
                 s = base_address;
 
                 /* set storage space for bits in a row and set them to 0*/
-                loc->all_data[i] = (char*)malloc(sizeof(char) * loc->width);
-                for (n = 0; n < (unsigned int)loc->width; n++)
+                loc->all_data[i] = (char*)malloc(sizeof(char) * (size_t) loc->width);
+                loc->imal = i;
+                for (n = 0; n < loc->width; n++)
                     loc->all_data[i][n] = 0;
 
                 /** Retrieve each token, analyze, and       **/
@@ -761,6 +767,9 @@ static int cm_read_source(FILE *source, Local_Data_t *loc)
                 for (j=0; j<(loc->width + 1); j++) {
 
                     token = CNVget_token(&s, &type);
+
+                    if (!token)
+                        return 4;
 
                     if ( 0 == j ) { /* obtain timepoint value... */
 
@@ -778,6 +787,7 @@ static int cm_read_source(FILE *source, Local_Data_t *loc)
                                than the previous value, then return with
                                an error message... */
                             if ( loc->all_timepoints[i] <= loc->all_timepoints[i-1] ) {
+                                free(token);
                                 return 3;
                             }
                         }
@@ -803,14 +813,14 @@ static int cm_read_source(FILE *source, Local_Data_t *loc)
 
                         /* if this bit was not recognized, return with an error  */
                         if (12 == bit_value) {
+                            free(token);
                             return 4;
                         }
                         else { /* need to store this value in the all_data[] array */
                             loc->all_data[i][j-1] = bit_value;
                         }
                     }
-                    if (token)
-                        free(token);
+                    free(token);
                 }
                 i++;
             }
@@ -821,6 +831,20 @@ static int cm_read_source(FILE *source, Local_Data_t *loc)
 }
 
 
+static void cm_d_source_callback(ARGS,
+        Mif_Callback_Reason_t reason)
+{
+    switch (reason) {
+        case MIF_CB_DESTROY: {
+            Local_Data_t *loc = STATIC_VAR(locdata);
+            if (loc) {
+                free_local_data(loc);
+                STATIC_VAR(locdata) = loc = NULL;
+            }
+            break;
+        } /* end of case MIF_CB_DESTROY */
+    } /* end of switch over reason being called */
+} /* end of function cm_d_source_callback */
 
 
 
@@ -936,11 +960,8 @@ void cm_d_source(ARGS)
                 source = fopen(p, "r");
                 free(p);
             }
-            if (!source) {
-                char msg[512];
-                snprintf(msg, sizeof(msg), "cannot open file %s", PARAM(input_file));
-                cm_message_send(msg);
-            }
+            if (!source)
+                cm_message_printf("cannot open file %s", PARAM(input_file));
         }
 
         /* increment counter if not a comment until EOF reached... */
@@ -949,7 +970,7 @@ void cm_d_source(ARGS)
           s = temp;
           while ( fgets(s,MAX_STRING_SIZE,source) != NULL) {
               if ( '*' != s[0] ) {
-                  while(isspace(*s) || (*s == '*'))
+                  while(isspace_c(*s) || (*s == '*'))
                         (s)++;
                   if ( *s != '\0' ) i++;
               }
@@ -960,6 +981,7 @@ void cm_d_source(ARGS)
         /*** allocate static storage for *loc ***/
         STATIC_VAR (locdata) = calloc (1 , sizeof ( Local_Data_t ));
         loc = STATIC_VAR (locdata);
+        CALLBACK = cm_d_source_callback;
 
         /*** allocate storage for *index, *bits & *timepoint ***/
 
@@ -982,8 +1004,8 @@ void cm_d_source(ARGS)
         loc->width = PORT_SIZE(out);
 
         /*** allocate storage for **all_data, & *all_timepoints ***/
-        loc->all_timepoints = (double*)calloc(i, sizeof(double));
-        loc->all_data = (char**)calloc(i, sizeof(char*));
+        loc->all_timepoints = (double*)calloc((size_t) i, sizeof(double));
+        loc->all_data = (char**)calloc((size_t) i, sizeof(char*));
 
         /* Send file pointer and the two array storage pointers */
         /* to "cm_read_source()". This will return after        */
@@ -1021,6 +1043,14 @@ void cm_d_source(ARGS)
         /* close source file */
         if (source)
             fclose(source);
+
+        if (err > 0) {
+            loc->init_ok = FALSE;
+            cm_message_send(" dsource will return only its initial state.\n");
+            return;
+        }
+        else
+            loc->init_ok = TRUE;
     }
     else {      /*** Retrieve previous values ***/
 
@@ -1029,6 +1059,9 @@ void cm_d_source(ARGS)
         row_index_old  = (int *) cm_event_get_ptr(0,1);
 
         loc = STATIC_VAR (locdata);
+
+        if (!loc->init_ok)
+            return;
 
         /* Set old values to new... */
         *row_index = *row_index_old;
@@ -1155,5 +1188,23 @@ void cm_d_source(ARGS)
     }
 }
 
+/* Free memory allocations in Local_Data_t structure */
+static void free_local_data(Local_Data_t *loc)
+{
+    if (loc == (Local_Data_t *) NULL) {
+        return;
+    }
+    /* Free data table and related values */
+    if (loc->all_timepoints) {
+        free(loc->all_timepoints);
+    }
+    if (loc->all_data) {
+        int i;
+        for (i = 0; i <= loc->imal; i++)
+            free(loc->all_data[i]);
+        free(loc->all_data);
+    }
+    free(loc);
+} /* end of function free_local_data */
 
 

@@ -6,15 +6,12 @@ libvcvs_la_SOURCES =	\
 	vcvs.c		\
 	vcvsask.c	\
 	vcvsdefs.h	\
-	vcvsdel.c	\
-	vcvsdest.c	\
 	vcvsext.h	\
 	vcvsfbr.c	\
 	vcvsinit.c	\
 	vcvsinit.h	\
 	vcvsitf.h	\
 	vcvsload.c	\
-	vcvsmdel.c	\
 	vcvspar.c	\
 	vcvspzld.c	\
 	vcvssacl.c	\
@@ -24,7 +21,11 @@ libvcvs_la_SOURCES =	\
 	vcvssset.c
 
 
+if KLU_WANTED
+libvcvs_la_SOURCES += vcvsbindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)
+
 MAINTAINERCLEANFILES = Makefile.in

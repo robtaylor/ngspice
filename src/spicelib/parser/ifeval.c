@@ -31,6 +31,11 @@ IFeval(IFparseTree * tree, double gmin, double *result, double *vals,
     int i, err;
     INPparseTree *myTree = (INPparseTree *) tree;
 
+    if (!myTree) {
+        fprintf(stderr, "\nInternal error: No tree to evaluate.\n");
+        controlled_exit(EXIT_BAD);
+    }
+
 #ifdef TRACE
     INPptPrint("calling PTeval, tree = ", tree);
     printf("values:");
@@ -158,7 +163,7 @@ PTeval(INPparseNode * tree, double gmin, double *res, double *vals)
 	    return (err);
 	*res = PTbinary(tree -> function) (r1, r2);
 	if (*res == HUGE) {
-	    fprintf(stderr, "Error: %g, %g out of range for %s\n",
+	    fprintf(stderr, "\nError: %g, %g out of range for %s\n",
 		    r1, r2, tree->funcname);
 	    return (E_PARMVAL);
 	}

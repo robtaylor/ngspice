@@ -3,18 +3,25 @@ Copyright 1990 Regents of the University of California.  All rights reserved.
 Author: 1985 Wayne A. Christopher, U. C. Berkeley CAD Group
 **********/
 
-/*
- * Routines to do complex mathematical functions. These routines require
- * the -lm libraries. We sacrifice a lot of space to be able
- * to avoid having to do a seperate call for every vector element,
- * but it pays off in time savings.  These routines should never
- * allow FPE's to happen.
- *
- * Complex functions are called as follows:
- *  cx_something(data, type, length, &newlength, &newtype),
- *  and return a char * that is cast to complex or double.
- *
- */
+/** \file cmath1.c
+    \brief Functions for the control language parser: mag, ph, cph, unwrap, j, real, conj, pos, db, log10, log, exp, sqrt, sin, sinh, cos, coh, tan, tanh, atan, sortorder 
+
+    Routines to do complex mathematical functions. These routines require
+    the -lm libraries. We sacrifice a lot of space to be able
+    to avoid having to do a seperate call for every vector element,
+    but it pays off in time savings.  These routines should never
+    allow FPE's to happen.
+
+    Complex functions are called as follows:
+     cx_something(data, type, length, &newlength, &newtype),
+     and return a void* that has to be cast to complex or double.
+     Integers newlength and newtype contain the newly resulting length
+     of the void* vector and its new type (REAL or COMPLEX).
+*/
+
+
+#include <errno.h>
+#include <complex.h>
 
 #include "ngspice/ngspice.h"
 #include "ngspice/memory.h"
@@ -25,15 +32,19 @@ Author: 1985 Wayne A. Christopher, U. C. Berkeley CAD Group
 #include "cmath1.h"
 
 #ifdef HAS_WINGUI
-#define fp_r_i_n_t_f fprintf
+#define win_x_fprintf fprintf
 #endif
 
-/* This flag determines whether degrees or radians are used. The radtodeg
- * and degtorad macros are no-ops if this is FALSE.
+/**This global flag determines whether degrees or radians are used. The radtodeg
+ * and degtorad macros are no-ops if this is FALSE. It will be set to TRUE in options.c
+ * if variable (option) 'unit' is equal to 'degree'. 
  */
-
 bool cx_degrees = FALSE;
 
+/** Magnitude of real and complex vectors:
+    fabs() for real,
+    hypot() for complex.
+*/
 void *
 cx_mag(void *data, short int type, int length, int *newlength, short int *newtype)
 {
@@ -46,13 +57,17 @@ cx_mag(void *data, short int type, int length, int *newlength, short int *newtyp
     *newtype = VF_REAL;
     if (type == VF_REAL)
         for (i = 0; i < length; i++)
-            d[i] = FTEcabs(dd[i]);
+            d[i] = fabs(dd[i]);
     else
         for (i = 0; i < length; i++)
             d[i] = cmag(cc[i]);
     return ((void *) d);
 }
 
+/** Phase of vectors:
+    0 for real,
+    atan2() for complex.
+*/
 void *
 cx_ph(void *data, short int type, int length, int *newlength, short int *newtype)
 {
@@ -70,7 +85,10 @@ cx_ph(void *data, short int type, int length, int *newlength, short int *newtype
     return ((void *) d);
 }
 
-/* SJdV Modified from above to find closest from +2pi,0, -2pi */
+/** Continuous phase of vectors:
+    0 for real,
+    atan2() for complex.
+    Modified from cx_ph to find closest from +2pi,0, -2pi. */
 void *
 cx_cph(void *data, short int type, int length, int *newlength, short int *newtype)
 {
@@ -93,7 +111,9 @@ cx_cph(void *data, short int type, int length, int *newlength, short int *newtyp
     return ((void *) d);
 }
 
-/* Modified from above but with real phase vector in degrees as input */
+/** Modified from cx_cph(), but with real phase vector in degrees as input.
+    Currently not in use.
+*/
 void *
 cx_unwrap(void *data, short int type, int length, int *newlength, short int *newtype)
 {
@@ -116,71 +136,115 @@ cx_unwrap(void *data, short int type, int length, int *newlength, short int *new
     return ((void *) d);
 }
 
-/* If this is pure imaginary we might get real, but never mind... */
-
-void *
-cx_j(void *data, short int type, int length, int *newlength, short int *newtype)
+/** Multiply by i (imaginary unit). */
+void *cx_j(void *data, short int type, int length, int *newlength,
+        short int *newtype)
 {
     ngcomplex_t *c = alloc_c(length);
-    ngcomplex_t *cc = (ngcomplex_t *) data;
-    double *dd = (double *) data;
-    int i;
-
     *newlength = length;
     *newtype = VF_COMPLEX;
-    if (type == VF_COMPLEX)
+
+    if (type == VF_COMPLEX) {
+        ngcomplex_t *cc = (ngcomplex_t *) data;
+        int i;
         for (i = 0; i < length; i++) {
-            realpart(c[i]) = - imagpart(cc[i]);
+            realpart(c[i]) = -imagpart(cc[i]);
             imagpart(c[i]) = realpart(cc[i]);
         }
-    else
+    }
+    else {
+        double *dd = (double *) data;
+        int i;
         for (i = 0; i < length; i++) {
             imagpart(c[i]) = dd[i];
             /* Real part is already 0. */
         }
-    return ((void *) c);
+    }
+    return (void *) c;
 }
 
-void *
-cx_real(void *data, short int type, int length, int *newlength, short int *newtype)
+/** Return the real part of the vector. */
+void *cx_real(void *data, short int type, int length, int *newlength,
+        short int *newtype)
 {
     double *d = alloc_d(length);
-    double *dd = (double *) data;
-    ngcomplex_t *cc = (ngcomplex_t *) data;
-    int i;
 
     *newlength = length;
     *newtype = VF_REAL;
-    if (type == VF_COMPLEX)
-        for (i = 0; i < length; i++)
+    if (type == VF_COMPLEX) {
+        ngcomplex_t *cc = (ngcomplex_t *) data;
+        int i;
+        for (i = 0; i < length; i++) {
             d[i] = realpart(cc[i]);
-    else
-        for (i = 0; i < length; i++)
+        }
+    }
+    else {
+        double *dd = (double *) data;
+        int i;
+        for (i = 0; i < length; i++) {
             d[i] = dd[i];
-    return ((void *) d);
+        }
+    }
+    return (void *) d;
 }
 
-void *
-cx_imag(void *data, short int type, int length, int *newlength, short int *newtype)
+/** Return the imaginary part of the vector. */
+void *cx_imag(void *data, short int type, int length, int *newlength,
+        short int *newtype)
 {
     double *d = alloc_d(length);
-    double *dd = (double *) data;
-    ngcomplex_t *cc = (ngcomplex_t *) data;
-    int i;
 
     *newlength = length;
     *newtype = VF_REAL;
-    if (type == VF_COMPLEX)
-        for (i = 0; i < length; i++)
+    if (type == VF_COMPLEX) {
+        ngcomplex_t *cc = (ngcomplex_t *) data;
+        int i;
+        for (i = 0; i < length; i++) {
             d[i] = imagpart(cc[i]);
-    else
-        for (i = 0; i < length; i++)
+        }
+    }
+    else {
+        double *dd = (double *) data;
+        int i;
+        for (i = 0; i < length; i++) {
             d[i] = dd[i];
-    return ((void *) d);
+        }
+    }
+    return (void *) d;
 }
 
-/* This is obsolete... */
 
+
+/** Create complex conjugate of data. */
+void *cx_conj(void *data, short int type, int length,
+        int *p_newlength, short int *p_newtype)
+{
+    /* Length and type do not change */
+    *p_newlength = length;
+    *p_newtype = type;
+
+    /* For complex, copy with conjugation */
+    if (type == VF_COMPLEX) {
+        ngcomplex_t * const c_dst = alloc_c(length);
+        ngcomplex_t *c_dst_cur = c_dst;
+        ngcomplex_t *c_src_cur = (ngcomplex_t *) data;
+        ngcomplex_t * const c_src_end = c_src_cur + length;
+        for ( ; c_src_cur < c_src_end;  c_src_cur++, c_dst_cur++) {
+            c_dst_cur->cx_real = c_src_cur->cx_real;
+            c_dst_cur->cx_imag = -c_src_cur->cx_imag;
+        }
+        return (void *) c_dst;
+    }
+
+    /* Else real, so just copy */
+    return memcpy(alloc_d(length), data, (unsigned int) length * sizeof(double));
+} /* end of function cx_conj */
+
+
+
+/* Return a vector with 1s for positive and 0 for negative element values of the input vector.
+   Currently not in use.
+   */
 void *
 cx_pos(void *data, short int type, int length, int *newlength, short int *newtype)
 {
@@ -200,20 +264,23 @@ cx_pos(void *data, short int type, int length, int *newlength, short int *newtyp
     return ((void *) d);
 }
 
-void *
-cx_db(void *data, short int type, int length, int *newlength, short int *newtype)
+/** Calculatue values in db as 20.0 * log10.
+    Prior to this use macro rcheck() to check for input values being positive.
+    Return NULL if not.
+*/
+void *cx_db(void *data, short int type, int length,
+        int *newlength, short int *newtype)
 {
+    int xrc = 0;
     double *d = alloc_d(length);
-    double *dd = (double *) data;
-    ngcomplex_t *cc = (ngcomplex_t *) data;
-    double tt;
-    int i;
 
     *newlength = length;
     *newtype = VF_REAL;
-    if (type == VF_COMPLEX)
+    if (type == VF_COMPLEX) {
+        ngcomplex_t *cc = (ngcomplex_t *) data;
+        int i;
         for (i = 0; i < length; i++) {
-            tt = cmag(cc[i]);
+            const double tt = cmag(cc[i]);
             rcheck(tt > 0, "db");
             /*
                 if (tt == 0.0)
@@ -222,29 +289,48 @@ cx_db(void *data, short int type, int length, int *newlength, short int *newtype
             */
             d[i] = 20.0 * log10(tt);
         }
-    else
+    }
+    else {
+        double *dd = (double *) data;
+        int i;
         for (i = 0; i < length; i++) {
-            rcheck(dd[i] > 0, "db");
+            const double tt = dd[i];
+            rcheck(tt > 0, "db");
             /*
                 if (dd[i] == 0.0)
                     d[i] = 20.0 * - log(HUGE);
                 else
             */
-            d[i] = 20.0 * log10(dd[i]);
+            d[i] = 20.0 * log10(tt);
         }
-    return ((void *) d);
-}
+    }
 
-void *
-cx_log10(void *data, short int type, int length, int *newlength, short int *newtype)
+EXITPOINT:
+    if (xrc != 0) {
+        txfree(d);
+        d = (double *) NULL;
+    }
+    return ((void *) d);
+} /* end of function cx_db */
+
+
+/** Return the common logarithm.
+    Prior to this use macro rcheck() to check for input values being positive or 0.
+    Return -log10(HUGE) when magnitude is 0.
+    Return NULL if negative.
+*/
+void *cx_log10(void *data, short int type, int length,
+        int *newlength, short int *newtype)
 {
-    *newlength = length;
+    int xrc = 0;
+    void *rv;
+
     if (type == VF_COMPLEX) {
         ngcomplex_t *c;
         ngcomplex_t *cc = (ngcomplex_t *) data;
         int i;
 
-        c = alloc_c(length);
+        rv = c = alloc_c(length);
         *newtype = VF_COMPLEX;
         for (i = 0; i < length; i++) {
             double td;
@@ -257,42 +343,62 @@ cx_log10(void *data, short int type, int length, int *newlength, short int *newt
             if (td == 0.0) {
                 realpart(c[i]) = - log10(HUGE);
                 imagpart(c[i]) = 0.0;
-            } else {
+            }
+            else {
                 realpart(c[i]) = log10(td);
-                imagpart(c[i]) = atan2(imagpart(cc[i]),
-                                        realpart(cc[i]));
+                imagpart(c[i]) = atan2(imagpart(cc[i]), realpart(cc[i]));
             }
         }
-        return ((void *) c);
-    } else {
+    }
+    else {
         double *d;
         double *dd = (double *) data;
         int i;
 
-        d = alloc_d(length);
+        rv = d = alloc_d(length);
         *newtype = VF_REAL;
         for (i = 0; i < length; i++) {
             rcheck(dd[i] >= 0, "log10");
-            if (dd[i] == 0.0)
+            if (dd[i] == 0.0) {
                 d[i] = - log10(HUGE);
-            else
+            }
+            else {
                 d[i] = log10(dd[i]);
+            }
         }
-        return ((void *) d);
     }
-}
 
-void *
-cx_log(void *data, short int type, int length, int *newlength, short int *newtype)
-{
     *newlength = length;
+
+EXITPOINT:
+    if (xrc != 0) { /* Free resources on error */
+        txfree(rv);
+        rv = NULL;
+    }
+
+    return rv;
+} /* end of function cx_log10 */
+
+
+/** Return the natural logarithm.
+    Prior to this use macro rcheck() to check for input values being positive or 0.
+    Return -log(HUGE) when magnitude is 0.
+    Return NULL if negative.
+*/
+void *cx_log(void *data, short int type, int length,
+        int *newlength, short int *newtype)
+{
+    int xrc = 0;
+    void *rv;
+
     if (type == VF_COMPLEX) {
         ngcomplex_t *c;
         ngcomplex_t *cc = (ngcomplex_t *) data;
-        int i;
 
-        c = alloc_c(length);
+        rv = c = alloc_c(length);
         *newtype = VF_COMPLEX;
+
+        int i;
         for (i = 0; i < length; i++) {
             double td;
 
@@ -301,20 +407,21 @@ cx_log(void *data, short int type, int length, int *newlength, short int *newtyp
             if (td == 0.0) {
                 realpart(c[i]) = - log(HUGE);
                 imagpart(c[i]) = 0.0;
-            } else {
+            }
+            else {
                 realpart(c[i]) = log(td);
-                imagpart(c[i]) = atan2(imagpart(cc[i]),
-                                        realpart(cc[i]));
+                imagpart(c[i]) = atan2(imagpart(cc[i]), realpart(cc[i]));
             }
         }
-        return ((void *) c);
-    } else {
+    }
+    else {
         double *d;
         double *dd = (double *) data;
-        int i;
 
-        d = alloc_d(length);
+        rv = d = alloc_d(length);
         *newtype = VF_REAL;
+
+        int i;
         for (i = 0; i < length; i++) {
             rcheck(dd[i] >= 0, "log");
             if (dd[i] == 0.0)
@@ -322,10 +429,24 @@ cx_log(void *data, short int type, int length, int *newlength, short int *newtyp
             else
                 d[i] = log(dd[i]);
         }
-        return ((void *) d);
     }
-}
 
+    *newlength = length;
+
+EXITPOINT:
+    if (xrc != 0) { /* Free resources on error */
+        txfree(rv);
+        rv = NULL;
+    }
+
+    return rv;
+} /* end of function cx_log */
+
+
+/** Return the exponential of a vector:
+    exp() for real,
+    exp(realpart)*cos(imagpart), exp(realpart)*sin(imagpart) for imaginary.
+    */
 void *
 cx_exp(void *data, short int type, int length, int *newlength, short int *newtype)
 {
@@ -358,6 +479,10 @@ cx_exp(void *data, short int type, int length, int *newlength, short int *newtyp
     }
 }
 
+/** Square root of a complex vector:
+    Determine if the result vector is real or complex (due to input being negative or already complex).
+    Distinction of cases: Input complex, then real part pos., neg. or 0. Input real negative or real positive.
+    */
 void *
 cx_sqrt(void *data, short int type, int length, int *newlength, short int *newtype)
 {
@@ -442,6 +567,9 @@ cx_sqrt(void *data, short int type, int length, int *newlength, short int *newty
     }
 }
 
+/** sin of a complex vector: 
+    sin(realpart)*cosh(imagpart), cos(realpart)*sinh(imagpart)
+    */
 void *
 cx_sin(void *data, short int type, int length, int *newlength, short int *newtype)
 {
@@ -473,6 +601,8 @@ cx_sin(void *data, short int type, int length, int *newlength, short int *newtyp
     }
 }
 
+/** sinh of a complex vector:
+    sinh(x+iy) = sinh(x)*cos(y) + i * cosh(x)*sin(y) */
 void *
 cx_sinh(void *data, short int type, int length, int *newlength, short int *newtype)
 {
@@ -506,7 +636,9 @@ cx_sinh(void *data, short int type, int length, int *newlength, short int *newty
     }
 }
 
-
+/** cos of a complex vector:
+    cos(realpart)*cosh(imagpart), -sin(realpart)*sinh(imagpart)
+    */
 void *
 cx_cos(void *data, short int type, int length, int *newlength, short int *newtype)
 {
@@ -538,7 +670,9 @@ cx_cos(void *data, short int type, int length, int *newlength, short int *newtyp
     }
 }
 
-
+/**cosh of a complex vector:
+   cosh(x+iy) = cosh(x)*cos(y) + i * sinh(x)*sin(y)
+   */
 void *
 cx_cosh(void *data, short int type, int length, int *newlength, short int *newtype)
 {
@@ -573,20 +707,32 @@ cx_cosh(void *data, short int type, int length, int *newlength, short int *newty
     }
 }
 
-static double *
-d_tan(double *dd, int length)
+
+/** tan for real valued vectors. Used by cx_tanh.
+    Prior to this use macro rcheck() to check for input values not being 0.
+    Return NULL if 0.*/
+static double *d_tan(double *dd, int length)
 {
-    double *d;
+    int xrc = 0;
+    double *d = alloc_d(length);
+
     int i;
-
-    d = alloc_d(length);
     for (i = 0; i < length; i++) {
-        rcheck(cos(degtorad(dd[i])) != 0, "tan");
-        d[i] = sin(degtorad(dd[i])) / cos(degtorad(dd[i]));
+        rcheck(tan(degtorad(dd[i])) != 0, "tan");
+        d[i] = tan(degtorad(dd[i]));
     }
-    return d;
-}
 
+EXITPOINT:
+    if (xrc != 0) { /* Free resources on error */
+        txfree(d);
+        d = (double *) NULL;
+    }
+
+    return d;
+} /* end of function d_tan */
+
+
+/** tanh for real valued vectors. Used by cx_tanh. */
 static double *
 d_tanh(double *dd, int length)
 {
@@ -595,71 +741,101 @@ d_tanh(double *dd, int length)
 
     d = alloc_d(length);
     for (i = 0; i < length; i++) {
-        rcheck(cosh(degtorad(dd[i])) != 0, "tanh");
-        d[i] = sinh(degtorad(dd[i])) / cosh(degtorad(dd[i]));
+        d[i] = tanh(degtorad(dd[i]));
     }
     return d;
 }
 
-static ngcomplex_t *
-c_tan(ngcomplex_t *cc, int length)
+/** tan of a complex vector. 
+ * Used by cx_tan
+ * See https://proofwiki.org/wiki/Tangent_of_Complex_Number (formulation 4) among
+ * others for the tangent formula:
+
+ * sin z = sin(x + iy) = sin x cos(iy) + cos x sin(iy) = sin x cosh y + i cos x sinh y
+ * cos z = cos(x + iy) = cos x cos(iy) + sin x sin(iy) = cos x cosh y - i sin x sinh y
+ * tan z = ((sin x cosh y + i cos x sinh y) / (cos x cosh y - i sin x sinh y)) *
+            (cos x cosh y + isin x sinh y) / (cos x cosh y + i sin x sinh y)
+      = ...
+ *
+ *
+ * tan(a + bi) = (sin(2a) + i * sinh(2b)) / (cos(2a) + cosh(2b))
+ */
+static ngcomplex_t *c_tan(ngcomplex_t *cc, int length)
 {
-    ngcomplex_t *c;
+    ngcomplex_t * const c = alloc_c(length);
+
     int i;
-
-    c = alloc_c(length);
     for (i = 0; i < length; i++) {
-        double u, v;
-
-        rcheck(cos(degtorad(realpart(cc[i]))) *
-               cosh(degtorad(imagpart(cc[i]))), "tan");
-        rcheck(sin(degtorad(realpart(cc[i]))) *
-               sinh(degtorad(imagpart(cc[i]))), "tan");
-        u = degtorad(realpart(cc[i]));
-        v = degtorad(imagpart(cc[i]));
-        /* The Lattice C compiler won't take multi-line macros, and
-         * CMS won't take >80 column lines....
-         */
-#define xx1 sin(u) * cosh(v)
-#define xx2 cos(u) * sinh(v)
-#define xx3 cos(u) * cosh(v)
-#define xx4 -sin(u) * sinh(v)
-        cdiv(xx1, xx2, xx3, xx4, realpart(c[i]), imagpart(c[i]));
-    }
-    return c;
-}
-
-/* complex tanh function, uses tanh(z) = -i * tan (i * z) */
-static ngcomplex_t *
-c_tanh(ngcomplex_t *cc, int length)
-{
-    ngcomplex_t *c, *s, *t;
-    int i;
-
-    c = alloc_c(length);
-    s = alloc_c(1);
-    t = alloc_c(1);
-
-    for (i = 0; i < length; i++) {
-        /* multiply by i */
-        t[0].cx_real = -1. * imagpart(cc[i]);
-        t[0].cx_imag = realpart(cc[i]);
-        /* get complex tangent */
-        s = c_tan(t, 1);
-        /* if check in c_tan fails */
-        if (s == NULL) {
-            tfree(t);
-            return (NULL);
+        errno = 0;
+        ngcomplex_t *p_dst = c + i;
+        ngcomplex_t *p_src = cc + i;
+        const double a = p_src->cx_real;
+        const double b = p_src->cx_imag;
+        const double u = 2 * degtorad(a);
+        const double v = 2 * degtorad(b);
+        const double n_r = sin(u);
+        const double n_i = sinh(v);
+        const double d1 = cos(u);
+        const double d2 = cosh(v);
+        const double d = d1 + d2;
+        if (errno != 0 || d == 0.0) {
+            (void) fprintf(cp_err,
+                    "Invalid argument %lf + %lf i for compex tangent", a, b);
+            txfree(c);
+            return (ngcomplex_t *) NULL;
         }
-        /* multiply by -i */
-        realpart(c[i]) = imagpart(s[0]);
-        imagpart(c[i]) = -1. * realpart(s[0]);
-    }
-    tfree(s);
-    tfree(t);
+        p_dst->cx_real = n_r / d;
+        p_dst->cx_imag = n_i / d;
+    } /* end of loop over elements in array */
     return c;
-}
+} /* end of function c_tan */
 
+
+
+/**complex tanh function:
+   uses tanh(z) = -i * tan(i * z).
+   Used by cx_tanh.
+ */
+static ngcomplex_t *c_tanh(ngcomplex_t *cc, int length)
+{
+    ngcomplex_t * const tmp = alloc_c(length); /* i * z */
+
+    /* Build the i * z array to allow tan() to be called */
+    {
+        int i;
+        for (i = 0; i < length; ++i) {
+            ngcomplex_t *p_dst = tmp + i;
+            ngcomplex_t *p_src = cc + i;
+
+            /* multiply by i */
+            p_dst->cx_real = -p_src->cx_imag;
+            p_dst->cx_imag = p_src->cx_real;
+        }
+    }
+
+   /* Calculat tan(i * z), exiting on failure */
+    ngcomplex_t *const c = c_tan(tmp, length);
+    if (c == (ngcomplex_t *) NULL) {
+        txfree(tmp);
+        return (ngcomplex_t *) NULL;
+    }
+
+    /* Multiply by -i to find final result */
+    {
+        int i;
+        for (i = 0; i < length; ++i) {
+            ngcomplex_t *p_cur = c + i;
+            const double cx_real = p_cur->cx_real;
+            p_cur->cx_real = p_cur->cx_imag;
+            p_cur->cx_imag = -cx_real;
+        }
+    }
+
+    return c;
+} /* end of function c_tanh */
+
+
+/** tan of a complex vector */
 void *
 cx_tan(void *data, short int type, int length, int *newlength, short int *newtype)
 {
@@ -673,6 +849,7 @@ cx_tan(void *data, short int type, int length, int *newlength, short int *newtyp
     }
 }
 
+/** tanh of a complex vector */
 void *
 cx_tanh(void *data, short int type, int length, int *newlength, short int *newtype)
 {
@@ -686,6 +863,43 @@ cx_tanh(void *data, short int type, int length, int *newlength, short int *newty
     }
 }
 
+/** atanh of a complex vector: use C99 function catanh. */
+void*
+cx_atanh(void* data, short int type, int length, int* newlength, short int* newtype)
+{
+    if (type == VF_COMPLEX) {
+        ngcomplex_t* d = alloc_c(length);
+        *newtype = VF_COMPLEX;
+        *newlength = length;
+        ngcomplex_t* cc = (ngcomplex_t*)data;
+        int i;
+        for (i = 0; i < length; i++) {
+#ifdef _MSC_VER
+            _Dcomplex midin = _Cbuild(degtorad(realpart(cc[i])), degtorad(imagpart(cc[i])));
+            _Dcomplex midout = catanh(midin);
+#else
+            double complex midin = degtorad(realpart(cc[i])) + _Complex_I * degtorad(imagpart(cc[i]));
+            double complex midout = catanh(midin);
+#endif
+            d[i].cx_real = creal(midout);
+            d[i].cx_imag = cimag(midout);
+        }
+        return ((void*)d);
+    }
+    else {
+        double* d = alloc_d(length);
+        *newtype = VF_REAL;
+        *newlength = length;
+        double* cc = (double*)data;
+        int i;
+        for (i = 0; i < length; i++) {
+            d[i] = atanh(cc[i]);
+        }
+        return ((void*)d);
+    }
+}
+
+/** atan of a complex vector: return atan of the real part. */
 void *
 cx_atan(void *data, short int type, int length, int *newlength, short int *newtype)
 {
@@ -710,7 +924,7 @@ cx_atan(void *data, short int type, int length, int *newlength, short int *newty
     return ((void *) d);
 }
 
-/* Struct to store and order the values of the amplitudes preserving the index in the original array */
+/** Struct to store and order the values of the amplitudes preserving the index in the original array */
 typedef struct {
     double amplitude;
     int index;
@@ -718,11 +932,10 @@ typedef struct {
 
 static int compare_structs (const void *a, const void *b);
 
-/*
+/**
  *  Returns the positions of the elements in a real vector
  *  after they have been sorted into increasing order using a stable method (qsort).
  */
-
 void *
 cx_sortorder(void *data, short int type, int length, int *newlength, short int *newtype)
 {
@@ -730,8 +943,8 @@ cx_sortorder(void *data, short int type, int length, int *newlength, short int *
     double *dd = (double *) data;
     int i;
 
-    amplitude_index_t *array_amplitudes;
-    array_amplitudes = (amplitude_index_t *) malloc(sizeof(amplitude_index_t) * (size_t) length);
+    amplitude_index_t * const array_amplitudes = (amplitude_index_t *)
+            tmalloc(sizeof(amplitude_index_t) * (size_t) length);
 
     *newlength = length;
     *newtype = VF_REAL;
@@ -748,12 +961,13 @@ cx_sortorder(void *data, short int type, int length, int *newlength, short int *
             d[i] = array_amplitudes[i].index;
     }
 
-    free(array_amplitudes);
+    txfree(array_amplitudes);
 
     /* Otherwise it is 0, but tmalloc zeros the stuff already. */
     return ((void *) d);
 }
 
+/** Compares ampplitudes of vector elements. Input to qsort. */
 static int
 compare_structs(const void *a, const void *b)
 {

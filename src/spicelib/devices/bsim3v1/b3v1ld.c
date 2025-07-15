@@ -121,13 +121,16 @@ double Cgg1, Cgb1, Cgd1, Cbg1, Cbb1, Cbd1, Qac0, Qsub0;
 double dQac0_dVg, dQac0_dVd, dQac0_dVb, dQsub0_dVg, dQsub0_dVd, dQsub0_dVb;
 
 double m = 1.0;
-   
+#ifndef NEWCONV
+double tol;
+#endif
+
 struct bsim3v1SizeDependParam *pParam;
 int ByPass, Check, ChargeComputationNeeded = 0, error;
 
-for (; model != NULL; model = model->BSIM3v1nextModel)
-{    for (here = model->BSIM3v1instances; here != NULL; 
-          here = here->BSIM3v1nextInstance)
+for (; model != NULL; model = BSIM3v1nextModel(model))
+{    for (here = BSIM3v1instances(model); here != NULL; 
+          here = BSIM3v1nextInstance(here))
      {
 	  Check = 1;
           ByPass = 0;
@@ -2049,25 +2052,11 @@ line755:
           ag0 = ckt->CKTag[0];
 
 	  if (model->BSIM3v1capMod == 0)
-	  {   if (vgd < 0.0)
-	      {   
-	          cgdo = pParam->BSIM3v1cgdo;
-	          qgdo = pParam->BSIM3v1cgdo * vgd;
-	      }
-	      else
-	      {   cgdo = pParam->BSIM3v1cgdo;
-	          qgdo =  pParam->BSIM3v1cgdo * vgd;
-	      }
-
-	      if (vgs < 0.0)
-	      {   
-	          cgso = pParam->BSIM3v1cgso;
-	          qgso = pParam->BSIM3v1cgso * vgs;
-	      }
-	      else
-	      {   cgso = pParam->BSIM3v1cgso;
-	          qgso =  pParam->BSIM3v1cgso * vgs;
-	      }
+	  {
+	      cgdo = pParam->BSIM3v1cgdo;
+	      qgdo = pParam->BSIM3v1cgdo * vgd;
+	      cgso = pParam->BSIM3v1cgso;
+	      qgso = pParam->BSIM3v1cgso * vgs;
 	  }
 	  else if (model->BSIM3v1capMod == 1)
 	  {   if (vgd < 0.0)
@@ -2367,10 +2356,12 @@ line900:
 	   if (model->BSIM3v1type > 0)
 	   {   ceqbs += (here->BSIM3v1cbs - (here->BSIM3v1gbs  - ckt->CKTgmin) * vbs);
                ceqbd += (here->BSIM3v1cbd - (here->BSIM3v1gbd  - ckt->CKTgmin) * vbd);
+               /*
                ceqqg = ceqqg;
                ceqqb = ceqqb;
                ceqqd = ceqqd;
                cqcheq = cqcheq;
+               */
 	   }
 	   else
 	   {   ceqbs = -ceqbs - (here->BSIM3v1cbs - (here->BSIM3v1gbs

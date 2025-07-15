@@ -44,6 +44,7 @@ IFparm INDmPTable[] = { /* model parameters */
     IOPA(  "tc2",    IND_MOD_TC2,      IF_REAL,"Second order temp. coefficient"),
     IOPXU( "tnom",   IND_MOD_TNOM,     IF_REAL,"Parameter measurement temperature"),
     IOPA(  "csect",  IND_MOD_CSECT,    IF_REAL,"Inductor cross section"),
+    IOPA(  "dia",    IND_MOD_DIA,      IF_REAL,"Inductor diameter"),
     IOPA(  "length", IND_MOD_LENGTH,   IF_REAL,"Inductor length"),
     IOPA(  "nt",     IND_MOD_NT,       IF_REAL,"Model number of turns"),
     IOPA(  "mu",     IND_MOD_MU,       IF_REAL,"Relative magnetic permeability"),
@@ -63,11 +64,10 @@ int	INDmPTSize = NUMELEMS(INDmPTable);
 int	INDiSize = sizeof(INDinstance);
 int	INDmSize = sizeof(INDmodel);
 
-#ifdef MUTUAL
 
 IFparm MUTpTable[] = { /* parameters */
     IOPAP( "k", MUT_COEFF, IF_REAL    , "Mutual inductance"),
-    IOPR( "coefficient", MUT_COEFF, IF_REAL    , ""),
+    IOPAPR( "coefficient", MUT_COEFF, IF_REAL, ""),
     IOP( "inductor1", MUT_IND1,  IF_INSTANCE, "First coupled inductor"),
     IOP( "inductor2", MUT_IND2,  IF_INSTANCE, "Second coupled inductor"),
     IP( "sens_coeff", MUT_COEFF_SENS, IF_FLAG,
@@ -86,5 +86,3 @@ int	MUTpTSize = NUMELEMS(MUTpTable);
 int	MUTmPTSize = 0;
 int	MUTiSize = sizeof(INDinstance);
 int	MUTmSize = sizeof(INDmodel);
-
-#endif /*MUTUAL*/

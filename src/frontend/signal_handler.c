@@ -2,7 +2,6 @@
 Copyright 1990 Regents of the University of California.  All rights reserved.
 Author: 1985 Wayne A. Christopher, U. C. Berkeley CAD Group
 **********/
-
 /*
  * The signal routines for spice 3 and nutmeg.
  */
@@ -17,6 +16,10 @@ Author: 1985 Wayne A. Christopher, U. C. Berkeley CAD Group
 #include <signal.h>
 #include "signal_handler.h"
 #include "plotting/graf.h"
+
+#ifdef SIGTTIN
+#include <unistd.h>
+#endif
 
 #ifdef HAS_WINGUI
 void winmessage(char* new_msg);
@@ -60,19 +63,22 @@ ft_sigintr_cleanup(void)
     /*  One or all of these might be superfluous  */
     (void) rl_free_line_state();
     (void) rl_cleanup_after_signal();
-    (void) rl_reset_after_signal();
+    /* rl_reset_after_signal() not available in all readline versions */
+    /* (void) rl_reset_after_signal(); */
 #endif /* defined(HAVE_GNUREADLINE) || defined(HAVE_BSDEDITLINE) */
 
     /* To restore screen after an interrupt to a plot for instance */
     cp_interactive = TRUE;
-    cp_resetcontrol();
+    cp_resetcontrol(TRUE);
 }
 
 
 /*  invoke this function upon keyboard interrupt  */
-RETSIGTYPE
+void
 ft_sigintr(void)
 {
+    static int interrupt_counter = 0;
+
     /* fprintf(cp_err, "Received interrupt.  Handling it  . . . . .\n"); */
 
     /* Reinstall ft_signintr as the signal handler. */
@@ -80,9 +86,16 @@ ft_sigintr(void)
 
     if (ft_intrpt) {    /* check to see if we're being interrupted repeatedly */
         fprintf(cp_err, "\nInterrupted again (ouch)\n");
+        interrupt_counter++;
     } else {
         fprintf(cp_err, "\nInterrupted once . . .\n");
         ft_intrpt = TRUE;
+        interrupt_counter = 1;
+    }
+
+    if (interrupt_counter >= 3) {
+        fprintf(cp_err, "\nKilling, since %d interrupts have been requested\n\n", interrupt_counter);
+        controlled_exit(1);
     }
 
     if (ft_setflag) {
@@ -90,40 +103,82 @@ ft_sigintr(void)
     }
 
     /* here we jump to the start of command processing in main() after resetting everything.  */
+    cp_background = FALSE;
     LONGJMP(jbuf, 1);
 }
 
 
-RETSIGTYPE
-sigfloat(int sig, int code)
+void
+sigfloat(int code)
 {
-    NG_IGNORE(sig);
-
     fperror("Error", code);
     rewind(cp_out);
     (void) signal(SIGFPE, (SIGNAL_FUNCTION) sigfloat);
     LONGJMP(jbuf, 1);
 }
 
+/* Shared handler for SIGTTIN and SIGTTOU.  Restart event handling if caught
+ * attempting terminal IO as a background process.
+ */
+
+bool cp_background = FALSE;
+
+#ifdef SIGTTIN
+void
+sigttio(void)
+{
+    if (cp_cwait) {
+        /* Attempted command input/output on the terminal while in background.
+         * Set background flag and restart event loop.
+         */
+        cp_background = TRUE;
+        LONGJMP(jbuf, 1);
+    } else {
+        /* Non-command terminal IO in background. That should never happen.
+         * Stop.
+         */
+
+        (void) signal(SIGTSTP, SIG_DFL);
+        (void) kill(getpid(), SIGTSTP); /* This should stop us */
+    }
+}
+
+/* Is this a background process? */
+
+void test_background(void)
+{
+    pid_t terminal_group;
+    int   tty;
+
+    tty = open("/dev/tty", O_RDONLY);
+    if (tty < 0) {
+        cp_background = TRUE; // No controlling terminal, so "in background".
+        return;
+    }
+    terminal_group = tcgetpgrp(tty); // Posix 2001, so portable.
+    close(tty);
+    cp_background = (terminal_group != getpgrp());
+}
+#endif
 
 /* This should give a new prompt if cshpar is waiting for input.  */
 
 #ifdef SIGTSTP
 
-RETSIGTYPE
+void
 sigstop(void)
 {
     gr_clean();
-    cp_ccon(FALSE);
     (void) signal(SIGTSTP, SIG_DFL);
     (void) kill(getpid(), SIGTSTP); /* This should stop us */
 }
 
 
-RETSIGTYPE
+void
 sigcont(void)
 {
     (void) signal(SIGTSTP, (SIGNAL_FUNCTION) sigstop);
+    test_background();
     if (cp_cwait)
         LONGJMP(jbuf, 1);
 }
@@ -134,7 +189,7 @@ sigcont(void)
 
 /* Special (void) signal handlers. */
 
-RETSIGTYPE
+void
 sigill(void)
 {
     fprintf(cp_err, "\ninternal error -- illegal instruction\n");
@@ -142,7 +197,7 @@ sigill(void)
 }
 
 
-RETSIGTYPE
+void
 sigbus(void)
 {
     fprintf(cp_err, "\ninternal error -- bus error\n");
@@ -150,7 +205,7 @@ sigbus(void)
 }
 
 
-RETSIGTYPE
+void
 sigsegv(void)
 {
     fprintf(cp_err, "\ninternal error -- segmentation violation\n");
@@ -160,8 +215,15 @@ sigsegv(void)
     fatal();
 }
 
+void
+sigsegvsh(void)
+{
+    fprintf(cp_err, "\ninternal error -- segmentation violation\n");
+    controlled_exit(EXIT_SEGV);
+}
 
-RETSIGTYPE
+
+void
 sig_sys(void)
 {
     fprintf(cp_err, "\ninternal error -- bad argument to system call\n");

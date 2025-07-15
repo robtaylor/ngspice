@@ -105,11 +105,23 @@ MOS1mAsk(CKTcircuit *ckt, GENmodel *inst, int which, IFvalue *value)
         case MOS1_MOD_NSS:
             value->rValue = model->MOS1surfaceStateDensity;
             return(OK);
+        case MOS1_MOD_NLEV:
+            value->iValue = model->MOS1nlev;
+            return(OK);
+        case MOS1_MOD_GDSNOI:
+            value->rValue = model->MOS1gdsnoi;
+            return(OK);
+        case MOS1_MOD_AF:
+            value->rValue = model->MOS1fNexp;
+            return(OK);
+        case MOS1_MOD_KF:
+            value->rValue = model->MOS1fNcoef;
+            return(OK);
         case MOS1_MOD_TYPE:
-	    if (model->MOS1type > 0)
-		value->sValue = "nmos";
-	    else
-		value->sValue = "pmos";
+            if (model->MOS1type > 0)
+                value->sValue = "nmos";
+            else
+                value->sValue = "pmos";
             return(OK);
         default:
             return(E_BADPARM);

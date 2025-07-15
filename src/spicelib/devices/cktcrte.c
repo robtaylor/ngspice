@@ -20,7 +20,6 @@ CKTcrtElt(CKTcircuit *ckt, GENmodel *modPtr, GENinstance **inInstPtr, IFuid name
 {
   GENinstance *instPtr = NULL;             /* instPtr points to the data struct for per-instance data */
 
-    SPICEdev **DEVices;
     int type;
 
     DEVices = devices();
@@ -33,7 +32,7 @@ CKTcrtElt(CKTcircuit *ckt, GENmodel *modPtr, GENinstance **inInstPtr, IFuid name
     if (instPtr) { 
         if (inInstPtr)
 	    *inInstPtr = instPtr;
-        return E_EXISTS;
+        return E_EXISTS_BAD;
     }
 
     type = modPtr->GENmodType;

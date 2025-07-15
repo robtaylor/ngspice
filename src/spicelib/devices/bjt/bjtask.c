@@ -22,7 +22,6 @@ BJTask(CKTcircuit *ckt, GENinstance *instPtr, int which, IFvalue *value, IFvalue
 {
     BJTinstance *here = (BJTinstance*)instPtr;
     double tmp;
-    int itmp;
     double vr;
     double vi;
     double sr;
@@ -78,6 +77,9 @@ BJTask(CKTcircuit *ckt, GENinstance *instPtr, int which, IFvalue *value, IFvalue
         case BJT_QUEST_COLPRIMENODE:
             value->iValue = here->BJTcolPrimeNode;
             return(OK);
+        case BJT_QUEST_COLLCXNODE:
+            value->iValue = here->BJTcollCXNode;
+            return(OK);
         case BJT_QUEST_BASEPRIMENODE:
             value->iValue = here->BJTbasePrimeNode;
             return(OK);
@@ -92,18 +94,18 @@ BJTask(CKTcircuit *ckt, GENinstance *instPtr, int which, IFvalue *value, IFvalue
             return(OK);
         case BJT_QUEST_CC:
             value->rValue = *(ckt->CKTstate0 + here->BJTcc);
-            value->rValue *= here->BJTm;
+            value->rValue *= here->BJTm * BJTmodPtr(here)->BJTtype;
             return(OK);
         case BJT_QUEST_CB:
             value->rValue = *(ckt->CKTstate0 + here->BJTcb);
-            if (here->BJTmodPtr->BJTsubs==LATERAL) {
+            if (BJTmodPtr(here)->BJTsubs==LATERAL) {
                 value->rValue -= *(ckt->CKTstate0 + here->BJTcdsub);
                 if ((ckt->CKTcurrentAnalysis & DOING_TRAN) && 
                           !(ckt->CKTmode & MODETRANOP)) {
                       value->rValue -= *(ckt->CKTstate0 + here->BJTcqsub);
                 }
             }
-            value->rValue *= here->BJTm;
+            value->rValue *= here->BJTm * BJTmodPtr(here)->BJTtype;
             return(OK);
         case BJT_QUEST_GPI:
             value->rValue = *(ckt->CKTstate0 + here->BJTgpi);
@@ -229,6 +231,7 @@ BJTask(CKTcircuit *ckt, GENinstance *instPtr, int which, IFvalue *value, IFvalue
             return(OK);
         case BJT_QUEST_SENS_CPLX:
             if(ckt->CKTsenInfo){
+               int itmp;
                itmp = select->iValue + 1;
                value->cValue.real= *(ckt->CKTsenInfo->SEN_RHS[itmp]+
                    here->BJTsenParmNo);
@@ -248,11 +251,11 @@ BJTask(CKTcircuit *ckt, GENinstance *instPtr, int which, IFvalue *value, IFvalue
                        (ckt->CKTmode & MODETRANOP)) {
                 value->rValue = 0;
             } else {
-                value->rValue = -(here->BJTmodPtr->BJTsubs *
+                value->rValue = -(BJTmodPtr(here)->BJTsubs *
                                    (*(ckt->CKTstate0 + here->BJTcqsub) +
                                     *(ckt->CKTstate0 + here->BJTcdsub)));
             }
-            value->rValue *= here->BJTm;
+            value->rValue *= here->BJTm * BJTmodPtr(here)->BJTtype;
             return(OK);
         case BJT_QUEST_CE :
             if (ckt->CKTcurrentAnalysis & DOING_AC) {
@@ -263,7 +266,7 @@ BJTask(CKTcircuit *ckt, GENinstance *instPtr, int which, IFvalue *value, IFvalue
             } else {
                 value->rValue = -*(ckt->CKTstate0 + here->BJTcc);
                 value->rValue -= *(ckt->CKTstate0 + here->BJTcb);
-                if (here->BJTmodPtr->BJTsubs==VERTICAL) {
+                if (BJTmodPtr(here)->BJTsubs==VERTICAL) {
                     value->rValue += *(ckt->CKTstate0 + here->BJTcdsub);
                     if ((ckt->CKTcurrentAnalysis & DOING_TRAN) && 
                             !(ckt->CKTmode & MODETRANOP)) {
@@ -271,7 +274,7 @@ BJTask(CKTcircuit *ckt, GENinstance *instPtr, int which, IFvalue *value, IFvalue
                     }
                 }
             }
-            value->rValue *= here->BJTm;
+            value->rValue *= here->BJTm * BJTmodPtr(here)->BJTtype;
             return(OK);
         case BJT_QUEST_POWER :
             if (ckt->CKTcurrentAnalysis & DOING_AC) {

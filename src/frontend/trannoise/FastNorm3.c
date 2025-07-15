@@ -92,7 +92,7 @@ c  but avoids most of the well-known defects of this type of generator
 c  by, in effect, generating x[n+k] from x[n] as defined by the
 c  sequence above, where k is chosen randomly in 1 ... 128 with the
 c  help of a subsidiary Tauseworth-type generator.
-c          For the positve integer generator irandm, the less
+c          For the positive integer generator irandm, the less
 c  significant digits are more random than is usual for a Lehmer
 c  generator. The last n<31 digits do not repeat with a period of 2^n.
 c  This is also true of the unsigned integer generator urandm, but less
@@ -600,7 +600,7 @@ Sf wk1 [WL], wk2 [WL];          /*  Pools of variates. */
 static void
 regen(void)
 {
-    Sw i, j, k, m;
+    Sw i, j, m;
     Sf p, q, r, s, t;
     Sw topv[6], ord[4], *top;
     Sf *ppt[4], *ptn;
@@ -626,10 +626,8 @@ reran1:
     for (i = 2; i >= 0; i--)
         for (j = 0; j <= i; j++)
             if (top[j] < top[j+1]) {
-                k = top[j];  top[j] = top[j+1];
-                top[j+1] = k;
-                k = ord[j];  ord[j] = ord[j+1];
-                ord[j+1] = k;
+                SWAP(Sw, top[j], top[j+1]);
+                SWAP(Sw, ord[j], ord[j+1]);
             }
 
     /* Ensure all different */

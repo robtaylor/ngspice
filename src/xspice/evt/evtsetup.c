@@ -3,11 +3,10 @@ FILE    EVTsetup.c
 
 MEMBER OF process XSPICE
 
-Copyright 1991
+Public Domain
+
 Georgia Tech Research Corporation
 Atlanta, Georgia 30332
-All Rights Reserved
-
 PROJECT A-8503
 
 AUTHORS
@@ -61,7 +60,8 @@ static int EVTsetup_data(CKTcircuit *ckt);
 static int EVTsetup_jobs(CKTcircuit *ckt);
 static int EVTsetup_load_ptrs(CKTcircuit *ckt);
 
-
+int EVTsetup_plot(CKTcircuit* ckt, char* plottypename);
+int EVTswitch_plot(CKTcircuit* ckt, const char* plottypename);
 
 
 /* Allocation macros with built-in check for out-of-memory */
@@ -135,6 +135,29 @@ int EVTsetup(
 }
 
 
+int EVTunsetup(
+    CKTcircuit* ckt)   /* The circuit structure */
+{
+    int err;
+
+    /* Exit immediately if no event-driven instances in circuit */
+    if (ckt->evt->counts.num_insts == 0)
+        return(OK);
+
+    /* Clear the inst, node, and output queues, and initialize the to_call */
+    /* elements in the instance queue to call all event-driven instances */
+    err = EVTsetup_queues(ckt);
+    if (err)
+        return(err);
+
+    /* Initialize additional event data */
+    g_mif_info.circuit.evt_step = 0.0;
+
+    /* Return OK */
+    return(OK);
+}
+
+
 
 
 /*
@@ -160,7 +183,6 @@ static int EVTsetup_queues(
 
     Evt_Inst_Event_t    *inst_event;
     Evt_Output_Event_t  *output_event;
-
     void                *ptr;
 
     /* ************************ */
@@ -232,16 +254,9 @@ static int EVTsetup_queues(
             output_event = output_event->next;
             FREE(ptr);
         }
-        output_event = output_queue->free[i];
-        while(output_event) {
-            ptr = output_event;
-            output_event = output_event->next;
-            FREE(ptr);
-        }
         output_queue->head[i] = NULL;
         output_queue->current[i] = &(output_queue->head[i]);
         output_queue->last_step[i] = &(output_queue->head[i]);
-        output_queue->free[i] = NULL;
     }
 
     output_queue->next_time = 0.0;
@@ -251,15 +266,52 @@ static int EVTsetup_queues(
     output_queue->num_pending = 0;
     output_queue->num_changed = 0;
 
-    for(i = 0; i < num_outputs; i++) {
-        output_queue->modified[i] = MIF_FALSE;
-        output_queue->pending[i] = MIF_FALSE;
-        output_queue->changed[i] = MIF_FALSE;
-    }
+    if (num_outputs > 0) {
+        for (i = 0; i < num_outputs; i++) {
+            output_queue->modified[i] = MIF_FALSE;
+            output_queue->pending[i] = MIF_FALSE;
+            output_queue->changed[i] = MIF_FALSE;
+        }
 
-    return(OK);
+        if (output_queue->free_list[0]) {
+            Evt_purge_free_outputs();
+        } else {
+            Evt_Output_Info_t *output_info;
+            Evt_Node_Info_t   *node;
+
+            /* ********************************************************* *
+             * On first call for this circuit, set the free-list pointer
+             * for each output queue.
+             * ********************************************************* */
+
+            output_info = ckt->evt->info.output_list;
+            for (i = 0; i < num_outputs; i++) {
+                node =  ckt->evt->info.node_table[output_info->node_index];
+                output_queue->free_list[i] =
+                    &g_evt_udn_info[node->udn_index]->free_list;
+                output_info = output_info->next;
+            }
+        }
+    }
+    return OK;
 }
 
+void Evt_purge_free_outputs(void)
+{
+    Evt_Output_Event_t  *output_event, *next;
+    int                  i;
+
+    for (i = 0; i < g_evt_num_udn_types; ++i) {
+        output_event = g_evt_udn_info[i]->free_list;
+        g_evt_udn_info[i]->free_list = NULL;
+        while (output_event) {
+            next = output_event->next;
+            tfree(output_event->value);
+            tfree(output_event);
+            output_event = next;
+        }
+    }
+}
 
 
 /*
@@ -446,6 +498,7 @@ static int EVTsetup_jobs(
 
     /* Allocate/reallocate necessary pointers */
     CKREALLOC(jobs->job_name, num_jobs, char *)
+    CKREALLOC(jobs->job_plot, num_jobs, char *)
     CKREALLOC(jobs->node_data, num_jobs, Evt_Node_Data_t *)
     CKREALLOC(jobs->state_data, num_jobs, Evt_State_Data_t *)
     CKREALLOC(jobs->msg_data, num_jobs, Evt_Msg_Data_t *)
@@ -454,6 +507,7 @@ static int EVTsetup_jobs(
     /* Fill in the pointers, etc. for this new job */
     i = num_jobs - 1;
     jobs->job_name[i] = MIFcopy(ckt->CKTcurJob->JOBname);
+    jobs->job_plot[i] = NULL; /* fill in later */
     jobs->node_data[i] = data->node;
     jobs->state_data[i] = data->state;
     jobs->msg_data[i] = data->msg;
@@ -507,6 +561,9 @@ static int EVTsetup_load_ptrs(
 
         /* Get the MIFinstance pointer */
         fast = ckt->evt->info.inst_table[i]->inst_ptr;
+
+        /* Reset init flag, required when any run is called a second time */
+        fast->initialized = FALSE;
 
         /* Loop through all connections */
         num_conn = fast->num_conn;
@@ -572,4 +629,58 @@ static int EVTsetup_load_ptrs(
     } /* end for number of insts */
 
     return(OK);
+}
+
+/* get the analog plot name and store it into the current event job */
+int EVTsetup_plot(CKTcircuit* ckt, char *plotname) {
+    if (ckt->evt->counts.num_insts == 0)
+        return(OK);
+    
+    Evt_Job_t* jobs = &(ckt->evt->jobs);
+    if (jobs) {
+        jobs->job_plot[jobs->num_jobs - 1] = copy(plotname);
+        jobs->cur_job = jobs->num_jobs - 1;
+        return OK;
+    }
+    return 1;
+}
+
+/* If command 'setplot' is called, we switch to the corresponding event data.
+   Their pointers have been stored in the jobs structure. The circuit must
+   be still available!
+*/
+int EVTswitch_plot(CKTcircuit* ckt, const char* plottypename) {
+    int i;
+    bool found = FALSE;
+
+    Evt_Job_t* jobs;
+    Evt_Data_t* data;
+
+    if (!ckt)
+        return (E_NOTFOUND);
+
+    if (ckt->evt->counts.num_insts == 0)
+        return(E_NOTFOUND);
+
+    jobs = &(ckt->evt->jobs);
+    data = &(ckt->evt->data);
+
+    if (jobs) {
+        /* check for the job with current plot type name , e.g. tran2 */
+        for (i = 0; i < jobs->num_jobs; i++) {
+            if (jobs->job_plot[i] && eq(jobs->job_plot[i], plottypename)) {
+                found = TRUE;
+                jobs->cur_job = i;
+                break;
+            }
+        }
+        if (found) {
+            data->node = jobs->node_data[i];
+            data->state = jobs->state_data[i];
+            data->msg = jobs->msg_data[i];
+            data->statistics = jobs->statistics[i];
+            return OK;
+        }
+    }
+    return 1;
 }

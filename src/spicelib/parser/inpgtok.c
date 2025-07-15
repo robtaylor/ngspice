@@ -31,6 +31,11 @@ INPgetTok(char **line, char **token, int gobble)
     char *point;
     int signstate;
 
+    if (!*line) {
+        *token = NULL;
+        return (E_PARMVAL);
+    }
+
     /* scan along throwing away garbage characters until end of line
        or a separation char is found */
     for (point = *line; *point != '\0'; point++) {
@@ -89,12 +94,12 @@ INPgetTok(char **line, char **token, int gobble)
         if (*point == '^')
             break;
 
-        if (isdigit(*point) || *point == '.') {
+        if (isdigit_c(*point) || *point == '.') {
             if (signstate > 1)
                 signstate = 3;
             else
                 signstate = 1;
-        } else if (tolower(*point) == 'e' && signstate == 1)
+        } else if (tolower_c(*point) == 'e' && signstate == 1)
             signstate = 2;
         else
             signstate = 3;
@@ -255,7 +260,7 @@ INPgetUTok(char **line, char **token, int gobble)
         separator = '\'';
         point++;
     } else
-        separator = 0;
+        separator = '\0';
 
     /* mark beginning of token */
     *line = point;
@@ -285,9 +290,7 @@ INPgetUTok(char **line, char **token, int gobble)
             break;
         /* This is not complex enough to catch all errors, but it will
            get the "good" parses */
-        if (*point == '+' && (signstate == 1 || signstate == 3))
-            break;
-        if (*point == '-') {
+        if (*point == '+' || *point == '-') {
             if (signstate == 1 || signstate == 3)
                 break;
             signstate += 1;
@@ -300,12 +303,12 @@ INPgetUTok(char **line, char **token, int gobble)
         if (*point == '^')
             break;
 
-        if (isdigit(*point) || *point == '.') {
+        if (isdigit_c(*point) || *point == '.') {
             if (signstate > 1)
                 signstate = 3;
             else
                 signstate = 1;
-        } else if (tolower(*point) == 'e' && signstate == 1)
+        } else if (tolower_c(*point) == 'e' && signstate == 1)
             signstate = 2;
         else
             signstate = 3;

@@ -17,7 +17,7 @@ Author:	1987 Kartikeya Mayaram, U. C. Berkeley CAD Group
 #include "oneddefs.h"
 
 void
-NUMDconductance(ONEdevice *pDevice, BOOLEAN tranAnalysis, 
+NUMDconductance(ONEdevice *pDevice, bool tranAnalysis, 
                 double *intCoeff, double *gd)
 {
   ONEelem *pElem = pDevice->elemArray[pDevice->numNodes - 1];
@@ -42,7 +42,12 @@ NUMDconductance(ONEdevice *pDevice, BOOLEAN tranAnalysis,
     pDevice->rhs[pNode->pEqn] = -pEdge->dJpDpsiP1;
   }
   incVpn = pDevice->dcDeltaSolution;
-  spSolve(pDevice->matrix, pDevice->rhs, incVpn, NULL, NULL);
+
+#ifdef KLU
+  SMPsolveKLUforCIDER (pDevice->matrix, pDevice->rhs, incVpn, NULL, NULL) ;
+#else
+  SMPsolveForCIDER (pDevice->matrix, pDevice->rhs, incVpn) ;
+#endif
 
   pElem = pDevice->elemArray[1];
   pNode = pElem->pRightNode;
@@ -63,7 +68,7 @@ NUMDconductance(ONEdevice *pDevice, BOOLEAN tranAnalysis,
 }
 
 void
-NBJTconductance(ONEdevice *pDevice, BOOLEAN tranAnalysis, double *intCoeff,
+NBJTconductance(ONEdevice *pDevice, bool tranAnalysis, double *intCoeff,
     double *dIeDVce, double *dIcDVce, double *dIeDVbe, double *dIcDVbe)
 {
   ONEelem *pLastElem = pDevice->elemArray[pDevice->numNodes - 1];
@@ -95,7 +100,12 @@ NBJTconductance(ONEdevice *pDevice, BOOLEAN tranAnalysis, double *intCoeff,
     pDevice->rhs[pNode->pEqn] = -pEdge->dJpDpsiP1;
   }
   incVce = pDevice->dcDeltaSolution;
-  spSolve(pDevice->matrix, pDevice->rhs, incVce, NULL, NULL);
+
+#ifdef KLU
+  SMPsolveKLUforCIDER (pDevice->matrix, pDevice->rhs, incVce, NULL, NULL) ;
+#else
+  SMPsolveForCIDER (pDevice->matrix, pDevice->rhs, incVce) ;
+#endif
 
   /* zero the rhs before loading in the new rhs base contribution */
   for (index = 1; index <= pDevice->numEqns; index++) {
@@ -114,7 +124,12 @@ NBJTconductance(ONEdevice *pDevice, BOOLEAN tranAnalysis, double *intCoeff,
   }
 
   incVbe = pDevice->copiedSolution;
-  spSolve(pDevice->matrix, pDevice->rhs, incVbe, NULL, NULL);
+
+#ifdef KLU
+  SMPsolveKLUforCIDER (pDevice->matrix, pDevice->rhs, incVbe, NULL, NULL) ;
+#else
+  SMPsolveForCIDER (pDevice->matrix, pDevice->rhs, incVbe) ;
+#endif
 
   pElem = pDevice->elemArray[1];/* first element */
   pEdge = pElem->pEdge;
@@ -165,7 +180,7 @@ NBJTconductance(ONEdevice *pDevice, BOOLEAN tranAnalysis, double *intCoeff,
 }
 
 void
-NUMDcurrent(ONEdevice *pDevice, BOOLEAN tranAnalysis, double *intCoeff, 
+NUMDcurrent(ONEdevice *pDevice, bool tranAnalysis, double *intCoeff, 
             double *id)
 {
   ONEnode *pNode;
@@ -195,7 +210,7 @@ NUMDcurrent(ONEdevice *pDevice, BOOLEAN tranAnalysis, double *intCoeff,
 }
 
 void
-NBJTcurrent(ONEdevice *pDevice, BOOLEAN tranAnalysis, double *intCoeff, 
+NBJTcurrent(ONEdevice *pDevice, bool tranAnalysis, double *intCoeff, 
             double *ie, double *ic)
 {
   ONEnode *pNode;

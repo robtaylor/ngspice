@@ -7,15 +7,12 @@ libind_la_SOURCES =	\
 	indacld.c	\
 	indask.c	\
 	inddefs.h	\
-	inddel.c	\
-	inddest.c	\
 	indext.h	\
 	indinit.c	\
 	indinit.h	\
 	inditf.h	\
 	indload.c	\
 	indmask.c	\
-	indmdel.c	\
 	indmpar.c	\
 	indparam.c	\
 	indpzld.c	\
@@ -29,9 +26,6 @@ libind_la_SOURCES =	\
 	indtrunc.c	\
 	mutacld.c	\
 	mutask.c	\
-	mutdel.c	\
-	mutdest.c	\
-	mutmdel.c	\
 	mutparam.c	\
 	mutpzld.c	\
 	mutsetup.c	\
@@ -40,7 +34,12 @@ libind_la_SOURCES =	\
 	muttemp.c
 
 
+if KLU_WANTED
+libind_la_SOURCES += indbindCSC.c
+libind_la_SOURCES += mutbindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)
+
 MAINTAINERCLEANFILES = Makefile.in

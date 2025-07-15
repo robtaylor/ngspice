@@ -1,13 +1,17 @@
 # Process this file with automake
 
-EXTRA_DIST = README examples icm xspice.c .gitignore
+EXTRA_DIST = README examples icm xspice.c .gitignore \
+             verilog/vlnggen \
+             verilog/verilator_shim.cpp verilog/verilator_main.cpp \
+             verilog/libvvp.def verilog/MSVC.CMD verilog/README.txt \
+             vhdl/ghnggen \
+             vhdl/ghdl_shim.h vhdl/ghdl_shim.c vhdl/ghdl_vpi.c
 
 ## This is removed because icm relies upon the existance of all other
 ## libs.  It is currently compiled manually, last.
 ##SUBDIRS = mif cm enh evt ipc idn icm
 
-SUBDIRS = mif cm enh evt ipc idn cmpp icm
-
+SUBDIRS = mif cm enh evt ipc idn cmpp icm verilog vhdl
 
 dist-hook:
 	rm -f "$(distdir)/icm/makedefs"
@@ -15,7 +19,7 @@ dist-hook:
 	rm -rf `find $(distdir)/icm -name .deps`
 	rm -rf `find $(distdir)/icm -name *.o`
 	rm -rf `find $(distdir)/icm -name *.cm`
-	for sub in analog digital spice2poly xtradev xtraevt ; do \
+	for sub in analog digital spice2poly xtradev xtraevt table ; do \
 	    rm -rf `find $(distdir)/icm/$$sub -name cmextrn.h`; \
 	    rm -rf `find $(distdir)/icm/$$sub -name cminfo.h`; \
 	    rm -rf `find $(distdir)/icm/$$sub -name udnextrn.h`; \

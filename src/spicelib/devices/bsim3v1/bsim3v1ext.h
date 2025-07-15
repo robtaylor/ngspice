@@ -8,12 +8,9 @@ File: bsim3v1ext.h
 extern int BSIM3v1acLoad(GENmodel *, CKTcircuit *);
 extern int BSIM3v1ask(CKTcircuit *, GENinstance *, int, IFvalue *, IFvalue *);
 extern int BSIM3v1convTest(GENmodel *, CKTcircuit *);
-extern int BSIM3v1delete(GENmodel *, IFuid, GENinstance **);
-extern void BSIM3v1destroy(GENmodel **);
 extern int BSIM3v1getic(GENmodel *, CKTcircuit *);
 extern int BSIM3v1load(GENmodel *, CKTcircuit *);
 extern int BSIM3v1mAsk(CKTcircuit *, GENmodel *, int, IFvalue *);
-extern int BSIM3v1mDelete(GENmodel **, IFuid, GENmodel *);
 extern int BSIM3v1mParam(int, IFvalue *, GENmodel *);
 extern void BSIM3v1mosCap(CKTcircuit *, double, double, double, double,
         double, double, double, double, double, double, double,
@@ -29,3 +26,8 @@ extern int BSIM3v1trunc(GENmodel *, CKTcircuit *, double *);
 extern int BSIM3v1noise(int, int, GENmodel *, CKTcircuit *, Ndata *, double *);
 extern int BSIM3v1unsetup(GENmodel *, CKTcircuit *);
 
+#ifdef KLU
+extern int BSIM3v1bindCSC (GENmodel*, CKTcircuit*) ;
+extern int BSIM3v1bindCSCComplex (GENmodel*, CKTcircuit*) ;
+extern int BSIM3v1bindCSCComplexToReal (GENmodel*, CKTcircuit*) ;
+#endif

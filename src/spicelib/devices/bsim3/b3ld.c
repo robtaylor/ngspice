@@ -46,26 +46,26 @@ CKTcircuit *ckt)
 #ifdef USE_OMP
     int idx;
     BSIM3model *model = (BSIM3model*)inModel;
-    int good = 0;
+    int error = 0;
     BSIM3instance **InstArray;
     InstArray = model->BSIM3InstanceArray;
 
 #pragma omp parallel for
     for (idx = 0; idx < model->BSIM3InstCount; idx++) {
         BSIM3instance *here = InstArray[idx];
-        int local_good = BSIM3LoadOMP(here, ckt);
-        if (local_good)
-            good = local_good;
+        int local_error = BSIM3LoadOMP(here, ckt);
+        if (local_error)
+            error = local_error;
     }
 
     BSIM3LoadRhsMat(inModel, ckt);
 
-    return good;
+    return error;
 }
 
 
 int BSIM3LoadOMP(BSIM3instance *here, CKTcircuit *ckt) {
-BSIM3model *model;
+BSIM3model *model = BSIM3modPtr(here);
 #else
 BSIM3model *model = (BSIM3model*)inModel;
 BSIM3instance *here;
@@ -173,19 +173,15 @@ struct bsim3SizeDependParam *pParam;
 int ByPass, Check, ChargeComputationNeeded, error;
 /* double junk[50]; */
 
-#ifdef USE_OMP
-model = here->BSIM3modPtr;
-#endif
-
 ScalingFactor = 1.0e-9;
 ChargeComputationNeeded =
                  ((ckt->CKTmode & (MODEDCTRANCURVE | MODEAC | MODETRAN | MODEINITSMSIG)) ||
                  ((ckt->CKTmode & MODETRANOP) && (ckt->CKTmode & MODEUIC)))
                  ? 1 : 0;
 #ifndef USE_OMP
-for (; model != NULL; model = model->BSIM3nextModel)
-{    for (here = model->BSIM3instances; here != NULL;
-          here = here->BSIM3nextInstance)
+for (; model != NULL; model = BSIM3nextModel(model))
+{    for (here = BSIM3instances(model); here != NULL;
+          here = BSIM3nextInstance(here))
           {
 #endif
           Check = 1;
@@ -2816,6 +2812,10 @@ line755:
           if (!ChargeComputationNeeded)
               goto line850;
 
+          /* no integration, if dc sweep, but keep evaluating capacitances */
+          if (ckt->CKTmode & MODEDCTRANCURVE)
+              goto line850;
+
           if (ckt->CKTmode & MODEINITTRAN)
           {   *(ckt->CKTstate1 + here->BSIM3qb) =
                     *(ckt->CKTstate0 + here->BSIM3qb);
@@ -3130,7 +3130,7 @@ return(OK);
 #ifdef USE_OMP
 void BSIM3LoadRhsMat(GENmodel *inModel, CKTcircuit *ckt)
 {
-    unsigned int InstCount, idx;
+    int InstCount, idx;
     BSIM3instance **InstArray;
     BSIM3instance *here;
     BSIM3model *model = (BSIM3model*)inModel;
@@ -3140,6 +3140,7 @@ void BSIM3LoadRhsMat(GENmodel *inModel, CKTcircuit *ckt)
 
     for(idx = 0; idx < InstCount; idx++) {
        here = InstArray[idx];
+       model = BSIM3modPtr(here);
         /* Update b for Ax = b */
        (*(ckt->CKTrhs + here->BSIM3gNode) -= here->BSIM3rhsG);
        (*(ckt->CKTrhs + here->BSIM3bNode) -= here->BSIM3rhsB);
@@ -3149,41 +3150,41 @@ void BSIM3LoadRhsMat(GENmodel *inModel, CKTcircuit *ckt)
            (*(ckt->CKTrhs + here->BSIM3qNode) += here->BSIM3rhsQ);
 
         /* Update A for Ax = b */
-           (*(here->BSIM3DdPtr) += here->BSIM3DdPt);
-           (*(here->BSIM3GgPtr) += here->BSIM3GgPt);
-           (*(here->BSIM3SsPtr) += here->BSIM3SsPt);
-           (*(here->BSIM3BbPtr) += here->BSIM3BbPt);
-           (*(here->BSIM3DPdpPtr) += here->BSIM3DPdpPt);
-           (*(here->BSIM3SPspPtr) += here->BSIM3SPspPt);
-           (*(here->BSIM3DdpPtr) -= here->BSIM3DdpPt);
-           (*(here->BSIM3GbPtr) -= here->BSIM3GbPt);
-           (*(here->BSIM3GdpPtr) += here->BSIM3GdpPt);
-           (*(here->BSIM3GspPtr) += here->BSIM3GspPt);
-           (*(here->BSIM3SspPtr) -= here->BSIM3SspPt);
-           (*(here->BSIM3BgPtr) += here->BSIM3BgPt);
-           (*(here->BSIM3BdpPtr) += here->BSIM3BdpPt);
-           (*(here->BSIM3BspPtr) += here->BSIM3BspPt);
-           (*(here->BSIM3DPdPtr) -= here->BSIM3DPdPt);
-           (*(here->BSIM3DPgPtr) += here->BSIM3DPgPt);
-           (*(here->BSIM3DPbPtr) -= here->BSIM3DPbPt);
-           (*(here->BSIM3DPspPtr) -= here->BSIM3DPspPt);
-           (*(here->BSIM3SPgPtr) += here->BSIM3SPgPt);
-           (*(here->BSIM3SPsPtr) -= here->BSIM3SPsPt);
-           (*(here->BSIM3SPbPtr) -= here->BSIM3SPbPt);
-           (*(here->BSIM3SPdpPtr) -= here->BSIM3SPdpPt);
+       (*(here->BSIM3DdPtr) += here->BSIM3DdPt);
+       (*(here->BSIM3GgPtr) += here->BSIM3GgPt);
+       (*(here->BSIM3SsPtr) += here->BSIM3SsPt);
+       (*(here->BSIM3BbPtr) += here->BSIM3BbPt);
+       (*(here->BSIM3DPdpPtr) += here->BSIM3DPdpPt);
+       (*(here->BSIM3SPspPtr) += here->BSIM3SPspPt);
+       (*(here->BSIM3DdpPtr) -= here->BSIM3DdpPt);
+       (*(here->BSIM3GbPtr) -= here->BSIM3GbPt);
+       (*(here->BSIM3GdpPtr) += here->BSIM3GdpPt);
+       (*(here->BSIM3GspPtr) += here->BSIM3GspPt);
+       (*(here->BSIM3SspPtr) -= here->BSIM3SspPt);
+       (*(here->BSIM3BgPtr) += here->BSIM3BgPt);
+       (*(here->BSIM3BdpPtr) += here->BSIM3BdpPt);
+       (*(here->BSIM3BspPtr) += here->BSIM3BspPt);
+       (*(here->BSIM3DPdPtr) -= here->BSIM3DPdPt);
+       (*(here->BSIM3DPgPtr) += here->BSIM3DPgPt);
+       (*(here->BSIM3DPbPtr) -= here->BSIM3DPbPt);
+       (*(here->BSIM3DPspPtr) -= here->BSIM3DPspPt);
+       (*(here->BSIM3SPgPtr) += here->BSIM3SPgPt);
+       (*(here->BSIM3SPsPtr) -= here->BSIM3SPsPt);
+       (*(here->BSIM3SPbPtr) -= here->BSIM3SPbPt);
+       (*(here->BSIM3SPdpPtr) -= here->BSIM3SPdpPt);
 
-           if (here->BSIM3nqsMod)
-           {   *(here->BSIM3QqPtr) += here->BSIM3QqPt;
+       if (here->BSIM3nqsMod)
+       {   *(here->BSIM3QqPtr) += here->BSIM3QqPt;
 
-               *(here->BSIM3DPqPtr) += here->BSIM3DPqPt;
-               *(here->BSIM3SPqPtr) += here->BSIM3SPqPt;
-               *(here->BSIM3GqPtr) -= here->BSIM3GqPt;
+           *(here->BSIM3DPqPtr) += here->BSIM3DPqPt;
+           *(here->BSIM3SPqPtr) += here->BSIM3SPqPt;
+           *(here->BSIM3GqPtr) -= here->BSIM3GqPt;
 
-               *(here->BSIM3QgPtr) += here->BSIM3QgPt;
-               *(here->BSIM3QdpPtr) += here->BSIM3QdpPt;
-               *(here->BSIM3QspPtr) += here->BSIM3QspPt;
-               *(here->BSIM3QbPtr) += here->BSIM3QbPt;
-           }
+           *(here->BSIM3QgPtr) += here->BSIM3QgPt;
+           *(here->BSIM3QdpPtr) += here->BSIM3QdpPt;
+           *(here->BSIM3QspPtr) += here->BSIM3QspPt;
+           *(here->BSIM3QbPtr) += here->BSIM3QbPt;
+       }
 
     }
 }

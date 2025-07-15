@@ -23,12 +23,9 @@ ngspice integration
 
 extern int SOI3acLoad(GENmodel *,CKTcircuit*);
 extern int SOI3ask(CKTcircuit*,GENinstance*,int,IFvalue*,IFvalue*);
-extern int SOI3delete(GENmodel*,IFuid,GENinstance**);
-extern void SOI3destroy(GENmodel**);
 extern int SOI3getic(GENmodel*,CKTcircuit*);
 extern int SOI3load(GENmodel*,CKTcircuit*);
 extern int SOI3mAsk(CKTcircuit *,GENmodel *,int,IFvalue*);
-extern int SOI3mDelete(GENmodel**,IFuid,GENmodel*);
 extern int SOI3mParam(int,IFvalue*,GENmodel*);
 extern void SOI3cap(double,double,double,
                     	double*,double*,double*,double*,
@@ -65,3 +62,9 @@ extern int SOI3convTest(GENmodel*,CKTcircuit*);
 
 /* extern int SOI3disto(int,GENmodel*,CKTcircuit*); */
 extern int SOI3noise(int,int,GENmodel*,CKTcircuit*,Ndata*,double*);
+
+#ifdef KLU
+extern int SOI3bindCSC (GENmodel*, CKTcircuit*) ;
+extern int SOI3bindCSCComplex (GENmodel*, CKTcircuit*) ;
+extern int SOI3bindCSCComplexToReal (GENmodel*, CKTcircuit*) ;
+#endif

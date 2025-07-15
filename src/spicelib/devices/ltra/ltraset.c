@@ -25,7 +25,7 @@ LTRAsetup(SMPmatrix *matrix, GENmodel *inModel, CKTcircuit *ckt, int *state)
   NG_IGNORE(state);
 
   /* loop through all the transmission line models */
-  for (; model != NULL; model = model->LTRAnextModel) {
+  for (; model != NULL; model = LTRAnextModel(model)) {
 
     if (!model->LTRAnlGiven) {
       model->LTRAnl = .25;
@@ -169,8 +169,8 @@ LTRAsetup(SMPmatrix *matrix, GENmodel *inModel, CKTcircuit *ckt, int *state)
       return (E_BADPARM);
     }
     /* loop through all the instances of the model */
-    for (here = model->LTRAinstances; here != NULL;
-	here = here->LTRAnextInstance) {
+    for (here = LTRAinstances(model); here != NULL;
+         here = LTRAnextInstance(here)) {
 
       if (here->LTRAbrEq1 == 0) {
 	error = CKTmkVolt(ckt, &tmp, here->LTRAname, "i1");
@@ -226,18 +226,45 @@ LTRAunsetup(GENmodel *inModel, CKTcircuit *ckt)
   LTRAinstance *here;
 
   for (model = (LTRAmodel *) inModel; model != NULL;
-      model = model->LTRAnextModel) {
-    for (here = model->LTRAinstances; here != NULL;
-	here = here->LTRAnextInstance) {
-      if (here->LTRAbrEq1) {
-	CKTdltNNum(ckt, here->LTRAbrEq1);
-	here->LTRAbrEq1 = 0;
-      }
-      if (here->LTRAbrEq2) {
+      model = LTRAnextModel(model)) {
+    for (here = LTRAinstances(model); here != NULL;
+         here = LTRAnextInstance(here)) {
+      if (here->LTRAbrEq2 > 0)
 	CKTdltNNum(ckt, here->LTRAbrEq2);
-	here->LTRAbrEq2 = 0;
-      }
+      here->LTRAbrEq2 = 0;
+
+      if (here->LTRAbrEq1 > 0)
+	CKTdltNNum(ckt, here->LTRAbrEq1);
+      here->LTRAbrEq1 = 0;
     }
   }
   return OK;
+}
+
+int
+LTRAdevDelete(GENinstance* inst)
+{
+    LTRAinstance* here = (LTRAinstance*)inst;
+    if (here->LTRAv1)
+        tfree(here->LTRAv1);
+    if (here->LTRAi1)
+        tfree(here->LTRAi1);
+    if (here->LTRAv2)
+        tfree(here->LTRAv2);
+    if (here->LTRAi2)
+        tfree(here->LTRAi2);
+    return OK;
+}
+
+int
+LTRAmDelete(GENmodel* gen_model)
+{
+    LTRAmodel* model = (LTRAmodel*)gen_model;
+    if (model->LTRAh1dashCoeffs)
+        tfree(model->LTRAh1dashCoeffs);
+    if (model->LTRAh2Coeffs)
+        tfree(model->LTRAh2Coeffs);
+    if (model->LTRAh3dashCoeffs)
+        tfree(model->LTRAh3dashCoeffs);
+    return OK;
 }

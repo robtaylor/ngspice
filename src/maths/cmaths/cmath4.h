@@ -1,7 +1,11 @@
 /*************
- * Header file for cmath4.c
  * 1999 E. Rouat
+ * 3-Clause BSD
  ************/
+
+ /** \file cmath4.h
+	 \brief Header file for cmath4.c, function prototypes
+ */
 
 #ifndef ngspice_CMATH4_H
 #define ngspice_CMATH4_H
@@ -12,6 +16,8 @@ void * cx_not(void *data, short int type, int length, int *newlength, short int 
 void * cx_interpolate(void *data, short int type, int length, int *newlength, 
 		      short int *newtype, struct plot *pl, struct plot *newpl, int grouping);
 void * cx_deriv(void *data, short int type, int length, int *newlength, short int *newtype, 
+		struct plot *pl, struct plot *newpl, int grouping);
+void * cx_integ(void *data, short int type, int length, int *newlength, short int *newtype,
 		struct plot *pl, struct plot *newpl, int grouping);
 void * cx_group_delay(void *data, short int type, int length, int *newlength, short int *newtype, 
 		struct plot *pl, struct plot *newpl, int grouping);

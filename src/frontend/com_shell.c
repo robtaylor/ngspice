@@ -1,6 +1,7 @@
 /*************
 * com_shell.c
 ************/
+#include <stdio.h>
 
 #include "ngspice/ngspice.h"
 #include "ngspice/wordlist.h"
@@ -10,18 +11,23 @@
 #include "ngspice/cpextern.h"
 
 
-/* Fork a shell. */
+#ifdef _WIN32
+#define SHELL "cmd /k"
+#else
+#define SHELL "/bin/sh"
+#endif
 
+/* Fork a shell. */
 void
 com_shell(wordlist *wl)
 {
-    char *com, *shell = NULL;
+    int   status;
+    char *shell = NULL;
 
     shell = getenv("SHELL");
-    if (shell == NULL)
-        shell = "/bin/csh";
-
-    cp_ccon(FALSE);
+    if (shell == NULL) {
+        shell = SHELL;
+    }
 
 #ifdef HAVE_VFORK_H
     /* XXX Needs to switch process groups.  Also, worry about suspend */
@@ -33,8 +39,9 @@ com_shell(wordlist *wl)
             execl(shell, shell, 0);
             _exit(99);
         } else {
-            com = wl_flatten(wl);
+            char * const com = wl_flatten(wl);
             execl("/bin/sh", "sh", "-c", com, 0);
+            txfree(com);
         }
     } else {
         /* XXX Better have all these signals */
@@ -52,12 +59,24 @@ com_shell(wordlist *wl)
 #else
     /* Easier to forget about changing the io descriptors. */
     if (wl) {
-        com = wl_flatten(wl);
-        system(com);
-        tfree(com);
-    } else {
-        system(shell);
+        char * const com = wl_flatten(wl);
+
+        status = system(com);
+        if (status == -1) {
+            (void) fprintf(cp_err, "Unable to execute \"%s\".\n", com);
+        }
+        txfree(com);
     }
+    else {
+        status = system(shell);
+        if (status == -1) {
+            (void) fprintf(cp_err, "Unable to execute \"%s\".\n", shell);
+        }
+    }
+    cp_vset("shellstatus", CP_NUM, &status);
 #endif
 
-}
+} /* end of function com_shell */
+
+
+

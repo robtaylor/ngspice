@@ -42,6 +42,7 @@ NON-STANDARD FEATURES
 
 #include "ngspice/cktdefs.h"
 #include "ngspice/cpstd.h"
+#include "ngspice/evt.h"
 #include "ngspice/mifdefs.h"
 #include "ngspice/ipc.h"
 
@@ -64,6 +65,9 @@ void EVTtermInsert(
     char            **err_msg);
 
 int EVTsetup(CKTcircuit *ckt);
+int EVTunsetup(CKTcircuit* ckt);
+
+int EVTdest(Evt_Ckt_Data_t *evt);
 
 int EVTiter(CKTcircuit *ckt);
 
@@ -88,9 +92,14 @@ void EVTqueue_inst(
 
 void EVTdequeue(CKTcircuit *ckt, double time);
 
-int EVTload(CKTcircuit *ckt, int inst_index);
+int EVTload(CKTcircuit *ckt, MIFinstance *inst);
+
+int EVTload_with_event(CKTcircuit *ckt, MIFinstance *inst, Mif_Call_Type_t type);
 
 void EVTprint(wordlist *wl);
+void EVTprintvcd(wordlist *wl);
+void EVTsave(wordlist *wl);
+void EVTdisplay(wordlist *wl);
 
 int EVTop(
     CKTcircuit *ckt,
@@ -121,6 +130,36 @@ void EVTaccept(
     CKTcircuit *ckt,    /* main circuit struct */
     double     time);    /* time at which analog soln was accepted */
 
+struct INPtables;
+bool Evtcheck_nodes(
+    CKTcircuit         *ckt,             /* The circuit structure */
+    struct INPtables   *stab);           /* Symbol table. */
+
 struct dvec *EVTfindvec(char *node);
+
+/* Set and remove call-backs on new node values. */
+
+Mif_Boolean_t EVTnew_value_call(const char         *node,
+                                Evt_New_Value_Cb_t  fn,
+                                Evt_Node_Cb_Type_t  type,
+                                void               *ctx);
+
+void EVTcancel_value_call(const char         *node,
+                          Evt_New_Value_Cb_t  fn,
+                          void               *ctx);
+
+/* Parse a node name with member and return the node index and type. */
+
+struct node_parse {
+    char            *node;
+    char            *member;
+    int              udn_index;
+};
+
+int Evt_Parse_Node(const char *node, struct node_parse *result);
+
+/* Internal utility functions. */
+
+void Evt_purge_free_outputs(void);
 
 #endif

@@ -1,0 +1,420 @@
+/* config.h.cmake.in - Template for CMake-generated config.h */
+
+#ifndef NGSPICE_CONFIG_H
+#define NGSPICE_CONFIG_H
+
+/* Define to 1 if you have the <arpa/inet.h> header file. */
+#cmakedefine HAVE_ARPA_INET_H 1
+
+/* Define to 1 if you have the <ctype.h> header file. */
+#cmakedefine HAVE_CTYPE_H 1
+
+/* Define to 1 if you have the <dirent.h> header file. */
+#cmakedefine HAVE_DIRENT_H 1
+
+/* Define to 1 if you have the <fcntl.h> header file. */
+#cmakedefine HAVE_FCNTL_H 1
+
+/* Define to 1 if you have the <float.h> header file. */
+#cmakedefine HAVE_FLOAT_H 1
+
+/* Define to 1 if you have the <getopt.h> header file. */
+#cmakedefine HAVE_GETOPT_H 1
+
+/* Define to 1 if you have the <ieeefp.h> header file. */
+#cmakedefine HAVE_IEEEFP_H 1
+
+/* Define to 1 if you have the <libintl.h> header file. */
+#cmakedefine HAVE_LIBINTL_H 1
+
+/* Define to 1 if you have the <limits.h> header file. */
+#cmakedefine HAVE_LIMITS_H 1
+
+/* Define to 1 if you have the <malloc.h> header file. */
+#cmakedefine HAVE_MALLOC_H 1
+
+/* Define to 1 if you have the <netdb.h> header file. */
+#cmakedefine HAVE_NETDB_H 1
+
+/* Define to 1 if you have the <netinet/in.h> header file. */
+#cmakedefine HAVE_NETINET_IN_H 1
+
+/* Define to 1 if you have the <pwd.h> header file. */
+#cmakedefine HAVE_PWD_H 1
+
+/* Define to 1 if you have the <sgtty.h> header file. */
+#cmakedefine HAVE_SGTTY_H 1
+
+/* Define to 1 if you have the <stddef.h> header file. */
+#cmakedefine HAVE_STDDEF_H 1
+
+/* Define to 1 if you have the <strings.h> header file. */
+#cmakedefine HAVE_STRINGS_H 1
+
+/* Define to 1 if you have the <stropts.h> header file. */
+#cmakedefine HAVE_STROPTS_H 1
+
+/* Define to 1 if you have the <sys/file.h> header file. */
+#cmakedefine HAVE_SYS_FILE_H 1
+
+/* Define to 1 if you have the <sys/io.h> header file. */
+#cmakedefine HAVE_SYS_IO_H 1
+
+/* Define to 1 if you have the <sys/ioctl.h> header file. */
+#cmakedefine HAVE_SYS_IOCTL_H 1
+
+/* Define to 1 if you have the <sys/param.h> header file. */
+#cmakedefine HAVE_SYS_PARAM_H 1
+
+/* Define to 1 if you have the <sys/socket.h> header file. */
+#cmakedefine HAVE_SYS_SOCKET_H 1
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#cmakedefine HAVE_SYS_STAT_H 1
+
+/* Define to 1 if you have the <sys/sysctl.h> header file. */
+#cmakedefine HAVE_SYS_SYSCTL_H 1
+
+/* Define to 1 if you have the <sys/time.h> header file. */
+#cmakedefine HAVE_SYS_TIME_H 1
+
+/* Define to 1 if you have the <sys/timeb.h> header file. */
+#cmakedefine HAVE_SYS_TIMEB_H 1
+
+/* Define to 1 if you have the <sys/wait.h> header file. */
+#cmakedefine HAVE_SYS_WAIT_H 1
+
+/* Define to 1 if you have the <termio.h> header file. */
+#cmakedefine HAVE_TERMIO_H 1
+
+/* Define to 1 if you have the <termios.h> header file. */
+#cmakedefine HAVE_TERMIOS_H 1
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#cmakedefine HAVE_UNISTD_H 1
+
+/* Define to 1 if you have the <values.h> header file. */
+#cmakedefine HAVE_VALUES_H 1
+
+/* Define to 1 if you have the `access' function. */
+#cmakedefine HAVE_ACCESS 1
+
+/* Define to 1 if you have the `acosh' function. */
+#cmakedefine HAVE_ACOSH 1
+
+/* Define to 1 if you have the `asinh' function. */
+#cmakedefine HAVE_ASINH 1
+
+/* Define to 1 if you have the `atanh' function. */
+#cmakedefine HAVE_ATANH 1
+
+/* Define to 1 if you have the `clock_gettime' function. */
+#cmakedefine HAVE_CLOCK_GETTIME 1
+
+/* Define to 1 if you have the `dirname' function. */
+#cmakedefine HAVE_DIRNAME 1
+
+/* Define to 1 if you have the `dup2' function. */
+#cmakedefine HAVE_DUP2 1
+
+/* Define to 1 if you have the `endpwent' function. */
+#cmakedefine HAVE_ENDPWENT 1
+
+/* Define to 1 if you have the `erfc' function. */
+#cmakedefine HAVE_ERFC 1
+
+/* Define to 1 if you have the `finite' function. */
+#cmakedefine HAVE_FINITE 1
+
+/* Define to 1 if you have the `fork' function. */
+#cmakedefine HAVE_FORK 1
+
+/* Define to 1 if you have the `ftime' function. */
+#cmakedefine HAVE_FTIME 1
+
+/* Define to 1 if you have the `getcwd' function. */
+#cmakedefine HAVE_GETCWD 1
+
+/* Define to 1 if you have the `gethostbyname' function. */
+#cmakedefine HAVE_GETHOSTBYNAME 1
+
+/* Define to 1 if you have the `getopt_long' function. */
+#cmakedefine HAVE_GETOPT_LONG 1
+
+/* Define to 1 if you have the `getrlimit' function. */
+#cmakedefine HAVE_GETRLIMIT 1
+
+/* Define to 1 if you have the `getrusage' function. */
+#cmakedefine HAVE_GETRUSAGE 1
+
+/* Define to 1 if you have the `gettimeofday' function. */
+#cmakedefine HAVE_GETTIMEOFDAY 1
+
+/* Define to 1 if you have the `getwd' function. */
+#cmakedefine HAVE_GETWD 1
+
+/* Define to 1 if you have the `index' function. */
+#cmakedefine HAVE_INDEX 1
+
+/* Define to 1 if you have the `isatty' function. */
+#cmakedefine HAVE_ISATTY 1
+
+/* Define to 1 if you have the `isinf' function. */
+#cmakedefine HAVE_ISINF 1
+
+/* Define to 1 if you have the `isnan' function. */
+#cmakedefine HAVE_ISNAN 1
+
+/* Define to 1 if you have the declaration of `isinf' function. */
+#cmakedefine HAVE_DECL_ISINF 1
+
+/* Define to 1 if you have the declaration of `isnan' function. */
+#cmakedefine HAVE_DECL_ISNAN 1
+
+/* Define to 1 if you have the `localtime' function. */
+#cmakedefine HAVE_LOCALTIME 1
+
+/* Define to 1 if you have the `logb' function. */
+#cmakedefine HAVE_LOGB 1
+
+/* Define to 1 if you have the `memmove' function. */
+#cmakedefine HAVE_MEMMOVE 1
+
+/* Define to 1 if you have the `memset' function. */
+#cmakedefine HAVE_MEMSET 1
+
+/* Define to 1 if you have the `modf' function. */
+#cmakedefine HAVE_MODF 1
+
+/* Define to 1 if you have the `popen' function. */
+#cmakedefine HAVE_POPEN 1
+
+/* Define to 1 if you have the `queryperformancecounter' function. */
+#cmakedefine HAVE_QUERYPERFORMANCECOUNTER 1
+
+/* Define to 1 if you have the `qsort' function. */
+#cmakedefine HAVE_QSORT 1
+
+/* Define to 1 if you have the `rindex' function. */
+#cmakedefine HAVE_RINDEX 1
+
+/* Define to 1 if you have the `scalb' function. */
+#cmakedefine HAVE_SCALB 1
+
+/* Define to 1 if you have the `scalbn' function. */
+#cmakedefine HAVE_SCALBN 1
+
+/* Define to 1 if you have the `select' function. */
+#cmakedefine HAVE_SELECT 1
+
+/* Define to 1 if you have the `sigsetjmp' function. */
+#cmakedefine HAVE_SIGSETJMP 1
+
+/* Define to 1 if you have the `snprintf' function. */
+#cmakedefine HAVE_SNPRINTF 1
+
+/* Define to 1 if you have the `socket' function. */
+#cmakedefine HAVE_SOCKET 1
+
+/* Define to 1 if you have the `strchr' function. */
+#cmakedefine HAVE_STRCHR 1
+
+/* Define to 1 if you have the `strdup' function. */
+#cmakedefine HAVE_STRDUP 1
+
+/* Define to 1 if you have the `strerror' function. */
+#cmakedefine HAVE_STRERROR 1
+
+/* Define to 1 if you have the `strncasecmp' function. */
+#cmakedefine HAVE_STRNCASECMP 1
+
+/* Define to 1 if you have the `strrchr' function. */
+#cmakedefine HAVE_STRRCHR 1
+
+/* Define to 1 if you have the `strstr' function. */
+#cmakedefine HAVE_STRSTR 1
+
+/* Define to 1 if you have the `strtol' function. */
+#cmakedefine HAVE_STRTOL 1
+
+/* Define to 1 if you have the `tcgetattr' function. */
+#cmakedefine HAVE_TCGETATTR 1
+
+/* Define to 1 if you have the `tcsetattr' function. */
+#cmakedefine HAVE_TCSETATTR 1
+
+/* Define to 1 if you have the `tdestroy' function. */
+#cmakedefine HAVE_TDESTROY 1
+
+/* Define to 1 if you have the `time' function. */
+#cmakedefine HAVE_TIME 1
+
+/* Define to 1 if you have the `times' function. */
+#cmakedefine HAVE_TIMES 1
+
+/* Define to 1 if you have the `tsearch' function. */
+#cmakedefine HAVE_TSEARCH 1
+
+/* Define to 1 if you have the `ulimit' function. */
+#cmakedefine HAVE_ULIMIT 1
+
+/* Define to 1 if you have the `utimes' function. */
+#cmakedefine HAVE_UTIMES 1
+
+/* Define to 1 if you have the `vfork' function. */
+#cmakedefine HAVE_VFORK 1
+
+/* Define to 1 if you have the `dl' library (-ldl). */
+#cmakedefine HAVE_LIBDL 1
+
+/* Have fft routines in libfftw3 */
+#cmakedefine HAVE_LIBFFTW3 1
+
+/* Define to 1 if you have the `m' library (-lm). */
+#cmakedefine HAVE_LIBM 1
+
+/* Define to 1 if you have the `pthread' library (-lpthread). */
+#cmakedefine HAVE_LIBPTHREAD 1
+
+/* Define to 1 if you have the `stdc++' library (-lstdc++). */
+#cmakedefine HAVE_LIBSTDCXX 1
+
+/* Have xft routines in libxft */
+#cmakedefine HAVE_LIBXFT 1
+
+/* Define to 1 if you have BSD editline */
+#cmakedefine HAVE_BSDEDITLINE 1
+
+/* Define to 1 if you have GNU readline */
+#cmakedefine HAVE_GNUREADLINE 1
+
+/* Define to 1 if you have termcap */
+#cmakedefine HAVE_TERMCAP 1
+
+/* Define to 1 if you have the ANSI C header files. */
+#define STDC_HEADERS 1
+
+/* The size of `int', as computed by sizeof. */
+#define SIZEOF_INT @SIZEOF_INT@
+
+/* The size of `long', as computed by sizeof. */
+#define SIZEOF_LONG @SIZEOF_LONG@
+
+/* The size of `void*', as computed by sizeof. */
+#define SIZEOF_VOIDP @SIZEOF_VOIDP@
+
+/* The size of `size_t', as computed by sizeof. */
+#define SIZEOF_SIZE_T @SIZEOF_SIZE_T@
+
+/* Define if we want KLU linear systems solver */
+#cmakedefine KLU 1
+
+/* Define if we want OpenMP parallel processing */
+#cmakedefine USE_OMP 1
+
+/* The CIDER enhancements */
+#cmakedefine CIDER 1
+
+/* The XSPICE enhancements */
+#cmakedefine XSPICE 1
+
+/* The OSDI enhancements */
+#cmakedefine OSDI 1
+
+/* The NDEV interface */
+#cmakedefine NDEV 1
+
+/* S parameter analysis */
+#cmakedefine RFSPICE 1
+
+/* Define if we want PSS analysis */
+#cmakedefine WITH_PSS 1
+
+/* Define if we want predictor algorithm */
+#cmakedefine PREDICTOR 1
+
+/* Define if we want NOBYPASS */
+#cmakedefine NOBYPASS 1
+
+/* Define if we want to bypass cbd/cbs calculation for non varying vbs/vbd */
+#cmakedefine CAPBYPASS 1
+
+/* Define if we want experimental code */
+#cmakedefine EXPERIMENTAL_CODE 1
+
+/* Define if we want to enable experimental devices */
+#cmakedefine EXP_DEV 1
+
+/* Define if we want to disable UNICODE support */
+#cmakedefine EXT_ASC 1
+
+/* Define if we want garbage collection enabled */
+#cmakedefine HAVE_LIBGC 1
+
+/* Internal (old) help not available */
+#cmakedefine NOINTHELP 1
+
+/* Define if you want to debug ngspice shell */
+#cmakedefine CPDEBUG 1
+
+/* Define if you want to debug frontend */
+#cmakedefine FTEDEBUG 1
+
+/* Compile with debug info */
+#cmakedefine NGDEBUG 1
+
+/* Define if X Window System is missing */
+#cmakedefine X_DISPLAY_MISSING 1
+
+/* Define if we want to compile for MS Windows */
+#cmakedefine HAS_WINGUI 1
+
+/* Define if shared ngspice module */
+#cmakedefine SHARED_MODULE 1
+
+/* Define if TCL module */
+#cmakedefine TCL_MODULE 1
+
+/* Define if we have relative paths for libraries and scripts */
+#cmakedefine HAS_RELPATH 1
+
+/* Define to 1 if tests are enabled. */
+#cmakedefine NGSPICE_ENABLE_TESTS 1
+
+/* Define to 1 if short check tests are enabled. */
+#cmakedefine NGSPICE_ENABLE_SHORT_CHECK 1
+
+/* Define the operating system */
+#cmakedefine OS_COMPILED @OS_COMPILED@
+
+/* Define the directory for executables */
+#cmakedefine NGSPICEBINDIR "@NGSPICEBINDIR@"
+
+/* Define the directory for architecture independent data files */
+#cmakedefine NGSPICEDATADIR "@NGSPICEDATADIR@"
+
+/* Define the directory for architecture-dependent libraries */
+#cmakedefine NGSPICELIBDIR "@NGSPICELIBDIR@"
+
+/* Define the build date */
+#cmakedefine NGSPICEBUILDDATE "@NGSPICEBUILDDATE@"
+
+/* Package name */
+#define PACKAGE_NAME "ngspice"
+
+/* Package version */
+#define PACKAGE_VERSION "@PROJECT_VERSION@"
+
+/* Package string */
+#define PACKAGE_STRING "ngspice @PROJECT_VERSION@"
+
+/* Package bug report address */
+#define PACKAGE_BUGREPORT "http://ngspice.sourceforge.net/bugrep.html"
+
+/* Package URL */
+#define PACKAGE_URL "https://ngspice.sourceforge.io"
+
+/* Define to the version of this package. */
+#define VERSION "@PROJECT_VERSION@"
+
+#endif /* NGSPICE_CONFIG_H */

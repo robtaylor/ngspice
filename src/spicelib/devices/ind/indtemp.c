@@ -24,11 +24,11 @@ INDtemp(GENmodel *inModel, CKTcircuit *ckt)
     double tc1, tc2;
 
     /*  loop through all the inductor models */
-    for( ; model != NULL; model = model->INDnextModel ) {
+    for( ; model != NULL; model = INDnextModel(model)) {
 
         /* loop through all the instances of the model */
-        for (here = model->INDinstances; here != NULL ;
-                here=here->INDnextInstance) {
+        for (here = INDinstances(model); here != NULL ;
+                here=INDnextInstance(here)) {
 
             /* Default Value Processing for Inductor Instance */
 
@@ -37,9 +37,14 @@ INDtemp(GENmodel *inModel, CKTcircuit *ckt)
                 if(!here->INDdtempGiven)   here->INDdtemp  = 0.0;
             } else { /* INDtempGiven */
                 here->INDdtemp = 0.0;
-                if (here->INDdtempGiven)
-                    printf("%s: Instance temperature specified, dtemp ignored\n",
+                if (here->INDdtempGiven &&
+                    ckt->CKTcurJob && ckt->CKTcurJob->JOBtype != 9) {
+                    /* Keep quiet in sensistivity analysis. */
+
+                    printf("%s: Instance temperature specified, "
+                           "dtemp ignored\n",
                            here->INDname);
+                }
             }
 
             if (!here->INDscaleGiven) here->INDscale = 1.0;
@@ -52,6 +57,9 @@ INDtemp(GENmodel *inModel, CKTcircuit *ckt)
                 else
                     here->INDinduct = model->INDmInd;
             }
+            else
+                here->INDinduct = here->INDinductinst; /* reset inductance to instance value */
+
             difference = (here->INDtemp + here->INDdtemp) - model->INDtnom;
 
             /* instance parameters tc1 and tc2 will override
@@ -69,7 +77,6 @@ INDtemp(GENmodel *inModel, CKTcircuit *ckt)
             factor = 1.0 + tc1*difference + tc2*difference*difference;
 
             here->INDinduct = here->INDinduct * factor * here->INDscale;
-            here->INDinduct = here->INDinduct / here->INDm;
 
         }
     }

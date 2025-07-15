@@ -7,8 +7,6 @@ libjfet_la_SOURCES =	\
 	jfetacld.c	\
 	jfetask.c	\
 	jfetdefs.h	\
-	jfetdel.c	\
-	jfetdest.c	\
 	jfetdist.c	\
 	jfetdset.c	\
 	jfetext.h	\
@@ -18,7 +16,6 @@ libjfet_la_SOURCES =	\
 	jfetitf.h	\
 	jfetload.c	\
 	jfetmask.c	\
-	jfetmdel.c	\
 	jfetmpar.c	\
 	jfetnoi.c	\
 	jfetpar.c	\
@@ -28,7 +25,11 @@ libjfet_la_SOURCES =	\
 	jfettrun.c
 
 
+if KLU_WANTED
+libjfet_la_SOURCES += jfetbindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)
+
 MAINTAINERCLEANFILES = Makefile.in

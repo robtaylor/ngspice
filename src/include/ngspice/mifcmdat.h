@@ -46,7 +46,11 @@ NON-STANDARD FEATURES
 
 
 #include "ngspice/typedefs.h"
-#include  "ngspice/miftypes.h"
+#include "ngspice/miftypes.h"
+
+#ifdef KLU
+#include "ngspice/smpdefs.h"
+#endif
 
 
 /* ************************************************************************** */
@@ -61,6 +65,11 @@ typedef struct Mif_E_Ptr_s {
     double      *branch_poscntl;   /* Branch row, positive controlling column */
     double      *branch_negcntl;   /* Branch row, negative controlling column */
 
+#ifdef KLU
+    BindElement *branch_poscntlBinding ;
+    BindElement *branch_negcntlBinding ;
+#endif
+
 } Mif_E_Ptr_t;
 
 
@@ -73,6 +82,11 @@ typedef struct Mif_F_Ptr_s {
 
     double      *pos_ibranchcntl;    /* Positive row, controlling branch column */
     double      *neg_ibranchcntl;    /* Negative row, controlling branch column */
+
+#ifdef KLU
+    BindElement *pos_ibranchcntlBinding ;
+    BindElement *neg_ibranchcntlBinding ;
+#endif
 
 } Mif_F_Ptr_t;
 
@@ -89,6 +103,13 @@ typedef struct Mif_G_Ptr_s {
     double      *neg_poscntl;       /* Negative row, positive controlling column */
     double      *neg_negcntl;       /* Negative row, negative controlling column */
 
+#ifdef KLU
+    BindElement *pos_poscntlBinding ;
+    BindElement *pos_negcntlBinding ;
+    BindElement *neg_poscntlBinding ;
+    BindElement *neg_negcntlBinding ;
+#endif
+
 } Mif_G_Ptr_t;
 
 
@@ -99,6 +120,10 @@ typedef struct Mif_G_Ptr_s {
 typedef struct Mif_H_Ptr_s {
 
     double      *branch_ibranchcntl;  /* Branch row, controlling branch column */
+
+#ifdef KLU
+    BindElement *branch_ibranchcntlBinding ;
+#endif
 
 } Mif_H_Ptr_t;
 
@@ -168,6 +193,17 @@ typedef struct Mif_Smp_Ptr_s {
     /* array of pointer info required for putting partials into the matrix */
     Mif_Conn_Ptr_t  *input;    /* Matrix pointers associated with inputs */
 
+#ifdef KLU
+    BindElement *pos_branchBinding ;
+    BindElement *neg_branchBinding ;
+    BindElement *branch_posBinding ;
+    BindElement *branch_negBinding ;
+    BindElement *pos_ibranchBinding ;
+    BindElement *neg_ibranchBinding ;
+    BindElement *ibranch_posBinding ;
+    BindElement *ibranch_negBinding ;
+#endif
+
 } Mif_Smp_Ptr_t;
 
 
@@ -226,6 +262,7 @@ typedef struct Mif_Port_Data_s {
     Mif_Boolean_t   is_null;        /* Set to true if null in SPICE deck  */
     Mif_Value_t     input;          /* The input value                    */
     Mif_Value_t     output;         /* The output value                   */
+    struct Evt_Output_Event *next_event;
     Mif_Partial_t   *partial;       /* Partials for this port wrt inputs  */
     Mif_AC_Gain_t   *ac_gain;       /* AC gains for this port wrt inputs  */
     int             old_input;      /* Index into CKTstate for old input  */
@@ -328,6 +365,7 @@ typedef struct Mif_Param_Data_s {
     Mif_Boolean_t   is_null;            /* True if no value given on .model card */
     int             size;               /* Size of array (1 if scalar)           */
     Mif_Value_t     *element;           /* Value of parameter(s)                 */
+    int             eltype;             /* type of the element                   */
 
 } Mif_Param_Data_t;
 
@@ -357,7 +395,7 @@ typedef struct Mif_Inst_Var_Data_s {
  * The top level data structure passed to code models.
  */
 
-typedef struct Mif_Private_s {
+struct Mif_Private {
 
     Mif_Circ_Data_t        circuit;       /* Information about the circuit        */
     int                    num_conn;      /* Number of connections on this model  */
@@ -366,8 +404,9 @@ typedef struct Mif_Private_s {
     Mif_Param_Data_t       **param;       /* Information about each parameter     */
     int                    num_inst_var;  /* Number of instance variables         */
     Mif_Inst_Var_Data_t    **inst_var;    /* Information about each inst variable */
+    Mif_Callback_t         *callback;     /* Callback function */
 
-} Mif_Private_t;
+};
 
 
 

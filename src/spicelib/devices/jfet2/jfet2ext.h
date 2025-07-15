@@ -9,12 +9,9 @@ Modified to add PS model and new parameter definitions ( Anthony E. Parker )
 
 extern int JFET2acLoad(GENmodel*,CKTcircuit*);
 extern int JFET2ask(CKTcircuit*,GENinstance*,int,IFvalue*,IFvalue*);
-extern int JFET2delete(GENmodel*,IFuid,GENinstance**);
-extern void JFET2destroy(GENmodel**);
 extern int JFET2getic(GENmodel*,CKTcircuit*);
 extern int JFET2load(GENmodel*,CKTcircuit*);
 extern int JFET2mAsk(CKTcircuit*,GENmodel*,int,IFvalue*);
-extern int JFET2mDelete(GENmodel**,IFuid,GENmodel*);
 extern int JFET2mParam(int,IFvalue*,GENmodel*);
 extern int JFET2param(int,IFvalue*,GENinstance*,IFvalue*);
 extern int JFET2setup(SMPmatrix*,GENmodel*,CKTcircuit*,int*);
@@ -22,3 +19,9 @@ extern int JFET2unsetup(GENmodel*,CKTcircuit*);
 extern int JFET2temp(GENmodel*,CKTcircuit*);
 extern int JFET2trunc(GENmodel*,CKTcircuit*,double*);
 extern int JFET2noise(int,int,GENmodel*,CKTcircuit*,Ndata*,double*);
+
+#ifdef KLU
+extern int JFET2bindCSC (GENmodel*, CKTcircuit*) ;
+extern int JFET2bindCSCComplex (GENmodel*, CKTcircuit*) ;
+extern int JFET2bindCSCComplexToReal (GENmodel*, CKTcircuit*) ;
+#endif

@@ -80,11 +80,11 @@ JFETload(GENmodel *inModel, CKTcircuit *ckt)
     double m;
 
     /*  loop through all the models */
-    for( ; model != NULL; model = model->JFETnextModel ) {
+    for( ; model != NULL; model = JFETnextModel(model)) {
 
         /* loop through all the instances of the model */
-        for (here = model->JFETinstances; here != NULL ;
-                here=here->JFETnextInstance) {
+        for (here = JFETinstances(model); here != NULL ;
+                here=JFETnextInstance(here)) {
 
             /*
              *  dc model parameters 
@@ -224,7 +224,7 @@ JFETload(GENmodel *inModel, CKTcircuit *ckt)
              */
             vds=vgs-vgd;
             
-            vt_temp=here->JFETtemp*CONSTKoverQ;
+            vt_temp=here->JFETtemp*CONSTKoverQ*model->JFETemissionCoeff;
             if (vgs < -3*vt_temp) {
                 arg=3*vt_temp/(vgs*CONSTe);
                 arg = arg * arg * arg;
@@ -400,7 +400,7 @@ JFETload(GENmodel *inModel, CKTcircuit *ckt)
              *   compute equivalent drain current source 
              */
             cd=cdrain-cgd;
-            if ( (ckt->CKTmode & (MODETRAN | MODEAC | MODEINITSMSIG) ) ||
+            if ( (ckt->CKTmode & (MODEDCTRANCURVE | MODETRAN | MODEAC | MODEINITSMSIG) ) ||
                     ((ckt->CKTmode & MODETRANOP) && (ckt->CKTmode & MODEUIC)) ){
                 /* 
                  *    charge storage elements 

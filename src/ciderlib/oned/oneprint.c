@@ -19,9 +19,9 @@ Author:	1992 David A. Gates, U. C. Berkeley CAD Group
 
 
 void
-ONEprnSolution(FILE *file, ONEdevice *pDevice, OUTPcard *output)
+ONEprnSolution(FILE *file, ONEdevice *pDevice, OUTPcard *output, bool asciiSave, char *extra)
 {
-  int index, i;
+  int index, i, ii;
   int numVars = 0;
   ONEnode **nodeArray=NULL;
   ONEnode *pNode;
@@ -114,7 +114,11 @@ ONEprnSolution(FILE *file, ONEdevice *pDevice, OUTPcard *output)
 
   /* Initialize rawfile */
   numVars = output->OUTPnumVars;
-  fprintf(file, "Title: Device %s internal state\n", pDevice->name);
+  if (extra != NULL) {
+    fprintf(file, "Title: Device %s (%s) internal state\n", pDevice->name, extra);
+  } else {
+    fprintf(file, "Title: Device %s internal state\n", pDevice->name);
+  }
   fprintf(file, "Plotname: Device Cross Section\n");
   fprintf(file, "Flags: real\n");
   fprintf(file, "Command: deftype p xs cross\n");
@@ -186,7 +190,11 @@ ONEprnSolution(FILE *file, ONEdevice *pDevice, OUTPcard *output)
   if (output->OUTPmup) {
     fprintf(file, "\t%d	mup	mobility\n", numVars++);
   }
-  fprintf(file, "Binary:\n");
+  if (asciiSave) {
+    fprintf(file, "Values:\n");
+  } else {
+    fprintf(file, "Binary:\n");
+  }
 
   for (index = 1; index <= pDevice->numNodes; index++) {
     pNode = nodeArray[index];
@@ -305,7 +313,16 @@ ONEprnSolution(FILE *file, ONEdevice *pDevice, OUTPcard *output)
     if (output->OUTPmup) {
       data[numVars++] = mup;
     }
-    fwrite(data, sizeof(double), (size_t) numVars, file);
+    if (asciiSave) {
+      for (ii = 0; ii < numVars; ii++) {
+        if (ii == 0) {
+          fprintf(file, "%d", index - 1);
+        }
+        fprintf(file, "\t%e\n", data[ii]);
+      }
+    } else {
+      fwrite(data, sizeof(double), (size_t) numVars, file);
+    }
   }
   FREE(nodeArray);
 }
@@ -337,6 +354,7 @@ ONEmemStats(FILE *file, ONEdevice *pDevice)
   int numContactNodes;
 
 
+  if (!pDevice) { return; }
   fprintf(file, "----------------------------------------\n");
   fprintf(file, "Device %s Memory Usage:\n", pDevice->name);
   fprintf(file, "Item                     Count     Bytes\n");
@@ -408,10 +426,12 @@ void
 ONEcpuStats(FILE *file, ONEdevice *pDevice)
 {
   static const char cpuFormat[] = "%-20s%10g%10g%10g%10g%10g\n";
-  ONEstats *pStats = pDevice->pStats;
+  ONEstats *pStats = NULL;
   double total;
   int iTotal;
 
+  if (!pDevice) { return; }
+  pStats = pDevice->pStats;
   fprintf(file,
       "----------------------------------------------------------------------\n");
   fprintf(file,

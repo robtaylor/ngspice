@@ -133,6 +133,14 @@ DIOmParam(int param, IFvalue *value, GENmodel *inModel)
             model->DIOactivationEnergy = value->rValue;
             model->DIOactivationEnergyGiven = TRUE;
             break;
+        case DIO_MOD_GAP1:
+            model->DIOfirstBGcorrFactor = value->rValue;
+            model->DIOfirstBGcorrFactorGiven = TRUE;
+            break;
+        case DIO_MOD_GAP2:
+            model->DIOsecndBGcorrFactor = value->rValue;
+            model->DIOsecndBGcorrFactorGiven = TRUE;
+            break;
         case DIO_MOD_XTI:
             model->DIOsaturationCurrentExp = value->rValue;
             model->DIOsaturationCurrentExpGiven = TRUE;
@@ -209,6 +217,72 @@ DIOmParam(int param, IFvalue *value, GENmodel *inModel)
             model->DIObv_max = value->rValue;
             model->DIObv_maxGiven = TRUE;
             break;
+        case DIO_MOD_ID_MAX:
+            model->DIOid_max = value->rValue;
+            model->DIOid_maxGiven = TRUE;
+            break;
+        case DIO_MOD_PD_MAX:
+            model->DIOpd_max = value->rValue;
+            model->DIOpd_maxGiven = TRUE;
+            break;
+        case DIO_MOD_TE_MAX:
+            model->DIOte_max = value->rValue;
+            model->DIOte_maxGiven = TRUE;
+            break;
+        case DIO_MOD_ISR:
+            model->DIOrecSatCur = value->rValue;
+            model->DIOrecSatCurGiven = TRUE;
+            break;
+        case DIO_MOD_NR:
+            model->DIOrecEmissionCoeff = value->rValue;
+            model->DIOrecEmissionCoeffGiven = TRUE;
+            break;
+        case  DIO_MOD_RTH0:
+            model->DIOrth0 = value->rValue;
+            model->DIOrth0Given = TRUE;
+            break;
+        case  DIO_MOD_CTH0:
+            model->DIOcth0 = value->rValue;
+            model->DIOcth0Given = TRUE;
+            break;
+
+        case DIO_MOD_LM:
+            model->DIOlengthMetal = value->rValue;
+            model->DIOlengthMetalGiven = TRUE;
+            break;
+        case DIO_MOD_LP:
+            model->DIOlengthPoly = value->rValue;
+            model->DIOlengthPolyGiven = TRUE;
+            break;
+        case DIO_MOD_WM:
+            model->DIOwidthMetal = value->rValue;
+            model->DIOwidthMetalGiven = TRUE;
+            break;
+        case DIO_MOD_WP:
+            model->DIOwidthPoly = value->rValue;
+            model->DIOwidthPolyGiven = TRUE;
+            break;
+        case DIO_MOD_XOM:
+            model->DIOmetalOxideThick = value->rValue * 1e-10; /* m */
+            model->DIOmetalOxideThickGiven = TRUE;
+            break;
+        case DIO_MOD_XOI:
+            model->DIOpolyOxideThick = value->rValue * 1e-10; /* m */
+            model->DIOpolyOxideThickGiven = TRUE;
+            break;
+        case DIO_MOD_XM:
+            model->DIOmetalMaskOffset = value->rValue;
+            model->DIOmetalMaskOffsetGiven = TRUE;
+            break;
+        case DIO_MOD_XP:
+            model->DIOpolyMaskOffset = value->rValue;
+            model->DIOpolyMaskOffsetGiven = TRUE;
+            break;
+        case DIO_MOD_XW:
+            model->DIOmaskOffset = value->rValue;
+            model->DIOmaskOffsetGiven = TRUE;
+            break;
+
         case DIO_MOD_D:
             /* no action - we already know we are a diode, but this */
             /* makes life easier for spice-2 like parsers */

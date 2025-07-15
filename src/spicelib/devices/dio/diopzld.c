@@ -24,12 +24,12 @@ DIOpzLoad(GENmodel *inModel, CKTcircuit *ckt, SPcomplex *s)
     DIOinstance *here;
 
     /*  loop through all the diode models */
-    for( ; model != NULL; model = model->DIOnextModel ) {
+    for( ; model != NULL; model = DIOnextModel(model)) {
 
         /* loop through all the instances of the model */
-        for (here = model->DIOinstances; here != NULL ;
-                here=here->DIOnextInstance) {
-            gspr=here->DIOtConductance*here->DIOarea;
+        for (here = DIOinstances(model); here != NULL ;
+                here=DIOnextInstance(here)) {
+            gspr=here->DIOtConductance;
             geq= *(ckt->CKTstate0 + here->DIOconduct);
             xceq= *(ckt->CKTstate0 + here->DIOcapCurrent);
             *(here->DIOposPosPtr ) += gspr;

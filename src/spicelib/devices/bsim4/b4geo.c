@@ -1,25 +1,34 @@
-/**** BSIM4.8.0 Released by Navid Paydavosi 11/01/2013 ****/
+/* ******************************************************************************
+   *  BSIM4 4.8.2 released by Chetan Kumar Dabhi 01/01/2020                     *
+   *  BSIM4 Model Equations                                                     *
+   ******************************************************************************
 
-/**********
- * Copyright 2006 Regents of the University of California. All rights reserved.
- * File: b4geo.c of BSIM4.8.0.
- * Author: 2000 Weidong Liu
- * Authors: 2001- Xuemei Xi, Mohan Dunga, Ali Niknejad, Chenming Hu.
- * Authors: 2006- Mohan Dunga, Ali Niknejad, Chenming Hu
- * Authors: 2007- Mohan Dunga, Wenwei Yang, Ali Niknejad, Chenming Hu
- * Project Director: Prof. Chenming Hu.
- **********/
+   ******************************************************************************
+   *  Copyright (c) 2020 University of California                               *
+   *                                                                            *
+   *  Project Director: Prof. Chenming Hu.                                      *
+   *  Current developers: Chetan Kumar Dabhi   (Ph.D. student, IIT Kanpur)      *
+   *                      Prof. Yogesh Chauhan (IIT Kanpur)                     *
+   *                      Dr. Pragya Kushwaha  (Postdoc, UC Berkeley)           *
+   *                      Dr. Avirup Dasgupta  (Postdoc, UC Berkeley)           *
+   *                      Ming-Yen Kao         (Ph.D. student, UC Berkeley)     *
+   *  Authors: Gary W. Ng, Weidong Liu, Xuemei Xi, Mohan Dunga, Wenwei Yang     *
+   *           Ali Niknejad, Chetan Kumar Dabhi, Yogesh Singh Chauhan,          *
+   *           Sayeef Salahuddin, Chenming Hu                                   * 
+   ******************************************************************************/
+
+/*
+Licensed under Educational Community License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License. You may obtain a copy of the license at
+http://opensource.org/licenses/ECL-2.0
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT 
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations
+under the License.
+*/
 
 #include "ngspice/ngspice.h"
 #include "bsim4def.h"
 
-
-/*
- * WDLiu:
- * This subrutine is a special module to process the geometry dependent
- * parasitics for BSIM4, which calculates Ps, Pd, As, Ad, and Rs and  Rd
- * for multi-fingers and varous GEO and RGEO options.
- */
 
 static int
 BSIM4NumFingerDiff(

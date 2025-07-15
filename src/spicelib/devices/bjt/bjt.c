@@ -8,12 +8,6 @@ Author: 1985 Thomas L. Quarles
  * available to the next level(s) up the calling hierarchy
  */
 
-/*
- * You may define the preprocessor symbolo
- * BJT_COMPAT to enable compatibility with
- * archaic spice2 bjt model
- */ 
- 
 #include "ngspice/ngspice.h"
 #include "ngspice/devdefs.h"
 #include "bjtdefs.h"
@@ -88,6 +82,8 @@ IFparm BJTmPTable[] = { /* model parameters */
  IOP("tnom", BJT_MOD_TNOM, IF_REAL, "Parameter measurement temperature"),
  IOPR("tref", BJT_MOD_TNOM, IF_REAL, "Parameter measurement temperature"),
  IOP("is",   BJT_MOD_IS,   IF_REAL, "Saturation Current"),
+ IOP("ibe",  BJT_MOD_IBE,  IF_REAL, "Base-Emitter saturation Current"),
+ IOP("ibc",  BJT_MOD_IBC,  IF_REAL, "Base-Collector saturation Current"),
  IOP("bf",   BJT_MOD_BF,   IF_REAL, "Ideal forward beta"),
  IOP("nf",   BJT_MOD_NF,   IF_REAL, "Forward emission coefficient"),
  IOP("vaf",  BJT_MOD_VAF,  IF_REAL, "Forward Early voltage"),
@@ -95,9 +91,7 @@ IFparm BJTmPTable[] = { /* model parameters */
  IOP("ikf",  BJT_MOD_IKF,  IF_REAL, "Forward beta roll-off corner current"),
  IOPR("ik",  BJT_MOD_IKF,  IF_REAL, "Forward beta roll-off corner current"),
  IOP("ise",  BJT_MOD_ISE,  IF_REAL, "B-E leakage saturation current"),
-#ifdef BJT_COMPAT  
- IOP("c2",   BJT_MOD_C2,   IF_REAL, "Obsolete parameter name"),
-#endif 
+ IOPR("c2",  BJT_MOD_ISE,  IF_REAL, "B-E leakage saturation current alias"),
  IOP("ne",   BJT_MOD_NE,   IF_REAL, "B-E leakage emission coefficient"),
  IOP("br",   BJT_MOD_BR,   IF_REAL, "Ideal reverse beta"),
  IOP("nr",   BJT_MOD_NR,   IF_REAL, "Reverse emission coefficient"),
@@ -105,9 +99,7 @@ IFparm BJTmPTable[] = { /* model parameters */
  IOPR("vb",  BJT_MOD_VAR,  IF_REAL, "Reverse Early voltage"),
  IOP("ikr",  BJT_MOD_IKR,  IF_REAL, "reverse beta roll-off corner current"),
  IOP("isc",  BJT_MOD_ISC,  IF_REAL, "B-C leakage saturation current"),
-#ifdef BJT_COMPAT 
- IOP("c4",   BJT_MOD_C4,   IF_REAL, "Obsolete parameter name"),
-#endif 
+ IOPR("c4",  BJT_MOD_ISC,  IF_REAL, "B-C leakage saturation current alias"),
  IOP("nc",   BJT_MOD_NC,   IF_REAL, "B-C leakage emission coefficient"),
  IOP("rb",   BJT_MOD_RB,   IF_REAL, "Zero bias base resistance"),
  IOP("irb",  BJT_MOD_IRB,  IF_REAL, "Current for base resistance=(rb+rbm)/2"),
@@ -116,9 +108,9 @@ IFparm BJTmPTable[] = { /* model parameters */
  IOP("rc",   BJT_MOD_RC,   IF_REAL, "Collector resistance"),
  IOPA("cje", BJT_MOD_CJE,  IF_REAL,"Zero bias B-E depletion capacitance"),
  IOPA("vje", BJT_MOD_VJE,  IF_REAL, "B-E built in potential"),
- IOPR("pe",  BJT_MOD_VJE,  IF_REAL, "B-E built in potential"),
+ IOPAR("pe", BJT_MOD_VJE,  IF_REAL, "B-E built in potential"),
  IOPA("mje", BJT_MOD_MJE,  IF_REAL, "B-E junction grading coefficient"),
- IOPR("me",  BJT_MOD_MJE,  IF_REAL, "B-E junction grading coefficient"),
+ IOPAR("me", BJT_MOD_MJE,  IF_REAL, "B-E junction grading coefficient"),
  IOPA("tf",  BJT_MOD_TF,   IF_REAL, "Ideal forward transit time"),
  IOPA("xtf", BJT_MOD_XTF,  IF_REAL, "Coefficient for bias dependence of TF"),
  IOPA("vtf", BJT_MOD_VTF,  IF_REAL, "Voltage giving VBC dependence of TF"),
@@ -126,18 +118,18 @@ IFparm BJTmPTable[] = { /* model parameters */
  IOPA("ptf", BJT_MOD_PTF,  IF_REAL, "Excess phase"),
  IOPA("cjc", BJT_MOD_CJC,  IF_REAL, "Zero bias B-C depletion capacitance"),
  IOPA("vjc", BJT_MOD_VJC,  IF_REAL, "B-C built in potential"),
- IOPR("pc",  BJT_MOD_VJC,  IF_REAL, "B-C built in potential"),
+ IOPAR("pc", BJT_MOD_VJC,  IF_REAL, "B-C built in potential"),
  IOPA("mjc", BJT_MOD_MJC,  IF_REAL, "B-C junction grading coefficient"),
- IOPR("mc",  BJT_MOD_MJC,  IF_REAL, "B-C junction grading coefficient"),
+ IOPAR("mc", BJT_MOD_MJC,  IF_REAL, "B-C junction grading coefficient"),
  IOPA("xcjc",BJT_MOD_XCJC, IF_REAL, "Fraction of B-C cap to internal base"),
  IOPA("tr",  BJT_MOD_TR,   IF_REAL, "Ideal reverse transit time"),
  IOPA("cjs", BJT_MOD_CJS,  IF_REAL, "Zero bias Substrate capacitance"),
- IOPR("csub", BJT_MOD_CJS,  IF_REAL, "Zero bias Substrate capacitance"),
- IOPR("ccs", BJT_MOD_CJS,  IF_REAL, "Zero bias Substrate capacitance"),
+ IOPAR("csub",BJT_MOD_CJS, IF_REAL, "Zero bias Substrate capacitance"),
+ IOPAR("ccs", BJT_MOD_CJS, IF_REAL, "Zero bias Substrate capacitance"),
  IOPA("vjs", BJT_MOD_VJS,  IF_REAL, "Substrate junction built in potential"),
- IOPR("ps",  BJT_MOD_VJS,  IF_REAL, "Substrate junction built in potential"),
+ IOPAR("ps", BJT_MOD_VJS,  IF_REAL, "Substrate junction built in potential"),
  IOPA("mjs", BJT_MOD_MJS,  IF_REAL, "Substrate junction grading coefficient"),
- IOPR("ms",  BJT_MOD_MJS,  IF_REAL, "Substrate junction grading coefficient"),
+ IOPAR("ms", BJT_MOD_MJS,  IF_REAL, "Substrate junction grading coefficient"),
  IOP("xtb",  BJT_MOD_XTB,  IF_REAL, "Forward and reverse beta temp. exp."),
  IOP("eg",   BJT_MOD_EG,   IF_REAL, "Energy gap for IS temp. dependency"),
  IOP("xti",  BJT_MOD_XTI,  IF_REAL, "Temp. exponent for IS"),
@@ -154,6 +146,10 @@ IFparm BJTmPTable[] = { /* model parameters */
  OPU("excessphasefactor",BJT_MOD_EXCESSPHASEFACTOR,IF_REAL, "Excess phase fact."),
  IOP("iss", BJT_MOD_ISS, IF_REAL, "Substrate Jct. Saturation Current"),
  IOP("ns", BJT_MOD_NS, IF_REAL, "Substrate current emission coefficient"),
+ IOP("rco",   BJT_MOD_RCO,   IF_REAL, "Intrinsic coll. resistance"),
+ IOP("vo",    BJT_MOD_VO,    IF_REAL, "Epi drift saturation voltage"),
+ IOP("gamma", BJT_MOD_GAMMA,  IF_REAL, "Epi doping parameter"),
+ IOP("qco",  BJT_MOD_QCO,  IF_REAL, "Epi Charge parameter"),
  IOP("tlev", BJT_MOD_TLEV, IF_INTEGER, "Temperature equation selector"),
  IOP("tlevc", BJT_MOD_TLEVC, IF_INTEGER, "Temperature equation selector"),
  IOP("tbf1", BJT_MOD_TBF1, IF_REAL, "BF 1. temperature coefficient"),
@@ -175,10 +171,13 @@ IFparm BJTmPTable[] = { /* model parameters */
  IOP("tnr1", BJT_MOD_TNR1, IF_REAL, "NR 1. temperature coefficient"),
  IOP("tnr2", BJT_MOD_TNR2, IF_REAL, "NR 2. temperature coefficient"),
  IOP("trb1", BJT_MOD_TRB1, IF_REAL, "RB 1. temperature coefficient"),
+ IOPR("trb", BJT_MOD_TRB1, IF_REAL, "RB 1. temperature coefficient"),
  IOP("trb2", BJT_MOD_TRB2, IF_REAL, "RB 2. temperature coefficient"),
  IOP("trc1", BJT_MOD_TRC1, IF_REAL, "RC 1. temperature coefficient"),
+ IOPR("trc", BJT_MOD_TRC1, IF_REAL, "RC 1. temperature coefficient"),
  IOP("trc2", BJT_MOD_TRC2, IF_REAL, "RC 2. temperature coefficient"),
  IOP("tre1", BJT_MOD_TRE1, IF_REAL, "RE 1. temperature coefficient"),
+ IOPR("tre", BJT_MOD_TRE1, IF_REAL, "RE 1. temperature coefficient"),
  IOP("tre2", BJT_MOD_TRE2, IF_REAL, "RE 2. temperature coefficient"),
  IOP("trm1", BJT_MOD_TRM1, IF_REAL, "RBM 1. temperature coefficient"),
  IOP("trm2", BJT_MOD_TRM2, IF_REAL, "RBM 2. temperature coefficient"),
@@ -207,15 +206,27 @@ IFparm BJTmPTable[] = { /* model parameters */
  IOP("tns1", BJT_MOD_TNS1, IF_REAL, "NS 1. temperature coefficient"),
  IOP("tns2", BJT_MOD_TNS2, IF_REAL, "NS 2. temperature coefficient"),
  IOP("nkf", BJT_MOD_NKF, IF_REAL, "NKF High current beta rolloff exponent"),
+ IOPR("nk", BJT_MOD_NKF, IF_REAL, "NK High current beta rolloff exponent"),
  IOP("tis1", BJT_MOD_TIS1, IF_REAL, "IS 1. temperature coefficient"),
  IOP("tis2", BJT_MOD_TIS2, IF_REAL, "IS 2. temperature coefficient"),
  IOP("tise1", BJT_MOD_TISE1, IF_REAL, "ISE 1. temperature coefficient"),
  IOP("tise2", BJT_MOD_TISE2, IF_REAL, "ISE 2. temperature coefficient"),
  IOP("tisc1", BJT_MOD_TISC1, IF_REAL, "ISC 1. temperature coefficient"),
  IOP("tisc2", BJT_MOD_TISC2, IF_REAL, "ISC 2. temperature coefficient"),
+ IOP("tiss1", BJT_MOD_TISS1, IF_REAL, "ISS 1. temperature coefficient"),
+ IOP("tiss2", BJT_MOD_TISS2, IF_REAL, "ISS 2. temperature coefficient"),
+ IOP("quasimod", BJT_MOD_QUASIMOD, IF_INTEGER, "Temperature equation selector"),
+ IOP("vg",   BJT_MOD_EGQS,   IF_REAL, "Energy gap for QS temp. dependency"),
+ IOP("cn",    BJT_MOD_XRCI,  IF_REAL, "Temperature exponent of RCI"),
+ IOP("d",     BJT_MOD_XD,    IF_REAL, "Temperature exponent of VO"),
  IOP("vbe_max", BJT_MOD_VBE_MAX, IF_REAL, "maximum voltage B-E junction"),
  IOP("vbc_max", BJT_MOD_VBC_MAX, IF_REAL, "maximum voltage B-C junction"),
- IOP("vce_max", BJT_MOD_VCE_MAX, IF_REAL, "maximum voltage C-E branch")
+ IOP("vce_max", BJT_MOD_VCE_MAX, IF_REAL, "maximum voltage C-E branch"),
+ IOP("pd_max", BJT_MOD_PD_MAX, IF_REAL, "maximum device power dissipation"),
+ IOP("ic_max", BJT_MOD_IC_MAX, IF_REAL, "maximum collector current"),
+ IOP("ib_max", BJT_MOD_IB_MAX, IF_REAL, "maximum base current"),
+ IOP("te_max", BJT_MOD_TE_MAX, IF_REAL, "maximum temperature"),
+ IOP("rth0", BJT_MOD_RTH0, IF_REAL, "thermal resistance juntion to ambient"),
 };
 
 char *BJTnames[] = {

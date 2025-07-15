@@ -7,19 +7,21 @@ libtxl_la_SOURCES = \
 	txlacct.c  \
 	txlask.c   \
 	txldefs.h  \
-	txldest.c  \
 	txlext.h   \
 	txlfbr.c   \
 	txlinit.h  \
 	txlitf.h   \
 	txlload.c  \
-	txlmdel.c  \
 	txlparam.c \
-	txldel.c   \
 	txlmask.c  \
 	txlmpar.c  \
 	txlsetup.c \
 	txlinit.c
+
+
+if KLU_WANTED
+libtxl_la_SOURCES += txlbindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)

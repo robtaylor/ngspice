@@ -40,22 +40,6 @@ Modified: 1999 Paolo Nenzi
 #include <sys/ioctl.h>
 #endif
 
-/* Be sure the ioctls get included in the following */
-#ifdef HAVE_SGTTY_H
-#include <sgtty.h>
-#else
-#ifdef HAVE_TERMIO_H
-#include <termio.h>
-#else
-#ifdef HAVE_TERMIOS_H
-#include <termios.h>
-#endif
-#endif
-#endif
-
-
-#define CNTRL_D '\004'
-#define ESCAPE  '\033'
 #define NCLASSES 32
 
 bool cp_nocc;               /* Don't do command completion. */
@@ -73,8 +57,8 @@ static void printem(wordlist *wl);
 #endif
 
 static wordlist *cctowl(struct ccom *cc, bool sib);
-static struct ccom *clookup(register char *word, struct ccom **dd, bool pref,
-                            bool create);
+static struct ccom *clookup(register const char *word, struct ccom **dd, bool pref,
+        bool create);
 /* MW. I need top node in cdelete */
 static void cdelete(struct ccom *node, struct ccom **top);
 
@@ -91,7 +75,6 @@ cp_ccom(wordlist *wlist, char *buf, bool esc)
     int j, arg;
 
     buf = cp_unquote(copy(buf));
-    cp_wstrip(buf);
     if (wlist) {   /* Not the first word. */
         cc = getccom(wlist->wl_word);
         if (cc && cc->cc_invalid)
@@ -350,96 +333,6 @@ cp_cctowl(struct ccom *stuff)
 }
 
 
-/* Turn on and off the escape break character and cooked mode. */
-
-void
-cp_ccon(bool on)
-{
-#ifdef TIOCSTI
-#ifdef HAVE_SGTTY_H
-    static bool ison = FALSE;
-    struct tchars tbuf;
-    struct sgttyb sbuf;
-
-    if (cp_nocc || !cp_interactive || (ison == on))
-        return;
-    ison = on;
-
-    /* Set the terminal up -- make escape the break character, and
-     * make sure we aren't in raw or cbreak mode.  Hope the (void)
-     * ioctl's won't fail.
-     */
-    (void) ioctl(fileno(cp_in), TIOCGETC, &tbuf);
-    if (on)
-        tbuf.t_brkc = ESCAPE;
-    else
-        tbuf.t_brkc = '\0';
-    (void) ioctl(fileno(cp_in), TIOCSETC, &tbuf);
-
-    (void) ioctl(fileno(cp_in), TIOCGETP, &sbuf);
-    sbuf.sg_flags &= ~(RAW|CBREAK);
-    (void) ioctl(fileno(cp_in), TIOCSETP, &sbuf);
-#else
-
-#  ifdef HAVE_TERMIO_H
-
-#      define TERM_GET TCGETA
-#      define TERM_SET TCSETA
-    static struct termio sbuf;
-    static struct termio OS_Buf;
-
-#  else
-#    ifdef HAVE_TERMIOS_H
-
-
-#      define TERM_GET TCGETS
-#      define TERM_SET TCSETS
-    static struct termios sbuf;
-    static struct termios OS_Buf;
-
-#    endif
-#  endif
-
-#ifdef TERM_GET
-    static bool ison = FALSE;
-
-    if (cp_nocc || !cp_interactive || (ison == on))
-        return;
-    ison = on;
-
-    if (ison == TRUE) {
-#if HAVE_TCGETATTR
-        tcgetattr(fileno(cp_in), &OS_Buf);
-#else
-        (void) ioctl(fileno(cp_in), TERM_GET, &OS_Buf);
-#endif
-        sbuf = OS_Buf;
-        sbuf.c_cc[VEOF] = 0;
-        sbuf.c_cc[VEOL] = ESCAPE;
-        sbuf.c_cc[VEOL2] = CNTRL_D;
-#if HAVE_TCSETATTR
-        tcsetattr(fileno(cp_in), TCSANOW, &sbuf);
-#else
-        (void) ioctl(fileno(cp_in), TERM_SET, &sbuf);
-#endif
-    } else {
-#ifdef HAVE_TCSETATTR
-        tcsetattr(fileno(cp_in), TCSANOW, &OS_Buf);
-#else
-        (void) ioctl(fileno(cp_in), TERM_SET, &OS_Buf);
-#endif
-    }
-
-#  endif
-#endif
-
-#else
-    NG_IGNORE(on);
-#endif
-
-}
-
-
 /* The following routines deal with the command and keyword databases.
  * Say whether a given word exists in the command database.
  */
@@ -461,6 +354,9 @@ void
 cp_addcomm(char *word, long int bits0, long int bits1, long int bits2, long int bits3)
 {
     struct ccom *cc;
+
+    if(cp_nocc)
+        return;
 
     cc = clookup(word, &commands, FALSE, TRUE);
     cc->cc_invalid = 0;
@@ -491,6 +387,9 @@ cp_addkword(int kw_class, char *word)
 {
     struct ccom *cc;
 
+    if(cp_nocc)
+        return;
+
     if ((kw_class < 1) || (kw_class >= NCLASSES)) {
         fprintf(cp_err, "cp_addkword: Internal Error: bad class %d\n",
                 kw_class);
@@ -515,7 +414,7 @@ cp_destroy_keywords(void)
 /* Remove a keyword from the database. */
 
 void
-cp_remkword(int kw_class, char *word)
+cp_remkword(int kw_class, const char *word)
 {
     struct ccom *cc;
 
@@ -583,7 +482,7 @@ throwaway(struct ccom *dbase)
  */
 
 static struct ccom *
-clookup(register char *word, struct ccom **dd, bool pref, bool create)
+clookup(register const char *word, struct ccom **dd, bool pref, bool create)
 {
     register struct ccom *place = *dd, *tmpc;
     int ind = 0, i;
@@ -594,7 +493,7 @@ clookup(register char *word, struct ccom **dd, bool pref, bool create)
         if (!create) {
             return (NULL);
         } else {
-            *dd = place = alloc(struct ccom);
+            *dd = place = TMALLOC(struct ccom, 1);
             ZERO(place, struct ccom);
             buf[0] = *word;
             buf[1] = '\0';
@@ -617,7 +516,7 @@ clookup(register char *word, struct ccom **dd, bool pref, bool create)
         if (place->cc_name[ind] < word[ind]) {
             /* This line doesn't go out that far... */
             if (create) {
-                place->cc_sibling = alloc(struct ccom);
+                place->cc_sibling = TMALLOC(struct ccom, 1);
                 ZERO(place->cc_sibling, struct ccom);
                 place->cc_sibling->cc_ysibling = place;
                 place->cc_sibling->cc_parent = place->cc_parent;
@@ -633,7 +532,7 @@ clookup(register char *word, struct ccom **dd, bool pref, bool create)
         } else if (place->cc_name[ind] > word[ind]) {
             if (create) {
                 /* Put this one between place and its pred. */
-                tmpc = alloc(struct ccom);
+                tmpc = TMALLOC(struct ccom, 1);
                 ZERO(tmpc, struct ccom);
                 tmpc->cc_parent = place->cc_parent;
                 tmpc->cc_sibling = place;
@@ -663,7 +562,7 @@ clookup(register char *word, struct ccom **dd, bool pref, bool create)
             if (!place->cc_child) {
                 /* No children, maybe make one and go on. */
                 if (create) {
-                    tmpc = alloc(struct ccom);
+                    tmpc = TMALLOC(struct ccom, 1);
                     ZERO(tmpc, struct ccom);
                     tmpc->cc_parent = place;
                     place->cc_child = tmpc;

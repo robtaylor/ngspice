@@ -26,15 +26,21 @@ File: b4soidef.h
 
 typedef struct sB4SOIinstance
 {
-    struct sB4SOImodel *B4SOImodPtr;
-    struct sB4SOIinstance *B4SOInextInstance;
-    IFuid B4SOIname;
-    int B4SOIstates;     /* index into state table for this device */
 
-    int B4SOIdNode;
-    int B4SOIgNodeExt; /* v3.1 changed gNode to gNodeExt */
-    int B4SOIsNode;
-    int B4SOIeNode;
+    struct GENinstance gen;
+
+#define B4SOImodPtr(inst) ((struct sB4SOImodel *)((inst)->gen.GENmodPtr))
+#define B4SOInextInstance(inst) ((struct sB4SOIinstance *)((inst)->gen.GENnextInstance))
+#define B4SOIname gen.GENname
+#define B4SOIstates gen.GENstate
+
+    const int B4SOIdNode;
+    const int B4SOIgNodeExt; /* v3.1 changed gNode to gNodeExt */
+    const int B4SOIsNode;
+    const int B4SOIeNode;
+    const int B4SOIpNodeExt;
+    const int B4SOIbNodeExt;
+    const int B4SOItempNodeExt;
     int B4SOIpNode;
     int B4SOIbNode;
     int B4SOItempNode;
@@ -736,6 +742,110 @@ typedef struct sB4SOIinstance
         double **B4SOInVar;
 #endif /* NONOISE */
 
+#ifdef KLU
+    BindElement *B4SOITemptempBinding ;
+    BindElement *B4SOITempdpBinding ;
+    BindElement *B4SOITempspBinding ;
+    BindElement *B4SOITempgBinding ;
+    BindElement *B4SOITempbBinding ;
+    BindElement *B4SOIGtempBinding ;
+    BindElement *B4SOIDPtempBinding ;
+    BindElement *B4SOISPtempBinding ;
+    BindElement *B4SOIEtempBinding ;
+    BindElement *B4SOIBtempBinding ;
+    BindElement *B4SOIPtempBinding ;
+    BindElement *B4SOITempeBinding ;
+    BindElement *B4SOIBpBinding ;
+    BindElement *B4SOIPbBinding ;
+    BindElement *B4SOIPpBinding ;
+    BindElement *B4SOIPgBinding ;
+    BindElement *B4SOIGpBinding ;
+    BindElement *B4SOIGEgeBinding ;
+    BindElement *B4SOIGEgBinding ;
+    BindElement *B4SOIGgeBinding ;
+    BindElement *B4SOIGEdpBinding ;
+    BindElement *B4SOIGEspBinding ;
+    BindElement *B4SOIGEbBinding ;
+    BindElement *B4SOIGMdpBinding ;
+    BindElement *B4SOIGMgBinding ;
+    BindElement *B4SOIGMgmBinding ;
+    BindElement *B4SOIGMgeBinding ;
+    BindElement *B4SOIGMspBinding ;
+    BindElement *B4SOIGMbBinding ;
+    BindElement *B4SOIGMeBinding ;
+    BindElement *B4SOIDPgmBinding ;
+    BindElement *B4SOIGgmBinding ;
+    BindElement *B4SOIGEgmBinding ;
+    BindElement *B4SOISPgmBinding ;
+    BindElement *B4SOIEgmBinding ;
+    BindElement *B4SOIEbBinding ;
+    BindElement *B4SOIGbBinding ;
+    BindElement *B4SOIDPbBinding ;
+    BindElement *B4SOISPbBinding ;
+    BindElement *B4SOIBeBinding ;
+    BindElement *B4SOIBgBinding ;
+    BindElement *B4SOIBdpBinding ;
+    BindElement *B4SOIBspBinding ;
+    BindElement *B4SOIBbBinding ;
+    BindElement *B4SOIEgBinding ;
+    BindElement *B4SOIEdpBinding ;
+    BindElement *B4SOIEspBinding ;
+    BindElement *B4SOIGeBinding ;
+    BindElement *B4SOIDPeBinding ;
+    BindElement *B4SOISPeBinding ;
+    BindElement *B4SOIEeBinding ;
+    BindElement *B4SOIGgBinding ;
+    BindElement *B4SOIGdpBinding ;
+    BindElement *B4SOIGspBinding ;
+    BindElement *B4SOIDPgBinding ;
+    BindElement *B4SOIDPdpBinding ;
+    BindElement *B4SOIDPspBinding ;
+    BindElement *B4SOIDPdBinding ;
+    BindElement *B4SOISPgBinding ;
+    BindElement *B4SOISPdpBinding ;
+    BindElement *B4SOISPspBinding ;
+    BindElement *B4SOISPsBinding ;
+    BindElement *B4SOIDdBinding ;
+    BindElement *B4SOIDdpBinding ;
+    BindElement *B4SOISsBinding ;
+    BindElement *B4SOISspBinding ;
+    BindElement *B4SOIDPdbBinding ;
+    BindElement *B4SOISPsbBinding ;
+    BindElement *B4SOIDBdpBinding ;
+    BindElement *B4SOIDBdbBinding ;
+    BindElement *B4SOIDBbBinding ;
+    BindElement *B4SOISBspBinding ;
+    BindElement *B4SOISBsbBinding ;
+    BindElement *B4SOISBbBinding ;
+    BindElement *B4SOIBdbBinding ;
+    BindElement *B4SOIBsbBinding ;
+    BindElement *B4SOIDgBinding ;
+    BindElement *B4SOIDspBinding ;
+    BindElement *B4SOISdpBinding ;
+    BindElement *B4SOISgBinding ;
+    BindElement *B4SOIDbBinding ;
+    BindElement *B4SOISbBinding ;
+    BindElement *B4SOIVbsBinding ;
+    BindElement *B4SOIIdsBinding ;
+    BindElement *B4SOIIcBinding ;
+    BindElement *B4SOIIbsBinding ;
+    BindElement *B4SOIIbdBinding ;
+    BindElement *B4SOIIiiBinding ;
+    BindElement *B4SOIIgBinding ;
+    BindElement *B4SOIGiggBinding ;
+    BindElement *B4SOIGigdBinding ;
+    BindElement *B4SOIGigbBinding ;
+    BindElement *B4SOIIgidlBinding ;
+    BindElement *B4SOIItunBinding ;
+    BindElement *B4SOIIbpBinding ;
+    BindElement *B4SOICbbBinding ;
+    BindElement *B4SOICbdBinding ;
+    BindElement *B4SOICbgBinding ;
+    BindElement *B4SOIQbfBinding ;
+    BindElement *B4SOIQjsBinding ;
+    BindElement *B4SOIQjdBinding ;
+#endif
+
 } B4SOIinstance ;
 
 struct b4soiSizeDependParam
@@ -1077,12 +1187,13 @@ struct b4soiSizeDependParam
 
 typedef struct sB4SOImodel
 {
-    int B4SOImodType;
-    struct sB4SOImodel *B4SOInextModel;
-    B4SOIinstance *B4SOIinstances;
-    IFuid B4SOImodName;
 
-    /* --- end of generic struct GENmodel --- */
+    struct GENmodel gen;
+
+#define B4SOImodType gen.GENmodType
+#define B4SOInextModel(inst) ((struct sB4SOImodel *)((inst)->gen.GENnextModel))
+#define B4SOIinstances(inst) ((B4SOIinstance *)((inst)->gen.GENinstances))
+#define B4SOImodName gen.GENmodName
 
     int B4SOItype;
 
@@ -2116,12 +2227,22 @@ typedef struct sB4SOImodel
     double B4SOIvdsMax;
     double B4SOIvbsMax;
     double B4SOIvbdMax;
+    double B4SOIvgsrMax;
+    double B4SOIvgdrMax;
+    double B4SOIvgbrMax;
+    double B4SOIvbsrMax;
+    double B4SOIvbdrMax;
     unsigned  B4SOIvgsMaxGiven  :1;
     unsigned  B4SOIvgdMaxGiven  :1;
     unsigned  B4SOIvgbMaxGiven  :1;
     unsigned  B4SOIvdsMaxGiven  :1;
     unsigned  B4SOIvbsMaxGiven  :1;
     unsigned  B4SOIvbdMaxGiven  :1;
+    unsigned  B4SOIvgsrMaxGiven  :1;
+    unsigned  B4SOIvgdrMaxGiven  :1;
+    unsigned  B4SOIvgbrMaxGiven  :1;
+    unsigned  B4SOIvbsrMaxGiven  :1;
+    unsigned  B4SOIvbdrMaxGiven  :1;
 
     struct b4soiSizeDependParam *pSizeDependParamKnot;
 
@@ -4258,12 +4379,17 @@ typedef struct sB4SOImodel
 #define B4SOI_MOD_WNLX            2106
 #define B4SOI_MOD_PNLX            2107
 
-#define B4SOI_MOD_VGS_MAX            2201
-#define B4SOI_MOD_VGD_MAX            2202
-#define B4SOI_MOD_VGB_MAX            2203
-#define B4SOI_MOD_VDS_MAX            2204
-#define B4SOI_MOD_VBS_MAX            2205
-#define B4SOI_MOD_VBD_MAX            2206
+#define B4SOI_MOD_VGS_MAX          2201
+#define B4SOI_MOD_VGD_MAX          2202
+#define B4SOI_MOD_VGB_MAX          2203
+#define B4SOI_MOD_VDS_MAX          2204
+#define B4SOI_MOD_VBS_MAX          2205
+#define B4SOI_MOD_VBD_MAX          2206
+#define B4SOI_MOD_VGSR_MAX         2207
+#define B4SOI_MOD_VGDR_MAX         2208
+#define B4SOI_MOD_VGBR_MAX         2209
+#define B4SOI_MOD_VBSR_MAX         2210
+#define B4SOI_MOD_VBDR_MAX         2211
 
 #include "b4soiext.h"
 

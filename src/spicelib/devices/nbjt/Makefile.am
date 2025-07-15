@@ -8,14 +8,12 @@ libnbjt_la_SOURCES =	\
 	nbjtask.c	\
 	nbjtdefs.h	\
 	nbjtdel.c	\
-	nbjtdest.c	\
 	nbjtdump.c	\
 	nbjtext.h	\
 	nbjtinit.c	\
 	nbjtinit.h	\
 	nbjtitf.h	\
 	nbjtload.c	\
-	nbjtmdel.c	\
 	nbjtmpar.c	\
 	nbjtparm.c	\
 	nbjtpzld.c	\
@@ -24,6 +22,9 @@ libnbjt_la_SOURCES =	\
 	nbjttrun.c
 
 
+if KLU_WANTED
+libnbjt_la_SOURCES += nbjtbindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)

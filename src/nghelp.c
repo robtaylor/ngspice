@@ -13,6 +13,8 @@ Author: 1986 Wayne A. Christopher, U. C. Berkeley CAD Group
 
 #include "frontend/variable.h"
 
+#include "misc/tilde.h"
+
 #ifndef X_DISPLAY_MISSING
 Widget toplevel;
 #endif
@@ -57,7 +59,7 @@ main(int ac, char **av)
 
 #ifndef X_DISPLAY_MISSING
 
-    if (cp_getvar("display", CP_STRING, buf)) {
+    if (cp_getvar("display", CP_STRING, buf, sizeof(buf))) {
       displayname = buf;
     } else if (!(displayname = getenv("DISPLAY"))) {
       fprintf(stderr, "Can't open X display.");
@@ -111,13 +113,16 @@ cp_printword(s)
 */
 
 bool
-cp_getvar(char *n, enum cp_types type, void *r)
+cp_getvar(char *n, enum cp_types type, void *r, size_t rs)
 {
     return (FALSE);
 }
 
 char *
-cp_tildexpand(char *s)
+cp_tildexpand(const char *s)
 {
 	return tildexpand(s);
 }
+
+void
+controlled_exit(int status) { exit(status); }

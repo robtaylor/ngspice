@@ -1,128 +1,121 @@
 /**********
-Permit to use it as your wish.
-Author:	2007 Gong Ding, gdiso@ustc.edu 
-University of Science and Technology of China 
+Copyright 1990 Regents of the University of California.  All rights reserved.
+Author: 1988 Thomas L. Quarles
+Modified: 2001 Paolo Nenzi (Cider Integration)
 **********/
 
 #include "ngspice/ngspice.h"
 
-#ifdef NDEV
-
-#include <stdio.h>
+#include "ngspice/devdefs.h"
+#include "ngspice/fteext.h"
 #include "ngspice/ifsim.h"
 #include "ngspice/inpdefs.h"
-#include "../devices/ndev/ndevdefs.h"
 #include "ngspice/inpmacs.h"
-#include "ngspice/fteext.h"
+
 #include "inpxx.h"
+#include <stdio.h>
 
-void INP2N(CKTcircuit *ckt, INPtables * tab, card * current)
-{
-/* parse a numerical device  card */
-/* Nname <node> <node> [<node> ...] [<mname>] */
-/* The NUMD should have a private .model card */
+void INP2N(CKTcircuit *ckt, INPtables *tab, struct card *current) {
+  /* Mname <node> <node> <node> <node> <model> [L=<val>]
+   *       [W=<val>] [AD=<val>] [AS=<val>] [PD=<val>]
+   *       [PS=<val>] [NRD=<val>] [NRS=<val>] [OFF]
+   *       [IC=<val>,<val>,<val>]
+   */
 
-    int mytype;			/* the type we determine NDEV are */
-    int type = 0;		/* the type the model says it is */
-    char *line;			/* the part of the current line left to parse */
-    char *saveline;		/* ... just in case we need to go back... */
-    char *name;			/* the NDEV's name */
-    char *model;		/* the name of the NDEV's model */
-    
-    int  term;                  /* the number of node */
-    char *nnamex;               /* serve as a temporary name */ 
-    char *nname[7];		/* the array of CKT node's name */
-    char *bname[7];		/* the array of NDEV electrode's name */
-    CKTnode *node[7];		/* the array of CKT node's node pointer */
-    
-    int error;			/* error code temporary */
-    int i;            
-    INPmodel *thismodel;	/* pointer to model structure describing our model */
-    GENmodel *mdfast = NULL;	/* pointer to the actual model */
-    GENinstance *fast;		/* pointer to the actual instance */
-    NDEVinstance *pinst;
-    int waslead;		/* flag to indicate that funny unlabeled number was found */
-    double leadval;		/* actual value of unlabeled number */
+  int          type;      /* Model type. */
+  char        *line;      /* Unparsed part of the current line. */
+  char        *name;      /* Device instance name. */
+  int          error;     /* Temporary error code. */
+  int          numnodes;  /* Flag indicating 4 or 5 (or 6 or 7) nodes. */
+  GENinstance *fast;      /* Pointer to the actual instance. */
+  int          waslead;   /* Funny unlabeled number was found. */
+  double       leadval;   /* Value of unlabeled number. */
+  INPmodel    *thismodel; /* Pointer to model description for user's model. */
+  GENmodel    *mdfast;    /* Pointer to the actual model. */
+  IFdevice    *dev;
+  CKTnode     *node;
+  char        *c, *token = NULL, *prev = NULL, *pprev = NULL, *eqp;
+  int          i;
 
-    mytype = INPtypelook("NDEV");
-    if (mytype < 0) {
-	LITERR("Device type NDEV not supported by this binary\n");
-	return;
-    }
-    line = current->line;
-    INPgetTok(&line, &name, 1);
-    INPinsert(&name, tab);
-    
-    /* get the node number here */
-    saveline=line;
-    term = 0;
-    do {
-      INPgetNetTok(&line, &nnamex, 1);
-      term++;
-    }while(*nnamex);
-    line=saveline;
-    term=(term-2)/2;
-    if (term > 7) {
-	LITERR("Numerical device has too much nodes, the limitation is 7\n");
-	return;
-    }
-    for(i=0;i<term;i++) {   
-      INPgetNetTok(&line, &nname[i], 1);
-      INPgetNetTok(&line, &bname[i], 1);
-      INPtermInsert(ckt, &nname[i], tab, &node[i]);
-    }  
+  line = current->line;
+  INPgetNetTok(&line, &name, 1);
+  INPinsert(&name, tab);
 
-    saveline = line;		/* save then old pointer */
+  /* Find the last non-parameter token in the line. */
 
-    INPgetTok(&line, &model, 1);
-          
-    if (*model) {
-	/* token isn't null */
-	if (INPlookMod(model)) {
-	    /* If this is a valid model connect it */
-	    INPinsert(&model, tab);
-	    thismodel = NULL;
-	    current->error = INPgetMod(ckt, model, &thismodel, tab);
-	    if (thismodel != NULL) {
-		if (mytype != thismodel->INPmodType) {
-		    LITERR("incorrect model type");
-		    return;
-		}
-		mdfast = thismodel->INPmodfast;
-		type = thismodel->INPmodType;
-	    }
-	} else {
-	    LITERR("Numerical device should always have a model card\n");
-	    return;
-	}
-	IFC(newInstance, (ckt, mdfast, &fast, name));
-    } else {
-	LITERR("Numerical device should always have a model card\n");
-	return;
-    }
+  c = line;
+  for (i = 0, eqp = NULL; *c != '\0'; ++i) {
+      tfree(pprev);
+      pprev = prev;
+      prev = token;
+      token = gettok_instance(&c);
+      eqp = strchr(token, '=');
+      if (eqp)
+          break;
+  }
+  if (eqp) {
+      tfree(token); // A parameter or starts with '='.
+      if (*c == '=') {
+          /* Now prev points to a parameter pprev is the model. */
 
-    for(i=0;i<term;i++) {   
-    	IFC(bindNode, (ckt, fast, i+1, node[i]));
-    }	
-    /* save acture terminal number to instance */
-    pinst = (NDEVinstance *)fast;
-    pinst->term = term;
-    for(i=0;i<term;i++) {   
-       pinst->bname[i]=bname[i];
-       pinst->node[i]=node[i];
-    }  
-    
-    PARSECALL((&line, ckt, type, fast, &leadval, &waslead, tab));
-    if (waslead) {
-	LITERR("The numerical device was lead berfor.\n");
-	return;
-    }
-    
-    
+          --i;
+          token = pprev;
+          tfree(prev);
+      } else {
+          token = prev;
+          tfree(pprev);
+      }
+  }
+
+  /* We have single terminal Verilog-A modules */
+
+  if (i >= 2) {
+      c = INPgetMod(ckt, token, &thismodel, tab);
+      if (c) {
+          LITERR(c);
+          tfree(c);
+          tfree(token);
+          return;
+      }
+  }
+  tfree(token);
+  if (i < 2 || !thismodel) {
+      LITERR("could not find a valid modelname");
+      return;
+  }
+  type = thismodel->INPmodType;
+  mdfast = thismodel->INPmodfast;
+  dev = ft_sim->devices[type];
+
+#ifdef OSDI
+  if (!dev->registry_entry) {
+    LITERR("incorrect model type! Expected OSDI device");
     return;
-}
-#else
-
-int Dummy1;
-
+  }
 #endif
+
+  numnodes = i - 1;
+  if (numnodes > *dev->terms) {
+    LITERR("too many nodes connected to instance");
+    return;
+  }
+
+  IFC(newInstance, (ckt, mdfast, &fast, name));
+
+  /* Rescan to process nodes. */
+
+  for (i = 0; i < *dev->terms; i++) {
+      if (i < numnodes) {
+          token = gettok_instance(&line);
+          INPtermInsert(ckt, &token, tab, &node); // Consumes token
+          IFC(bindNode, (ckt, fast, i + 1, node));
+      } else {
+          GENnode(fast)[i] = -1;
+      }
+  }
+  token = gettok_instance(&line); // Eat model name.
+  tfree(token);
+  PARSECALL((&line, ckt, type, fast, &leadval, &waslead, tab));
+  if (waslead)
+    LITERR(" error:  no unlabeled parameter permitted on osdi devices\n");
+}

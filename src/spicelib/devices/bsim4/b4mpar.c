@@ -1,27 +1,30 @@
-/**** BSIM4.8.0 Released by Navid Paydavosi 11/01/2013 ****/
+/* ******************************************************************************
+   *  BSIM4 4.8.2 released by Chetan Kumar Dabhi 01/01/2020                     *
+   *  BSIM4 Model Equations                                                     *
+   ******************************************************************************
 
-/**********
- * Copyright 2006 Regents of the University of California. All rights reserved.
- * File: b4mpar.c of BSIM4.8.0.
- * Author: 2000 Weidong Liu
- * Authors: 2001- Xuemei Xi, Mohan Dunga, Ali Niknejad, Chenming Hu.
- * Authors: 2006- Mohan Dunga, Ali Niknejad, Chenming Hu
- * Authors: 2007- Mohan Dunga, Wenwei Yang, Ali Niknejad, Chenming Hu
- * Authors: 2008- Wenwei Yang, Ali Niknejad, Chenming Hu 
- * Project Director: Prof. Chenming Hu.
- * Modified by Xuemei Xi, 04/06/2001.
- * Modified by Xuemei Xi, 10/05/2001.
- * Modified by Xuemei Xi, 11/15/2002.
- * Modified by Xuemei Xi, 05/09/2003.
- * Modified by Xuemei Xi, 03/04/2004.
- * Modified by Xuemei Xi, Mohan Dunga, 07/29/2005.
- * Modified by Mohan Dunga, 12/13/2006
- * Modified by Mohan Dunga, Wenwei Yang, 05/18/2007.
- * Modified by Wenwei Yang, 07/31/2008.
- * Modified by Tanvir Morshed, Darsen Lu 03/27/2011
- * Modified by Pankaj Kumar Thakur, 07/23/2012
- * Modified by Navid Paydavosi, 08/21/2013
- **********/
+   ******************************************************************************
+   *  Copyright (c) 2020 University of California                               *
+   *                                                                            *
+   *  Project Director: Prof. Chenming Hu.                                      *
+   *  Current developers: Chetan Kumar Dabhi   (Ph.D. student, IIT Kanpur)      *
+   *                      Prof. Yogesh Chauhan (IIT Kanpur)                     *
+   *                      Dr. Pragya Kushwaha  (Postdoc, UC Berkeley)           *
+   *                      Dr. Avirup Dasgupta  (Postdoc, UC Berkeley)           *
+   *                      Ming-Yen Kao         (Ph.D. student, UC Berkeley)     *
+   *  Authors: Gary W. Ng, Weidong Liu, Xuemei Xi, Mohan Dunga, Wenwei Yang     *
+   *           Ali Niknejad, Chetan Kumar Dabhi, Yogesh Singh Chauhan,          *
+   *           Sayeef Salahuddin, Chenming Hu                                   * 
+   ******************************************************************************/
+
+/*
+Licensed under Educational Community License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License. You may obtain a copy of the license at
+http://opensource.org/licenses/ECL-2.0
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT 
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations
+under the License.
+*/
 
 #include "ngspice/ngspice.h"
 #include "bsim4def.h"
@@ -285,13 +288,13 @@ GENmodel *inMod)
         case BSIM4_MOD_NSD:
             mod->BSIM4nsd = value->rValue;
             mod->BSIM4nsdGiven = TRUE;
-            if (mod->BSIM4nsd > 1.0e23)
+            if (mod->BSIM4nsd > 1.000001e24)
                 mod->BSIM4nsd *= 1.0e-6;
             break;
         case BSIM4_MOD_NGATE:
             mod->BSIM4ngate = value->rValue;
             mod->BSIM4ngateGiven = TRUE;
-            if (mod->BSIM4ngate > 1.0e23)
+            if (mod->BSIM4ngate > 1.000001e24)
                 mod->BSIM4ngate *= 1.0e-6;
             break;
         case BSIM4_MOD_GAMMA1:
@@ -3605,6 +3608,15 @@ GENmodel *inMod)
             mod->BSIM4kfGiven = TRUE;
             break;
 
+        case BSIM4_MOD_GIDLCLAMP:
+            mod->BSIM4gidlclamp = value->rValue;
+            mod->BSIM4gidlclampGiven = TRUE;
+            break;
+        case BSIM4_MOD_IDOVVDSC:
+            mod->BSIM4idovvdsc = value->rValue;
+            mod->BSIM4idovvdscGiven = TRUE;
+            break;
+
         case BSIM4_MOD_VGS_MAX:
             mod->BSIM4vgsMax = value->rValue;
             mod->BSIM4vgsMaxGiven = TRUE;
@@ -3628,6 +3640,26 @@ GENmodel *inMod)
         case BSIM4_MOD_VBD_MAX:
             mod->BSIM4vbdMax = value->rValue;
             mod->BSIM4vbdMaxGiven = TRUE;
+            break;
+        case BSIM4_MOD_VGSR_MAX:
+            mod->BSIM4vgsrMax = value->rValue;
+            mod->BSIM4vgsrMaxGiven = TRUE;
+            break;
+        case BSIM4_MOD_VGDR_MAX:
+            mod->BSIM4vgdrMax = value->rValue;
+            mod->BSIM4vgdrMaxGiven = TRUE;
+            break;
+        case BSIM4_MOD_VGBR_MAX:
+            mod->BSIM4vgbrMax = value->rValue;
+            mod->BSIM4vgbrMaxGiven = TRUE;
+            break;
+        case BSIM4_MOD_VBSR_MAX:
+            mod->BSIM4vbsrMax = value->rValue;
+            mod->BSIM4vbsrMaxGiven = TRUE;
+            break;
+        case BSIM4_MOD_VBDR_MAX:
+            mod->BSIM4vbdrMax = value->rValue;
+            mod->BSIM4vbdrMaxGiven = TRUE;
             break;
 
         case  BSIM4_MOD_NMOS  :

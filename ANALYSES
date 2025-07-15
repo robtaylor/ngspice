@@ -1,5 +1,3 @@
-12345678901234567890123456789012345678901234567890123456789012345678901234567890
-
 ANALYSES
 ========
 
@@ -19,6 +17,7 @@ Table of Contents
  8 Transfer function analysis (TF)
  9 Transient analysis (TRAN)
  10 Periodic steady state analysis (PSS, experimental feature)
+ 11 S-parameter analysis (SP)
 
 
 
@@ -45,7 +44,9 @@ Table of Contents
 2 Operating point analysis (OP)
 
     The operating point analysis determines the dc operating point of the
- circuit with inductors shorted and capacitors opened.
+ circuit with inductors shorted and capacitors opened. If a simple matrix
+ solution fails, two versions of gmin stepping may be followed by source
+ stepping and finally an OP search by a transient simulation.
 
 
 3 Operating point sweep Analysis (DC)
@@ -111,5 +112,13 @@ Table of Contents
 
     The periodic steady state analysis computes solutions for oscillating
  circuits. Currently only the autonomous case is implemented.
+
+
+11 S-parameter analysis
+
+    Evaluate S parameters on any port of a multiport circuit, store the resulting
+ data in a Touchstone file
+    Load S parameters from s2p file into code model, and do ac simulation on an
+ automatically generated lumped element circuit.
 
 

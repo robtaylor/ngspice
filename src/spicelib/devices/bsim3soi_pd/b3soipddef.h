@@ -25,15 +25,21 @@ Modified by Paolo Nenzi 2002
 
 typedef struct sB3SOIPDinstance
 {
-    struct sB3SOIPDmodel *B3SOIPDmodPtr;
-    struct sB3SOIPDinstance *B3SOIPDnextInstance;
-    IFuid B3SOIPDname;
-    int B3SOIPDstates;     /* index into state table for this device */
 
-    int B3SOIPDdNode;
-    int B3SOIPDgNode;
-    int B3SOIPDsNode;
-    int B3SOIPDeNode;
+    struct GENinstance gen;
+
+#define B3SOIPDmodPtr(inst) ((struct sB3SOIPDmodel *)((inst)->gen.GENmodPtr))
+#define B3SOIPDnextInstance(inst) ((struct sB3SOIPDinstance *)((inst)->gen.GENnextInstance))
+#define B3SOIPDname gen.GENname
+#define B3SOIPDstates gen.GENstate
+
+    const int B3SOIPDdNode;
+    const int B3SOIPDgNode;
+    const int B3SOIPDsNode;
+    const int B3SOIPDeNode;
+    const int B3SOIPDbNodeExt;
+    const int B3SOIPDtempNodeExt;
+    const int B3SOIPDpNodeExt;
     int B3SOIPDpNode;
     int B3SOIPDbNode;
     int B3SOIPDtempNode;
@@ -379,6 +385,73 @@ typedef struct sB3SOIPDinstance
         double **B3SOIPDnVar;
 #endif /* NONOISE */
 
+#ifdef KLU
+    BindElement *B3SOIPDTemptempBinding ;
+    BindElement *B3SOIPDTempdpBinding ;
+    BindElement *B3SOIPDTempspBinding ;
+    BindElement *B3SOIPDTempgBinding ;
+    BindElement *B3SOIPDTempbBinding ;
+    BindElement *B3SOIPDGtempBinding ;
+    BindElement *B3SOIPDDPtempBinding ;
+    BindElement *B3SOIPDSPtempBinding ;
+    BindElement *B3SOIPDEtempBinding ;
+    BindElement *B3SOIPDBtempBinding ;
+    BindElement *B3SOIPDPtempBinding ;
+    BindElement *B3SOIPDBpBinding ;
+    BindElement *B3SOIPDPbBinding ;
+    BindElement *B3SOIPDPpBinding ;
+    BindElement *B3SOIPDEbBinding ;
+    BindElement *B3SOIPDGbBinding ;
+    BindElement *B3SOIPDDPbBinding ;
+    BindElement *B3SOIPDSPbBinding ;
+    BindElement *B3SOIPDBeBinding ;
+    BindElement *B3SOIPDBgBinding ;
+    BindElement *B3SOIPDBdpBinding ;
+    BindElement *B3SOIPDBspBinding ;
+    BindElement *B3SOIPDBbBinding ;
+    BindElement *B3SOIPDEgBinding ;
+    BindElement *B3SOIPDEdpBinding ;
+    BindElement *B3SOIPDEspBinding ;
+    BindElement *B3SOIPDGeBinding ;
+    BindElement *B3SOIPDDPeBinding ;
+    BindElement *B3SOIPDSPeBinding ;
+    BindElement *B3SOIPDEeBinding ;
+    BindElement *B3SOIPDGgBinding ;
+    BindElement *B3SOIPDGdpBinding ;
+    BindElement *B3SOIPDGspBinding ;
+    BindElement *B3SOIPDDPgBinding ;
+    BindElement *B3SOIPDDPdpBinding ;
+    BindElement *B3SOIPDDPspBinding ;
+    BindElement *B3SOIPDDPdBinding ;
+    BindElement *B3SOIPDSPgBinding ;
+    BindElement *B3SOIPDSPdpBinding ;
+    BindElement *B3SOIPDSPspBinding ;
+    BindElement *B3SOIPDSPsBinding ;
+    BindElement *B3SOIPDDdBinding ;
+    BindElement *B3SOIPDDdpBinding ;
+    BindElement *B3SOIPDSsBinding ;
+    BindElement *B3SOIPDSspBinding ;
+    BindElement *B3SOIPDVbsBinding ;
+    BindElement *B3SOIPDIdsBinding ;
+    BindElement *B3SOIPDIcBinding ;
+    BindElement *B3SOIPDIbsBinding ;
+    BindElement *B3SOIPDIbdBinding ;
+    BindElement *B3SOIPDIiiBinding ;
+    BindElement *B3SOIPDIgBinding ;
+    BindElement *B3SOIPDGiggBinding ;
+    BindElement *B3SOIPDGigdBinding ;
+    BindElement *B3SOIPDGigbBinding ;
+    BindElement *B3SOIPDIgidlBinding ;
+    BindElement *B3SOIPDItunBinding ;
+    BindElement *B3SOIPDIbpBinding ;
+    BindElement *B3SOIPDCbbBinding ;
+    BindElement *B3SOIPDCbdBinding ;
+    BindElement *B3SOIPDCbgBinding ;
+    BindElement *B3SOIPDQbfBinding ;
+    BindElement *B3SOIPDQjsBinding ;
+    BindElement *B3SOIPDQjdBinding ;
+#endif
+
 } B3SOIPDinstance ;
 
 struct b3soipdSizeDependParam
@@ -584,12 +657,13 @@ struct b3soipdSizeDependParam
 
 typedef struct sB3SOIPDmodel 
 {
-    int B3SOIPDmodType;
-    struct sB3SOIPDmodel *B3SOIPDnextModel;
-    B3SOIPDinstance *B3SOIPDinstances;
-    IFuid B3SOIPDmodName; 
 
-    /* --- end of generic struct GENmodel --- */
+    struct GENmodel gen;
+
+#define B3SOIPDmodType gen.GENmodType
+#define B3SOIPDnextModel(inst) ((struct sB3SOIPDmodel *)((inst)->gen.GENnextModel))
+#define B3SOIPDinstances(inst) ((B3SOIPDinstance *)((inst)->gen.GENinstances))
+#define B3SOIPDmodName gen.GENmodName
 
     int B3SOIPDtype;
 

@@ -8,15 +8,12 @@ libltra_la_SOURCES =	\
 	ltraacld.c	\
 	ltraask.c	\
 	ltradefs.h	\
-	ltradel.c	\
-	ltradest.c	\
 	ltraext.h	\
 	ltrainit.c	\
 	ltrainit.h	\
 	ltraitf.h	\
 	ltraload.c	\
 	ltramask.c	\
-	ltramdel.c	\
 	ltramisc.c	\
 	ltrampar.c	\
 	ltrapar.c	\
@@ -25,7 +22,11 @@ libltra_la_SOURCES =	\
 	ltratrun.c
 
 
+if KLU_WANTED
+libltra_la_SOURCES += ltrabindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)
+
 MAINTAINERCLEANFILES = Makefile.in

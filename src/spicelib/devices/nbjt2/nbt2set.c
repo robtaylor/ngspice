@@ -47,10 +47,16 @@ NBJT2setup(SMPmatrix *matrix, GENmodel *inModel, CKTcircuit *ckt, int *states)
   DOPtable *dopTableList = NULL;
   double startTime;
 
- 
+#ifdef KLU
+    if (ckt->CKTkluMODE) {
+        fprintf(stderr, "Error: CIDER simulation is not (yet) supported with 'option klu'.\n");
+        fprintf(stderr, "    Use 'option sparse' instead.\n");
+        controlled_exit(1);
+    }
+#endif
 
   /* loop through all the models */
-  for (; model != NULL; model = model->NBJT2nextModel) {
+  for (; model != NULL; model = NBJT2nextModel(model)) {
     if (!model->NBJT2pInfo) {
       TSCALLOC(model->NBJT2pInfo, 1, TWOtranInfo);
     }
@@ -162,8 +168,8 @@ NBJT2setup(SMPmatrix *matrix, GENmodel *inModel, CKTcircuit *ckt, int *states)
     model->NBJT2dopTables = dopTableList;
 
     /* loop through all the instances of the model */
-    for (inst = model->NBJT2instances; inst != NULL;
-	inst = inst->NBJT2nextInstance) {
+    for (inst = NBJT2instances(model); inst != NULL;
+         inst = NBJT2nextInstance(inst)) {
 
       startTime = SPfrontEnd->IFseconds();
 
@@ -213,7 +219,7 @@ NBJT2setup(SMPmatrix *matrix, GENmodel *inModel, CKTcircuit *ckt, int *states)
 	    pMaterial = pMaterial->next;
 	  }
 	  /* Copy everything, then fix the incorrect pointer. */
-	  bcopy(pM, pMaterial, sizeof(TWOmaterial));
+	  memcpy(pMaterial, pM, sizeof(TWOmaterial));
 	  pMaterial->next = NULL;
 	}
 
@@ -227,7 +233,7 @@ NBJT2setup(SMPmatrix *matrix, GENmodel *inModel, CKTcircuit *ckt, int *states)
       TWOgetStatePointers(inst->NBJT2pDevice, states);
 
       /* Wipe out statistics from previous runs (if any). */
-      bzero(inst->NBJT2pDevice->pStats, sizeof(TWOstats));
+      memset(inst->NBJT2pDevice->pStats, 0, sizeof(TWOstats));
 
       inst->NBJT2pDevice->pStats->totalTime[STAT_SETUP] +=
 	  SPfrontEnd->IFseconds() - startTime;

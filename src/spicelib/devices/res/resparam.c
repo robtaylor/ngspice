@@ -12,6 +12,8 @@ Modified: Apr 2000 - Paolo Nenzi
 #include "ngspice/missing_math.h"
 #include "ngspice/fteext.h"
 
+#define RESMIN 1e-12
+
 int
 RESparam(int param, IFvalue *value, GENinstance *inst, IFvalue *select)
 {
@@ -21,12 +23,14 @@ RESparam(int param, IFvalue *value, GENinstance *inst, IFvalue *select)
 
     NG_IGNORE(select);
 
-    if (!cp_getvar("scale", CP_REAL, &scale))
+    if (!cp_getvar("scale", CP_REAL, &scale, 0))
         scale = 1;
 
     switch(param) {
     case RES_TEMP:
         here->REStemp = value->rValue + CONSTCtoK;
+        if (here->REStemp < 1e-6)
+            here->REStemp = 0;
         here->REStempGiven = TRUE;
         break;
     case RES_DTEMP:
@@ -35,7 +39,15 @@ RESparam(int param, IFvalue *value, GENinstance *inst, IFvalue *select)
         break;
     case RES_RESIST:
         /* 0 valued resistor causes ngspice to hang -- can't solve for initial voltage */
-        if ( AlmostEqualUlps( value->rValue, 0, 3 ) ) value->rValue = 0.001; /* 0.001 should be sufficiently small */
+//        if ( AlmostEqualUlps( value->rValue, 0, 3 ) ) value->rValue = 0.001; /* 0.001 should be sufficiently small */
+        if (value->rValue >= 0 && value->rValue < RESMIN) {
+            fprintf(stderr, "Warning: Value of resistor %s is too small, set to %e\n", here->gen.GENname, RESMIN);
+            value->rValue = RESMIN;
+        }
+        else if (value->rValue < 0 && value->rValue > -RESMIN) {
+            fprintf(stderr, "Warning: Value of resistor %s is too small, set to %e\n", here->gen.GENname, -RESMIN);
+            value->rValue = -RESMIN;
+        }
         here->RESresist = value->rValue;
         here->RESresGiven = TRUE;
         break;
@@ -70,6 +82,10 @@ RESparam(int param, IFvalue *value, GENinstance *inst, IFvalue *select)
         here->REStc2 = value->rValue;
         here->REStc2Given = TRUE;
         break;
+    case RES_TCE:
+        here->REStce = value->rValue;
+        here->REStceGiven = TRUE;
+        break;
     case RES_NOISY:
         here->RESnoisy = value->iValue;
         here->RESnoisyGiven = TRUE;
@@ -81,5 +97,6 @@ RESparam(int param, IFvalue *value, GENinstance *inst, IFvalue *select)
     default:
         return(E_BADPARM);
     }
+    RESupdate_conduct(here, FALSE);
     return(OK);
 }

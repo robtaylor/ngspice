@@ -4,8 +4,8 @@ Author: 1985 Thomas L. Quarles
 Modified: 2000 AlansFixes
 **********/
 
-    /* load the MOS1 device structure with those pointers needed later 
-     * for fast matrix loading 
+    /* load the MOS1 device structure with those pointers needed later
+     * for fast matrix loading
      */
 
 #include "ngspice/ngspice.h"
@@ -25,7 +25,7 @@ MOS1setup(SMPmatrix *matrix, GENmodel *inModel, CKTcircuit *ckt,
     CKTnode *tmp;
 
     /*  loop through all the MOS1 device models */
-    for( ; model != NULL; model = model->MOS1nextModel ) {
+    for( ; model != NULL; model = MOS1nextModel(model)) {
 
         if(!model->MOS1typeGiven) {
             model->MOS1type = NMOS;
@@ -81,23 +81,29 @@ MOS1setup(SMPmatrix *matrix, GENmodel *inModel, CKTcircuit *ckt,
         if(!model->MOS1gammaGiven) {
             model->MOS1gamma = 0;
         }
-	if(!model->MOS1fNcoefGiven) {
-	    model->MOS1fNcoef = 0;
-	}
-	if(!model->MOS1fNexpGiven) {
-	    model->MOS1fNexp = 1;
-	}
+        if(!model->MOS1fNcoefGiven) {
+            model->MOS1fNcoef = 0;
+        }
+        if(!model->MOS1fNexpGiven) {
+            model->MOS1fNexp = 1;
+        }
+        if(!model->MOS1nlevGiven) {
+            model->MOS1nlev = 2;
+        }
+        if(!model->MOS1gdsnoiGiven) {
+            model->MOS1gdsnoi = 1;
+        }
 
         /* loop through all the instances of the model */
-        for (here = model->MOS1instances; here != NULL ;
-                here=here->MOS1nextInstance) {
+        for (here = MOS1instances(model); here != NULL ;
+                here=MOS1nextInstance(here)) {
 
             /* allocate a chunk of the state vector */
             here->MOS1states = *states;
             *states += MOS1numStates;
 
             if(ckt->CKTsenInfo && (ckt->CKTsenInfo->SENmode & TRANSEN) ){
-                *states += 10 * (ckt->CKTsenInfo->SENparms);
+                *states += MOS1numSenStates * (ckt->CKTsenInfo->SENparms);
             }
 
             if(!here->MOS1drainPerimiterGiven) {
@@ -121,34 +127,34 @@ MOS1setup(SMPmatrix *matrix, GENmodel *inModel, CKTcircuit *ckt,
             if(!here->MOS1vonGiven) {
                 here->MOS1von = 0;
             }
-	    if(!here->MOS1drainSquaresGiven) {
-		here->MOS1drainSquares=1;
-	    }
-	    if(!here->MOS1sourceSquaresGiven) {
-		here->MOS1sourceSquares=1;
-	    }
+            if(!here->MOS1drainSquaresGiven) {
+            here->MOS1drainSquares=1;
+            }
+            if(!here->MOS1sourceSquaresGiven) {
+            here->MOS1sourceSquares=1;
+            }
 
             if ((model->MOS1drainResistance != 0
-		    || (model->MOS1sheetResistance != 0
+            || (model->MOS1sheetResistance != 0
                     && here->MOS1drainSquares != 0) )) {
                 if (here->MOS1dNodePrime == 0) {
                 error = CKTmkVolt(ckt,&tmp,here->MOS1name,"drain");
                 if(error) return(error);
                 here->MOS1dNodePrime = tmp->number;
-                
+
                 if (ckt->CKTcopyNodesets) {
-		    CKTnode *tmpNode;
-		    IFuid tmpName;
+            CKTnode *tmpNode;
+            IFuid tmpName;
 
                   if (CKTinst2Node(ckt,here,1,&tmpNode,&tmpName)==OK) {
                      if (tmpNode->nsGiven) {
-                       tmp->nodeset=tmpNode->nodeset; 
-                       tmp->nsGiven=tmpNode->nsGiven; 
+                       tmp->nodeset=tmpNode->nodeset;
+                       tmp->nsGiven=tmpNode->nsGiven;
                      }
                   }
                 }
                 }
-                
+
             } else {
                 here->MOS1dNodePrime = here->MOS1dNode;
             }
@@ -160,19 +166,19 @@ MOS1setup(SMPmatrix *matrix, GENmodel *inModel, CKTcircuit *ckt,
                 error = CKTmkVolt(ckt,&tmp,here->MOS1name,"source");
                 if(error) return(error);
                 here->MOS1sNodePrime = tmp->number;
-                
+
                 if (ckt->CKTcopyNodesets) {
-		    CKTnode *tmpNode;
-		    IFuid tmpName;
+                  CKTnode *tmpNode;
+                  IFuid tmpName;
 
                   if (CKTinst2Node(ckt,here,3,&tmpNode,&tmpName)==OK) {
                      if (tmpNode->nsGiven) {
-                       tmp->nodeset=tmpNode->nodeset; 
-                       tmp->nsGiven=tmpNode->nsGiven; 
+                       tmp->nodeset=tmpNode->nodeset;
+                       tmp->nsGiven=tmpNode->nsGiven;
                      }
                   }
                 }
-                
+
                 }
             } else {
                 here->MOS1sNodePrime = here->MOS1sNode;
@@ -218,24 +224,21 @@ MOS1unsetup(GENmodel *inModel, CKTcircuit *ckt)
     MOS1instance *here;
 
     for (model = (MOS1model *)inModel; model != NULL;
-	    model = model->MOS1nextModel)
+        model = MOS1nextModel(model))
     {
-        for (here = model->MOS1instances; here != NULL;
-                here=here->MOS1nextInstance)
-	{
-	    if (here->MOS1dNodePrime
-		    && here->MOS1dNodePrime != here->MOS1dNode)
-	    {
-		CKTdltNNum(ckt, here->MOS1dNodePrime);
-		here->MOS1dNodePrime= 0;
-	    }
-	    if (here->MOS1sNodePrime
-		    && here->MOS1sNodePrime != here->MOS1sNode)
-	    {
-		CKTdltNNum(ckt, here->MOS1sNodePrime);
-		here->MOS1sNodePrime= 0;
-	    }
-	}
+        for (here = MOS1instances(model); here != NULL;
+                here=MOS1nextInstance(here))
+        {
+            if (here->MOS1sNodePrime > 0
+                && here->MOS1sNodePrime != here->MOS1sNode)
+            CKTdltNNum(ckt, here->MOS1sNodePrime);
+                here->MOS1sNodePrime= 0;
+
+            if (here->MOS1dNodePrime > 0
+                && here->MOS1dNodePrime != here->MOS1dNode)
+            CKTdltNNum(ckt, here->MOS1dNodePrime);
+                here->MOS1dNodePrime= 0;
+        }
     }
     return OK;
 }

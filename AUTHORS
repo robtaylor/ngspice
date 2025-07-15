@@ -1,4 +1,4 @@
-@c This file will be processed with texinfo.
+ngspice authors
 
 Spice was originally written at The University of California at Berkeley (USA).
 Since then, there have been many people working on the software, most of them
@@ -9,11 +9,14 @@ The following people have contributed in some way:
 
 Vera Albrecht,
 Cecil Aswell,
+Giles Atkinson,
 Giles C. Billingsley,
 Phil Barker,
 Steven Borley,
 Krzysztof Blaszkowski,
 Stuart Brorson,
+Árpád Bűrmen,
+Alessio Cacciatori,
 Mansun Chan,
 Wayne A. Christopher,
 Al Davis,
@@ -25,6 +28,7 @@ Noah Friedman,
 David A. Gates,
 Alan Gillespie,
 John Heidemann,
+Marcel Hendrix,
 Jeffrey M. Hsu,
 JianHui Huang,
 S. Hwang,
@@ -42,6 +46,7 @@ Weidong Liu,
 Kartikeya Mayaram,
 Richard D. McRoberts,
 Manfred Metzger,
+Jim Monte,
 Wolfgang Muees,
 Paolo Nenzi,
 Gary W. Ng,
@@ -60,14 +65,17 @@ AMAKAWA Shuhei,
 Kanwar Jit Singh,
 Bill Swartz,
 Hitoshi Tanaka,
+Brian Taylor,
 Steve Tell,
 Andrew Tuckey,
+Robert Turnbull,
 Andreas Unger,
 Holger Vogt,
 Dietmar Warning,
 Michael Widlok,
 Charles D.H. Williams,
 Antony Wilson,
+Pascal Kuthe,
 and many others...
 
 If someone helped in the development and has not been inserted in this list

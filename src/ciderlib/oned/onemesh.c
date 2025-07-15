@@ -12,6 +12,7 @@ Author:	1987 Kartikeya Mayaram, U. C. Berkeley CAD Group
 #include "onedext.h"
 #include "oneddefs.h"
 
+extern void CiderLoaded(int);
 
 /* Forward Declarations */
 /* static void ONEresetEvalFlag(ONEdevice *); sjb - not used */
@@ -31,7 +32,7 @@ ONEbuildMesh(ONEdevice *pDevice, ONEcoord *pCoord, ONEdomain *pDomain,
   int poiEqn, numEqn;
   ONEedge *pEdge;
   ONEnode **nodeArray=NULL;
-  BOOLEAN error = FALSE;
+  bool error = FALSE;
 
 
   /* generate the work array for setting up nodes and elements */
@@ -72,7 +73,7 @@ ONEbuildMesh(ONEdevice *pDevice, ONEcoord *pCoord, ONEdomain *pDomain,
   for (index = 2; index < pDevice->numNodes; index++) {
     pNode = nodeArray[index];
     if (!pNode->nodeType) {
-      printf("Error: No domain defined for node %d\n", pNode->nodeI);
+      fprintf(stderr, "Error: No domain defined for node %d\n", pNode->nodeI);
       error = TRUE;
     }
   }
@@ -193,6 +194,11 @@ ONEbuildMesh(ONEdevice *pDevice, ONEcoord *pCoord, ONEdomain *pDomain,
   pDevice->dimEquil = poiEqn;
   pDevice->dimBias = numEqn;
 
+  FREE(nodeArray);
+  {
+    CiderLoaded(1);
+  }
+
   /* 
    * ONEprnMesh( pDevice );
    */
@@ -286,8 +292,8 @@ NBJTjunctions(ONEdevice *pDevice, int *indexEB, int *indexBC)
 {
   int index;
   double conc1, conc2;
-  BOOLEAN findFirstJunction = TRUE;
-  BOOLEAN notFound = TRUE;
+  bool findFirstJunction = TRUE;
+  bool notFound = TRUE;
 
   for (index = 1; (index < pDevice->numNodes) && (notFound); index++) {
     conc1 = pDevice->elemArray[index]->pNodes[0]->netConc;

@@ -8,9 +8,10 @@ Author: 1988 Thomas L. Quarles
 #include "ngspice/inpdefs.h"
 #include "ngspice/inpmacs.h"
 #include "ngspice/fteext.h"
+#include "ngspice/compatmode.h"
 #include "inpxx.h"
 
-void INP2L(CKTcircuit *ckt, INPtables * tab, card * current)
+void INP2L(CKTcircuit *ckt, INPtables * tab, struct card *current)
 {
 
 /* parse an inductor card */
@@ -31,7 +32,7 @@ void INP2L(CKTcircuit *ckt, INPtables * tab, card * current)
     int error1;          /* secondary error code temporary */
     INPmodel *thismodel; /* pointer to model structure describing our model */
     GENmodel *mdfast = NULL; /* pointer to the actual model */
-    GENinstance *fast;          /* pointer to the actual instance */
+    GENinstance *fast = NULL;/* pointer to the actual instance */
     IFvalue ptemp;       /* a value structure to package inductance into */
     int waslead;         /* flag to indicate that funny unlabeled number was found */
     double leadval;      /* actual value of unlabeled number */
@@ -48,24 +49,40 @@ void INP2L(CKTcircuit *ckt, INPtables * tab, card * current)
         }
     }
     line = current->line;
-    INPgetTok(&line, &name, 1);
+    INPgetNetTok(&line, &name, 1);			/* Lname */
+    if (*line == '\0') {
+        fprintf(stderr, "\nWarning: '%s' is not a valid inductor instance line, ignored!\n\n", current->line);
+        return;
+    }
+    INPgetNetTok(&line, &nname1, 1);		/* <node> */
+    if (*line == '\0') {
+        fprintf(stderr, "\nWarning: '%s' is not a valid inductor instance line, ignored!\n\n", current->line);
+        return;
+    }
+    INPgetNetTok(&line, &nname2, 1);		/* <node> */
+    if (*line == '\0') {
+        fprintf(stderr, "\nWarning: '%s' is not a valid inductor instance line, ignored!\n\n", current->line);
+        return;
+    }
+
     INPinsert(&name, tab);
-    INPgetNetTok(&line, &nname1, 1);
     INPtermInsert(ckt, &nname1, tab, &node1);
-    INPgetNetTok(&line, &nname2, 1);
     INPtermInsert(ckt, &nname2, tab, &node2);
-    val = INPevaluate(&line, &error1, 1);
-    
+
+    /* enable reading values like 4u7 */
+    if (newcompat.lt)
+        val = INPevaluateRKM_L(&line, &error1, 1);	/* [<val>] */
+    else
+        val = INPevaluate(&line, &error1, 1);	/* [<val>] */
     saveline = line;
     
-    INPgetTok(&line, &model, 1);
+    INPgetNetTok(&line, &model, 1);
     
     if (*model && (strcmp(model, "l") != 0)) {
     /* token isn't null */
       if (INPlookMod(model)) {
           /* If this is a valid model connect it */
           INPinsert(&model, tab);
-          thismodel = NULL;
           current->error = INPgetMod(ckt, model, &thismodel, tab);
           if (thismodel != NULL) {
           if (mytype != thismodel->INPmodType) {
@@ -104,7 +121,12 @@ void INP2L(CKTcircuit *ckt, INPtables * tab, card * current)
 #endif
       }
     }
-    
+
+    if (!fast || !fast->GENmodPtr) {
+        fprintf(stderr, "\nWarning: Instance for inductor '%s' could not be set up properly, ignored!\n\n", current->line);
+        return;
+    }
+
     if (error1 == 0) {        /* Looks like a number */
       ptemp.rValue = val;
       GCA(INPpName, ("inductance", &ptemp, ckt, type, fast));

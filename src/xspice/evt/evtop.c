@@ -3,11 +3,10 @@ FILE    EVTop.c
 
 MEMBER OF process XSPICE
 
-Copyright 1991
+Public Domain
+
 Georgia Tech Research Corporation
 Atlanta, Georgia 30332
-All Rights Reserved
-
 PROJECT A-8503
 
 AUTHORS
@@ -47,6 +46,7 @@ NON-STANDARD FEATURES
 
 #include "ngspice/mif.h"
 #include "ngspice/evt.h"
+#include "ngspice/enh.h"
 #include "ngspice/evtproto.h"
 #include "ngspice/evtudn.h"
 

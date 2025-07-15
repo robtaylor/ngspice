@@ -60,18 +60,6 @@
 #include <fcntl.h>
 #endif
 
-#ifdef HAVE_TERMIOS_H
-#include <termios.h>
-#else
-#  ifdef HAVE_SGTTY_H
-#  include <sgtty.h>
-#    else
-#    ifdef HAVE_TERMIO_H
-#      include <termio.h>
-#    endif
-#  endif
-#endif
-
 #ifdef HAVE_PWD_H
 #include <pwd.h>
 #endif
@@ -117,15 +105,17 @@
 #    include <sys/time.h>
 #    include <sys/resource.h>
 #  endif
-#else
-#  ifdef HAVE_TIMES
-#    include <sys/times.h>
-#    include <sys/param.h>
-#  else
-#    ifdef HAVE_FTIME
-#      include <sys/timeb.h>
-#    endif
-#  endif
+#endif
+
+#ifdef HAVE_TIMES
+#  include <sys/times.h>
+#  include <sys/param.h>
+#endif
+#ifdef HAVE_GETTIMEOFDAY
+#  include <sys/time.h>
+#endif
+#ifdef HAVE_FTIME
+#  include <sys/timeb.h>
 #endif
 
 #ifdef HAVE_UNISTD_H
@@ -140,7 +130,7 @@
 #ifdef HAS_WINGUI
 #include "ngspice/wstdio.h"
 #define HAS_PROGREP
-extern void SetAnalyse(char *Analyse, int Percent);
+extern void SetAnalyse(const char *Analyse, int Percent);
 #endif
 
 #if defined (__MINGW32__) || defined (__CYGWIN__) || defined (_MSC_VER)
@@ -177,7 +167,9 @@ extern double x_atanh(double);
 #define fileno _fileno
 #define getcwd _getcwd
 #define chdir _chdir
+#if (_MSC_VER < 1800)
 #define isnan _isnan
+#endif
 #define finite _finite
 #define scalb _scalb
 #define logb _logb
@@ -188,21 +180,42 @@ extern double x_atanh(double);
 #define write _write
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
-#define snprintf _snprintf
 #define isatty _isatty
 #define inline __inline
-/* NAN not available in MS VS 2008 */
-#ifndef NAN
-    static const __int64 global_nan = 0x7ff8000000000000i64;
-    #define NAN (*(const double *) &global_nan)
-#endif
+#define popen _popen
+#define pclose _pclose
+
 // warning C4127: Bedingter Ausdruck ist konstant
 #pragma warning(disable: 4127)
 #endif
 
-// for non C99 environments
+#if defined(__APPLE__) && defined(__MACH__)
+#define finite isfinite
+#endif
+
 #if !defined(NAN)
-#define NAN (0.0/0.0)
+#if defined(_MSC_VER)
+    /* NAN is not defined in VS 2012 or older */
+    static const __int64 global_nan = 0x7ff8000000000000i64;
+    #define NAN (*(const double *) &global_nan)
+#else
+    #define NAN (0.0/0.0)
+#endif
+#endif
+
+#ifndef EXT_ASC
+#if defined(__MINGW32__) || defined(_MSC_VER)
+#define fopen newfopen
+extern FILE *newfopen(const char *fn, const char* md);
+#endif
+#endif
+
+#if defined(__GNUC__)
+#define ATTRIBUTE_NORETURN __attribute__ ((noreturn))
+#elif defined(_MSC_VER)
+#define ATTRIBUTE_NORETURN __declspec (noreturn)
+#else
+#define ATTRIBUTE_NORETURN
 #endif
 
 /* Fast random number generator */
@@ -220,9 +233,13 @@ extern double x_atanh(double);
 #define HUGE HUGE_VAL
 #endif
 
+void findtok_noparen(char **p_str, char **p_token, char **p_token_end);
 extern char *gettok_noparens(char **s);
 extern char *gettok_node(char **s);
 extern char *gettok_iv(char **s);
+extern char *nexttok(const char *s);
+extern char *nexttok_noparens(const char *s);
+extern char *gettok_model(char **s);
 extern int get_l_paren(char **s);
 extern int get_r_paren(char **s);
 
@@ -247,6 +264,7 @@ extern char *Help_Path;
 extern char *Lib_Path;
 extern char *Inp_Path;
 extern char *Infile_Path;
+extern char *Spice_Exec_Path;
 
 #ifdef TCL_MODULE
 
@@ -262,20 +280,25 @@ extern int tcl_fprintf(FILE *f, const char *format, ...);
 #define fprintf tcl_fprintf
 
 #undef perror
-#define perror(string) fprintf(stderr,"%s: %s\n",string,sys_errlist[errno])
+#define perror(string) fprintf(stderr, "%s: %s\n", string, strerror(errno))
 
 #elif defined SHARED_MODULE
 
 #include <errno.h>
+#include <stdarg.h>
 
 extern int sh_printf(const char *format, ...);
 extern int sh_fprintf(FILE *fd, const char *format, ...);
+extern int sh_vfprintf(FILE *fd, const char *format, va_list args);
 extern int sh_fputs(const char *input, FILE *fd);
 extern int sh_fputc(int input, FILE *fd);
 extern int sh_putc(int input, FILE *fd);
-extern void SetAnalyse(char *analyse, int percent);
+extern void SetAnalyse(const char *analyse, int percent);
 
 #define HAS_PROGREP
+
+#undef vfprintf
+#define vfprintf sh_vfprintf
 
 #undef printf
 #define printf sh_printf
@@ -284,7 +307,7 @@ extern void SetAnalyse(char *analyse, int percent);
 #define fprintf sh_fprintf
 
 #undef perror
-#define perror(string) fprintf(stderr, "%s: %s\n", string, sys_errlist[errno])
+#define perror(string) fprintf(stderr, "%s: %s\n", string, strerror(errno))
 
 #undef fputs
 #define fputs sh_fputs
@@ -300,11 +323,7 @@ extern void SetAnalyse(char *analyse, int percent);
 
 void soa_printf(CKTcircuit *ckt, GENinstance *instance, const char *fmt, ...);
 
-#ifdef __GNUC__
-extern void controlled_exit(int status) __attribute__ ((noreturn));
-#else
-extern void controlled_exit(int status);
-#endif
+ATTRIBUTE_NORETURN void controlled_exit(int status);
 
 
 /* macro to ignore unused variables and parameters */
@@ -314,6 +333,29 @@ extern void controlled_exit(int status);
 
 #if !defined(va_copy) && defined(_MSC_VER)
 #define va_copy(dst, src) ((dst) = (src))
+#endif
+
+
+/*
+ * type safe variants of the <ctype.h> functions for char arguments
+ */
+
+#if !defined(isalpha_c)
+
+inline static int char_to_int(char c) { return (unsigned char) c; }
+
+#define isalpha_c(x) isalpha(char_to_int(x))
+#define islower_c(x) islower(char_to_int(x))
+#define isdigit_c(x) isdigit(char_to_int(x))
+#define isalnum_c(x) isalnum(char_to_int(x))
+#define isprint_c(x) isprint(char_to_int(x))
+#define isblank_c(x) isblank(char_to_int(x))
+#define isspace_c(x) isspace(char_to_int(x))
+#define isupper_c(x) isupper(char_to_int(x))
+
+#define tolower_c(x) ((char) tolower(char_to_int(x)))
+#define toupper_c(x) ((char) toupper(char_to_int(x)))
+
 #endif
 
 

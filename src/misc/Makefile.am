@@ -2,7 +2,6 @@
 
 noinst_LTLIBRARIES = libmisc.la
 
-
 libmisc_la_SOURCES = \
 		getopt_long_bsd.c	\
 		getopt_bsd.h	\

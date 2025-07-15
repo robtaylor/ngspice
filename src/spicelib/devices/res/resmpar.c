@@ -30,6 +30,10 @@ RESmParam(int param, IFvalue *value, GENmodel *inModel)
         model->REStempCoeff2 = value->rValue;
         model->REStc2Given = TRUE;
         break;
+    case RES_MOD_TCE:
+        model->REStempCoeffe = value->rValue;
+        model->REStceGiven = TRUE;
+        break;
     case RES_MOD_RSH:
         model->RESsheetRes = value->rValue;
         model->RESsheetResGiven = TRUE;
@@ -62,8 +66,20 @@ RESmParam(int param, IFvalue *value, GENmodel *inModel)
         model->RESbv_max = value->rValue;
         model->RESbv_maxGiven = TRUE;
         break;
+    case RES_MOD_LF:
+        model->RESlf = value->rValue;
+        model->RESlfGiven = TRUE;
+        break;
+    case RES_MOD_WF:
+        model->RESwf = value->rValue;
+        model->RESwfGiven = TRUE;
+        break;
+    case RES_MOD_EF:
+        model->RESef = value->rValue;
+        model->RESefGiven = TRUE;
+        break;
     case RES_MOD_R:
-        if ( value->rValue > 1e-03 ) {
+        if ( value->rValue > 0 ) {
             model->RESres = value->rValue;
             model->RESresGiven = TRUE;
         }

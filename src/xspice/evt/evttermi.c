@@ -3,11 +3,10 @@ FILE    EVTtermInsert.c
 
 MEMBER OF process XSPICE
 
-Copyright 1991
+Public Domain
+
 Georgia Tech Research Corporation
 Atlanta, Georgia 30332
-All Rights Reserved
-
 PROJECT A-8503
 
 AUTHORS
@@ -330,6 +329,8 @@ static void EVTnode_insert(
         node->next = NULL;
         node->name = MIFcopy(node_name);
         node->udn_index = udn_index;
+        node->save = MIF_TRUE; /* Backward compatible behaviour: save all. */
+        node->cbs = NULL;
         index = ckt->evt->counts.num_nodes;
         (ckt->evt->counts.num_nodes)++;
     }

@@ -37,6 +37,7 @@ NBJTdump(GENmodel *inModel, CKTcircuit *ckt)
   char *prefix;
   int *state_num;
   int anyOutput = 0;
+  bool writeAscii = TRUE;
 
   if (ckt->CKTmode & MODEDCOP) {
     prefix = "OP";
@@ -55,10 +56,10 @@ NBJTdump(GENmodel *inModel, CKTcircuit *ckt)
     return;
   }
 
-  for (; model != NULL; model = model->NBJTnextModel) {
+  for (; model != NULL; model = NBJTnextModel(model)) {
     output = model->NBJToutputs;
-    for (inst = model->NBJTinstances; inst != NULL;
-	inst = inst->NBJTnextInstance) {
+    for (inst = NBJTinstances(model); inst != NULL;
+         inst = NBJTnextInstance(inst)) {
 
       if (inst->NBJTprintGiven) {
 	if ((ckt->CKTmode & MODETRAN) &&
@@ -68,12 +69,16 @@ NBJTdump(GENmodel *inModel, CKTcircuit *ckt)
 	anyOutput = 1;
 	sprintf(fileName, "%s%s.%d.%s", output->OUTProotFile, prefix,
 	    *state_num, inst->NBJTname);
-	if ((fpState = fopen(fileName, "wb")) == NULL) {
+
+	writeAscii = compareFiletypeVar("ascii");
+
+	fpState = fopen(fileName, (writeAscii ? "w" : "wb"));
+	if (!fpState) {
 	  perror(fileName);
 	} else {
 	  NBJTputHeader(fpState, ckt, inst);
 	  ONEprnSolution(fpState, inst->NBJTpDevice,
-	      model->NBJToutputs);
+	      model->NBJToutputs, writeAscii, "nbjt");
 	  fclose(fpState);
 	  LOGmakeEntry(fileName, description);
 	}
@@ -155,10 +160,10 @@ NBJTacct(GENmodel *inModel, CKTcircuit *ckt, FILE *file)
 
   NG_IGNORE(ckt);
 
-  for (; model != NULL; model = model->NBJTnextModel) {
+  for (; model != NULL; model = NBJTnextModel(model)) {
     output = model->NBJToutputs;
-    for (inst = model->NBJTinstances; inst != NULL;
-	inst = inst->NBJTnextInstance) {
+    for (inst = NBJTinstances(model); inst != NULL;
+         inst = NBJTnextInstance(inst)) {
 
       if (output->OUTPstats) {
 	ONEmemStats(file, inst->NBJTpDevice);

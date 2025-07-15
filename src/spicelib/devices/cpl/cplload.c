@@ -9,7 +9,7 @@ Author:	1992 Charles Hough
 #include "cpldefs.h"
 #include "ngspice/sperror.h"
 #include "ngspice/suffix.h"
-
+#include "cplhash.h"
 
 VI_list	*pool_vi;
 static double ratio[MAX_CP_TX_LINES];
@@ -70,9 +70,9 @@ CPLload(GENmodel *inModel, CKTcircuit *ckt)
 
 	gmin = 0.1 * ckt->CKTgmin;     /* dc solution */
 
-	for( ; model !=	NULL; model = model->CPLnextModel ) {
-		for (here = model->CPLinstances; here != NULL ;
-			here=here->CPLnextInstance) {
+	for( ; model !=	NULL; model = CPLnextModel(model)) {
+		for (here = CPLinstances(model); here != NULL ;
+			here=CPLnextInstance(here)) {
 
 			cp = here->cplines;
 
@@ -80,10 +80,10 @@ CPLload(GENmodel *inModel, CKTcircuit *ckt)
 
 			for(m =	0 ; m <	noL ; m++)     /* dc solution */
 			{
-			   *here->CPLposPos[m] += gmin;
-			   *here->CPLnegNeg[m] += gmin;
-			   *here->CPLnegPos[m] += gmin;
-			   *here->CPLposNeg[m] += gmin;
+			   *here->CPLposPosPtr[m] += gmin;
+			   *here->CPLnegNegPtr[m] += gmin;
+			   *here->CPLnegPosPtr[m] += gmin;
+			   *here->CPLposNegPtr[m] += gmin;
 			}
 
 			if (cond1 || cp->vi_head == NULL) continue;
@@ -123,11 +123,11 @@ CPLload(GENmodel *inModel, CKTcircuit *ckt)
 
     model = (CPLmodel *)inModel;
     /*	loop through all the models */
-    for( ; model != NULL; model	= model->CPLnextModel )	{
+    for( ; model != NULL; model	= CPLnextModel(model))	{
 
 	/* loop	through	all the	instances of the model */
-	for (here = model->CPLinstances; here != NULL ;
-			here=here->CPLnextInstance) {
+	for (here = CPLinstances(model); here != NULL ;
+			here=CPLnextInstance(here)) {
 
 			double mintaul = 123456789.0;
 
@@ -157,14 +157,14 @@ CPLload(GENmodel *inModel, CKTcircuit *ckt)
 				for (m = 0; m <	noL; m++) {
 					if (here->CPLlengthGiven)
 						g = model->Rm[resindex]	* here->CPLlength;
-					else g = model->Rm[resindex] * here->CPLmodPtr->length;
-					*(here->CPLposIbr1[m]) += 1.0;
-					*(here->CPLnegIbr2[m]) += 1.0;
-					*(here->CPLibr1Ibr1[m])	+= 1.0;
-					*(here->CPLibr1Ibr2[m][m]) += 1.0;
-					*(here->CPLibr2Pos[m][m]) += 1.0;
-					*(here->CPLibr2Neg[m][m]) -= 1.0;
-					*(here->CPLibr2Ibr1[m][m]) -= g;
+					else g = model->Rm[resindex] * CPLmodPtr(here)->length;
+					*(here->CPLposIbr1Ptr[m]) += 1.0;
+					*(here->CPLnegIbr2Ptr[m]) += 1.0;
+					*(here->CPLibr1Ibr1Ptr[m])	+= 1.0;
+					*(here->CPLibr1Ibr2Ptr[m][m]) += 1.0;
+					*(here->CPLibr2PosPtr[m][m]) += 1.0;
+					*(here->CPLibr2NegPtr[m][m]) -= 1.0;
+					*(here->CPLibr2Ibr1Ptr[m][m]) -= g;
 					resindex = resindex + noL - m;
 				}
 				continue;
@@ -201,6 +201,10 @@ CPLload(GENmodel *inModel, CKTcircuit *ckt)
 						double a, b;
 
 						tms = cp->h1t[i][j];
+						if (!tms) {
+							fprintf(stderr, "\nError in CPL %s: Forbidden combination of model parameters!\n", here->gen.GENname);
+							controlled_exit(1);
+						}
 						if (tms->ifImg)	{
 							tms->tm[0].cnv_i = - cp->dc1[j]	*
 								tms->tm[0].c / tms->tm[0].x;
@@ -222,6 +226,10 @@ CPLload(GENmodel *inModel, CKTcircuit *ckt)
 
 						for (l = 0; l <	cp->noL; l++) {
 							tms = cp->h2t[i][j][l];
+							if (!tms) {
+								fprintf(stderr, "\nError in CPL %s: Forbidden combination of model parameters!\n", here->gen.GENname);
+								controlled_exit(1);
+							}
 							for (k = 0; k <	3; k++)	{
 								tms->tm[k].cnv_i = 0.0;
 								tms->tm[k].cnv_o = 0.0;
@@ -229,6 +237,10 @@ CPLload(GENmodel *inModel, CKTcircuit *ckt)
 						}
 						for (l = 0; l <	cp->noL; l++) {
 							tms = cp->h3t[i][j][l];
+							if (!tms) {
+								fprintf(stderr, "\nError in CPL %s: Forbidden combination of model parameters!\n", here->gen.GENname);
+								controlled_exit(1);
+							}
 							if (tms->ifImg)	{
 								tms->tm[0].cnv_i = - cp->dc1[j]	*
 									tms->tm[0].c / tms->tm[0].x;
@@ -267,20 +279,20 @@ CPLload(GENmodel *inModel, CKTcircuit *ckt)
 			}
 
 			for (m = 0; m <	noL; m++) {
-				*(here->CPLibr1Ibr1[m])	= -1.0;
-				*(here->CPLibr2Ibr2[m])	= -1.0;
+				*(here->CPLibr1Ibr1Ptr[m])	= -1.0;
+				*(here->CPLibr2Ibr2Ptr[m])	= -1.0;
 			}
 
 			for (m = 0; m <	noL; m++) {
-				*(here->CPLposIbr1[m]) = 1.0;
-				*(here->CPLnegIbr2[m]) = 1.0;
+				*(here->CPLposIbr1Ptr[m]) = 1.0;
+				*(here->CPLnegIbr2Ptr[m]) = 1.0;
 			}
 
 			for (m = 0; m <	noL; m++) {
 				for (p = 0; p <	noL; p++) {
-					*(here->CPLibr1Pos[m][p]) =
+					*(here->CPLibr1PosPtr[m][p]) =
 						cp->h1t[m][p]->aten + h1 * cp->h1C[m][p];
-					*(here->CPLibr2Neg[m][p]) =
+					*(here->CPLibr2NegPtr[m][p]) =
 						cp->h1t[m][p]->aten + h1 * cp->h1C[m][p];
 				}
 			}
@@ -302,14 +314,14 @@ CPLload(GENmodel *inModel, CKTcircuit *ckt)
 				if (cp->h3t[m][p][q]) {
 				f = ratio[q] * (h1 * cp->h3C[m][p][q] +
 					cp->h3t[m][p][q]->aten);
-						*(here->CPLibr1Neg[m][p]) = -f;
-						*(here->CPLibr2Pos[m][p]) = -f;
+						*(here->CPLibr1NegPtr[m][p]) = -f;
+						*(here->CPLibr2PosPtr[m][p]) = -f;
 				}
 				if (cp->h2t[m][p][q]) {
 				f = ratio[q] * (h1 * cp->h2C[m][p][q] +
 					cp->h2t[m][p][q]->aten);
-						*(here->CPLibr1Ibr2[m][p]) = -f;
-						*(here->CPLibr2Ibr1[m][p]) = -f;
+						*(here->CPLibr1Ibr2Ptr[m][p]) = -f;
+						*(here->CPLibr2Ibr1Ptr[m][p]) = -f;
 				}
 
 						}
@@ -337,8 +349,10 @@ copy_cp(CPLine *new, CPLine *old)
 		new->taul[i] = old->taul[i];
 
 		for (j = 0; j <	m; j++)	{
-			if (new->h1t[i][j] == NULL)
-				new->h1t[i][j] = TMALLOC(TMS, 1);
+			if (new->h1t[i][j] == NULL) {
+				TMS *nptr = new->h1t[i][j] = TMALLOC(TMS, 1);
+				memsaved(nptr);
+			}
 			new->h1t[i][j]->ifImg =	old->h1t[i][j]->ifImg;
 			new->h1t[i][j]->aten = old->h1t[i][j]->aten;
 			new->h1C[i][j] = old->h1C[i][j];
@@ -351,8 +365,10 @@ copy_cp(CPLine *new, CPLine *old)
 				new->h1e[i][j][k] = old->h1e[i][j][k];
 			}
 			for (l = 0; l <	m; l++)	{
-				if (new->h2t[i][j][l] == NULL)
-					new->h2t[i][j][l] = TMALLOC(TMS, 1);
+				if (new->h2t[i][j][l] == NULL) {
+					TMS *nptr = new->h2t[i][j][l] = TMALLOC(TMS, 1);
+					memsaved(nptr);
+				}
 				new->h2t[i][j][l]->ifImg = old->h2t[i][j][l]->ifImg;
 				new->h2t[i][j][l]->aten	= old->h2t[i][j][l]->aten;
 				new->h2C[i][j][l] = old->h2C[i][j][l];
@@ -366,8 +382,10 @@ copy_cp(CPLine *new, CPLine *old)
 						= old->h2t[i][j][l]->tm[k].cnv_o;
 				}
 
-				if (new->h3t[i][j][l] == NULL)
-					new->h3t[i][j][l] = TMALLOC(TMS, 1);
+				if (new->h3t[i][j][l] == NULL) {
+					TMS* nptr = new->h3t[i][j][l] = TMALLOC(TMS, 1);
+                    memsaved(nptr);
+				}
 				new->h3t[i][j][l]->ifImg = old->h3t[i][j][l]->ifImg;
 				new->h3t[i][j][l]->aten	= old->h3t[i][j][l]->aten;
 				for (k = 0; k <	3; k++)	{
@@ -623,7 +641,12 @@ static VI_list
 		q = pool_vi;
 	    pool_vi = pool_vi->pool;
 		return(q);
-    } else return(TMALLOC(VI_list, 1));
+	}
+	else {
+		VI_list* nptr = TMALLOC(VI_list, 1);
+		memsaved(nptr);
+		return(nptr);
+	}
 }
 
 static void
@@ -786,49 +809,47 @@ errordetect:
    fprintf(stderr,	"your maximum time step	is too large for tau.\n");
    fprintf(stderr,	"decrease max time step	in .tran card and try again\n");
    controlled_exit(0);
-   return(0);
 }
 
 
-static int
-update_delayed_cnv(CPLine *cp, double h)
+static int update_delayed_cnv(CPLine *cp, double h)
 {
    int i, j, k;
-   double *ratio;
+   double *ratio1;
    double f;
    VI_list *vi;
    TMS *tms;
    int noL;
 
    h *=	0.5e-12;
-   ratio = cp->ratio;
+   ratio1 = cp->ratio;
    vi =	cp->vi_tail;
    noL = cp->noL;
 
    for (k = 0; k < noL;	k++)	 /*  mode  */
-      if (ratio[k] > 0.0)
+      if (ratio1[k] > 0.0)
      for (i = 0; i < noL; i++)	/*  current eqn	 */
 	for (j = 0; j <	noL; j++) {
 	   tms = cp->h3t[i][j][k];
 	   if (tms == NULL)
 	  continue;
-	   f = h * ratio[k] * vi->v_i[j];
+	   f = h * ratio1[k] * vi->v_i[j];
 	   tms->tm[0].cnv_i += f *  tms->tm[0].c;
 	   tms->tm[1].cnv_i += f *  tms->tm[1].c;
 	   tms->tm[2].cnv_i += f *  tms->tm[2].c;
 
-	   f = h * ratio[k] * vi->v_o[j];
+	   f = h * ratio1[k] * vi->v_o[j];
 	   tms->tm[0].cnv_o += f *  tms->tm[0].c;
 	   tms->tm[1].cnv_o += f *  tms->tm[1].c;
 	   tms->tm[2].cnv_o += f *  tms->tm[2].c;
 
 	   tms = cp->h2t[i][j][k];
-	   f = h * ratio[k] * vi->i_i[j];
+	   f = h * ratio1[k] * vi->i_i[j];
 	   tms->tm[0].cnv_i += f *  tms->tm[0].c;
 	   tms->tm[1].cnv_i += f *  tms->tm[1].c;
 	   tms->tm[2].cnv_i += f *  tms->tm[2].c;
 
-	   f = h * ratio[k] * vi->i_o[j];
+	   f = h * ratio1[k] * vi->i_o[j];
 	   tms->tm[0].cnv_o += f *  tms->tm[0].c;
 	   tms->tm[1].cnv_o += f *  tms->tm[1].c;
 	   tms->tm[2].cnv_o += f *  tms->tm[2].c;

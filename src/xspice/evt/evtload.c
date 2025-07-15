@@ -3,11 +3,10 @@ FILE    EVTload.c
 
 MEMBER OF process XSPICE
 
-Copyright 1991
+Public Domain
+
 Georgia Tech Research Corporation
 Atlanta, Georgia 30332
-All Rights Reserved
-
 PROJECT A-8503
 
 AUTHORS
@@ -51,6 +50,7 @@ NON-STANDARD FEATURES
 
 #include "ngspice/mifproto.h"
 #include "ngspice/evtproto.h"
+#include "ngspice/cmproto.h"
 
 
 static void EVTcreate_state(
@@ -62,20 +62,13 @@ static void EVTadd_msg(
     int         port_index,
     char        *msg_text);
 
-static void EVTcreate_output_event(
-    CKTcircuit  *ckt,
-    int         node_index,
-    int         output_index,
-    void        **value_ptr);
+static Evt_Output_Event_t *EVTget_output_event(
+    CKTcircuit      *ckt,
+    Mif_Port_Data_t *port);
 
 static void EVTprocess_output(
     CKTcircuit          *ckt,
-    Mif_Boolean_t       changed,
-    int                 output_index,
-    Mif_Boolean_t       invert,
-    double              delay);
-
-
+    Mif_Port_Data_t     *port);
 
 /*
 EVTload
@@ -89,8 +82,18 @@ ignored.
 */
 
 int EVTload(
-    CKTcircuit *ckt,        /* The circuit structure */
-    int        inst_index)  /* The instance to call code model for */
+    CKTcircuit   *ckt,        /* The circuit structure */
+    MIFinstance  *inst)       /* The instance to call */
+{
+    return EVTload_with_event(ckt, inst, MIF_EVENT_DRIVEN);
+}
+
+/* "Internal" version, also used by EVTcall_hybrids(). */
+
+int EVTload_with_event(
+    CKTcircuit      *ckt,     /* The circuit structure */
+    MIFinstance     *inst,    /* The instance to call */
+    Mif_Call_Type_t type)     /* Type of call (EVENT or STEP_PENDING). */
 {
 
     int                 i;
@@ -102,23 +105,16 @@ int EVTload(
 
     Mif_Conn_Data_t     *conn;
     Mif_Port_Data_t     *port;
-
-    Mif_Private_t       cm_data;
-
-    MIFinstance         *inst;
-
     Evt_Node_Data_t     *node_data;
 
-    void                *value_ptr;
-
+    Mif_Private_t       cm_data;
 
     /* ***************************** */
     /* Prepare the code model inputs */
     /* ***************************** */
 
-    /* Get pointer to instance data structure and other data */
-    /* needed for fast access */
-    inst = ckt->evt->info.inst_table[inst_index]->inst_ptr;
+    /* Get pointer to data structure needed for fast access */
+
     node_data = ckt->evt->data.node;
 
     /* Setup circuit data in struct to be passed to code model function */
@@ -131,14 +127,33 @@ int EVTload(
     cm_data.circuit.anal_init = MIF_FALSE;
     cm_data.circuit.anal_type = g_mif_info.circuit.anal_type;
 
-    if(g_mif_info.circuit.anal_type == MIF_TRAN)
+    /* Set simulation times. */
+
+    if (g_mif_info.circuit.anal_type == MIF_TRAN) {
         cm_data.circuit.time = g_mif_info.circuit.evt_step;
-    else
+        if (type == MIF_STEP_PENDING) {
+            cm_data.circuit.t[0] = ckt->CKTtime;
+            cm_data.circuit.t[1] = ckt->CKTtime - ckt->CKTdeltaOld[0];
+        } else {
+            cm_data.circuit.t[0] = ckt->CKTtime + ckt->CKTdelta;
+            cm_data.circuit.t[1] = ckt->CKTtime;
+        }
+        if (cm_data.circuit.t[1] < 0.0)
+              cm_data.circuit.t[1] = 0.0;
+    } else {
         cm_data.circuit.time = 0.0;
+        cm_data.circuit.t[0] = cm_data.circuit.t[1] = 0.0;
+    }
 
-    cm_data.circuit.call_type = MIF_EVENT_DRIVEN;
+    /* Instances that have declared themselves as irreversible
+     * are expected to distinguish STEP_PENDING from ordinary events.
+     */
+
+    if (type == MIF_STEP_PENDING && inst->irreversible)
+        cm_data.circuit.call_type = MIF_STEP_PENDING;
+    else
+        cm_data.circuit.call_type = MIF_EVENT_DRIVEN;
     cm_data.circuit.temperature = ckt->CKTtemp - 273.15;
-
 
     /* Setup data needed by cm_... functions */
 
@@ -154,11 +169,12 @@ int EVTload(
 
 
     /* If after initialization and in transient analysis mode */
-    /* create a new state for the instance */
+    /* create a new state for the instance, */
+    /* except analog-only irreversibles. */
 
-    if((g_mif_info.circuit.anal_type == MIF_TRAN) && inst->initialized)
-        EVTcreate_state(ckt, inst_index);
-
+    if((g_mif_info.circuit.anal_type == MIF_TRAN) && inst->initialized &&
+       inst->inst_index >= 0)
+        EVTcreate_state(ckt, inst->inst_index);
 
     /* Loop through all connections on the instance and setup */
     /* load, total_load, and msg on all ports, and changed flag */
@@ -192,17 +208,16 @@ int EVTload(
                 port->load = 0.0;
                 port->total_load = node_data->total_load[port->evt_data.node_index];
 
-                /* If connection is an output, initialize changed to true */
-                /* and create a new output event object in the free list */
-                /* if transient analysis mode */
+                /* If connection is an output and transient analysis,
+                 * initialize changed to true and ensure an output location.
+                 */
                 if(conn->is_output) {
                     port->changed = MIF_TRUE;
-                    if(g_mif_info.circuit.anal_type == MIF_TRAN) {
-                        EVTcreate_output_event(ckt,
-                                         port->evt_data.node_index,
-                                         port->evt_data.output_index,
-                                         &value_ptr);
-                        port->output.pvalue = value_ptr;
+                    if (g_mif_info.circuit.anal_type == MIF_TRAN) {
+                        if (port->next_event == NULL) {
+                            port->next_event = EVTget_output_event(ckt, port);
+                        }
+                        port->output.pvalue = port->next_event->value;
                     }
                 }
             }
@@ -225,13 +240,14 @@ int EVTload(
     cm_data.param = inst->param;
     cm_data.num_inst_var = inst->num_inst_var;
     cm_data.inst_var = inst->inst_var;
+    cm_data.callback = &(inst->callback);
 
 
     /* ******************* */
     /* Call the code model */
     /* ******************* */
 
-    mod_type = inst->MIFmodPtr->MIFmodType;
+    mod_type = MIFmodPtr(inst)->MIFmodType;
     DEVices[mod_type]->DEVpublic.cm_func (&cm_data);
 
 
@@ -276,9 +292,9 @@ int EVTload(
                 continue;
 
             /* If output changed, process it */
-            EVTprocess_output(ckt, port->changed,
-                                   port->evt_data.output_index,
-                                   port->invert, port->delay);
+
+            if (port->changed)
+                EVTprocess_output(ckt, port);
 
             /* And prevent erroneous models from overwriting it during */
             /* analog iterations */
@@ -339,6 +355,7 @@ static void EVTcreate_state(
 	{
         new_state = state_data->free[inst_index];
         state_data->free[inst_index] = new_state->next;
+        new_state->next = NULL; // reusing dirty memory: next must be reset
     }
     else 
 	{
@@ -368,43 +385,40 @@ static void EVTcreate_state(
 
 
 /*
-EVTcreate_output_event
+EVTget_output_event
 
 This function creates a new output event.
 */
 
-static void EVTcreate_output_event(
-    CKTcircuit  *ckt,           /* The circuit structure */
-    int         node_index,     /* The node type port is on */
-    int         output_index,   /* The output index for this port */
-    void        **value_ptr)    /* The event created */
+static Evt_Output_Event_t *EVTget_output_event(
+    CKTcircuit      *ckt,       /* The circuit structure */
+    Mif_Port_Data_t *port)      /* The output port. */
 {
     int                 udn_index;
     Evt_Node_Info_t     **node_table;
     Evt_Output_Queue_t  *output_queue;
-    Evt_Output_Event_t  *event;
+    Evt_Output_Event_t  *event, **free_list;
 
 
     /* Check the output queue free list and use the structure */
     /* at the head of the list if non-null.  Otherwise, create a new one. */
+
     output_queue = &(ckt->evt->queue.output);
-    if(output_queue->free[output_index]) {
-        *value_ptr = output_queue->free[output_index]->value;
-    }
-    else {
+    free_list = output_queue->free_list[port->evt_data.output_index];
+    if (*free_list) {
+        event = *free_list;
+        *free_list = event->next;
+    } else {
         /* Create a new event */
         event = TMALLOC(Evt_Output_Event_t, 1);
         event->next = NULL;
 
         /* Initialize the value */
         node_table = ckt->evt->info.node_table;
-        udn_index = node_table[node_index]->udn_index;
+        udn_index = node_table[port->evt_data.node_index]->udn_index;
         g_evt_udn_info[udn_index]->create (&(event->value));
-
-        /* Put the event onto the free list and return the value pointer */
-        output_queue->free[output_index] = event;
-        *value_ptr = event->value;
     }
+    return event;
 }
 
 
@@ -443,6 +457,8 @@ static void EVTadd_msg(
     if(msg_data->free[port_index]) {
         *msg_ptr = msg_data->free[port_index];
         msg_data->free[port_index] = msg_data->free[port_index]->next;
+        if ((*msg_ptr)->text)
+            tfree((*msg_ptr)->text);
     }
     else {
         *msg_ptr = TMALLOC(Evt_Msg_t, 1);
@@ -468,6 +484,51 @@ static void EVTadd_msg(
 }
 
 
+/* This is a code-model library function.  Placed here to use local
+ * static functions.
+ */
+
+bool cm_schedule_output(unsigned int conn_index, unsigned int port_index,
+                        double delay, void *vp)
+{
+    MIFinstance        *instance;
+    Mif_Conn_Data_t    *conn;
+    Mif_Port_Data_t    *port;
+    Evt_Node_Info_t    *node_info;
+    Evt_Output_Event_t *output_event;
+    int                 udn_index;
+
+    if (delay < 0 || g_mif_info.circuit.anal_type != MIF_TRAN)
+        return FALSE;
+    instance = g_mif_info.instance;
+    if (conn_index >= (unsigned int)instance->num_conn)
+        return FALSE;
+    conn = instance->conn[conn_index];
+    if (port_index >= (unsigned int)conn->size)
+        return FALSE;
+    port = conn->port[port_index];
+    if (port->type != MIF_DIGITAL && port->type != MIF_USER_DEFINED)
+        return FALSE;
+
+    /* Get an output structure and copy the new value. */
+
+    output_event = EVTget_output_event(g_mif_info.ckt, port);
+    node_info =
+        g_mif_info.ckt->evt->info.node_table[port->evt_data.node_index];
+    udn_index = node_info->udn_index;
+    g_evt_udn_info[node_info->udn_index]->copy(vp, output_event->value);
+
+    /* Queue the output. */
+
+    if (port->invert)
+        g_evt_udn_info[udn_index]->invert(output_event->value);
+    EVTqueue_output(g_mif_info.ckt, port->evt_data.output_index,
+                    udn_index, output_event,
+                    g_mif_info.circuit.evt_step,
+                    g_mif_info.circuit.evt_step + delay);
+    return TRUE;
+}
+
 /*
 EVTprocess_output
 
@@ -479,16 +540,14 @@ the event is processed immediately.
 
 
 static void EVTprocess_output(
-    CKTcircuit     *ckt,          /* The circuit structure */
-    Mif_Boolean_t  changed,       /* Has output changed? */
-    int            output_index,  /* The output of interest */
-    Mif_Boolean_t  invert,        /* Does output need to be inverted? */
-    double         delay)         /* The output delay in transient analysis */
+    CKTcircuit      *ckt,          /* The circuit structure */
+    Mif_Port_Data_t *port)
 {
 
     int                 num_outputs;
     int                 node_index;
     int                 udn_index;
+    int                 output_index;
     int                 output_subindex;
 
     Evt_Output_Info_t   **output_table;
@@ -500,30 +559,35 @@ static void EVTprocess_output(
     Evt_Output_Queue_t  *output_queue;
     Evt_Output_Event_t  *output_event;
 
-    Mif_Boolean_t       equal;
-
+    Mif_Boolean_t       invert, equal;
+    double              delay;
 
     output_queue = &(ckt->evt->queue.output);
     output_table = ckt->evt->info.output_table;
     node_table = ckt->evt->info.node_table;
 
+    output_index = port->evt_data.output_index;
     node_index = output_table[output_index]->node_index;
     udn_index = node_table[node_index]->udn_index;
-
+    invert = port->invert;
 
     /* if transient analysis, just put the output event on the queue */
     /* to be processed at a later time */
-    if(g_mif_info.circuit.anal_type == MIF_TRAN) {
-        /* If model signaled that output was not posted, */
-        /* leave the event struct on the free list and return */
-        if((! changed) || (delay <= 0.0)) {
-            if(changed && (delay <= 0.0))
-                printf("\nERROR - Output delay <= 0 not allowed - output ignored!\n");
+
+    if (g_mif_info.circuit.anal_type == MIF_TRAN) {
+        delay = port->delay;
+        if(delay < 0.0) {
+            printf("\nERROR - Output delay < 0 not allowed - output ignored!\n");
+            printf("  Instance: %s\n  Node: %s\n  Time: %f \n",
+                   g_mif_info.instance->MIFname, node_table[node_index]->name,
+                   g_mif_info.ckt->CKTtime);
             return;
         }
-        /* Remove the (now used) struct from the head of the free list */
-        output_event = output_queue->free[output_index];
-        output_queue->free[output_index] = output_event->next;
+        /* Remove the (now used) struct from the port data struct. */
+
+        output_event = port->next_event;
+        port->next_event = NULL;
+
         /* Invert the output value if necessary */
         if(invert)
             g_evt_udn_info[udn_index]->invert
@@ -533,20 +597,11 @@ static void EVTprocess_output(
                         g_mif_info.circuit.evt_step,
                         g_mif_info.circuit.evt_step + delay);
         return;
-    }
-    /* If not transient analysis, process immediately. */
-    /* Determine if output has changed from rhsold value */
-    /* and put entry in output queue changed list if so */
-    else {
+    } else {
+        /* If not transient analysis, process immediately. */
+        /* Determine if output has changed from rhsold value */
+        /* and put entry in output queue changed list if so */
 
-        /* If model signaled that output was not posted, */
-        /* just return */
-        if(! changed)
-            return;
-/*
-        if(delay > 0.0)
-            printf("\nWARNING - Non-zero output delay not allowed in DCOP - delay ignored!\n");
-*/
         rhs = ckt->evt->data.node->rhs;
         rhsold = ckt->evt->data.node->rhsold;
 

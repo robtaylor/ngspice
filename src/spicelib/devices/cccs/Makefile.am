@@ -6,14 +6,11 @@ libcccs_la_SOURCES =	\
 	cccs.c		\
 	cccsask.c	\
 	cccsdefs.h	\
-	cccsdel.c	\
-	cccsdest.c	\
 	cccsext.h	\
 	cccsinit.c	\
 	cccsinit.h	\
 	cccsitf.h	\
 	cccsload.c	\
-	cccsmdel.c	\
 	cccspar.c	\
 	cccspzld.c	\
 	cccssacl.c	\
@@ -23,7 +20,11 @@ libcccs_la_SOURCES =	\
 	cccssset.c
 
 
+if KLU_WANTED
+libcccs_la_SOURCES += cccsbindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)
+
 MAINTAINERCLEANFILES = Makefile.in

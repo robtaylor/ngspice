@@ -29,7 +29,10 @@ const char *SPerror(int type)
     case E_EXISTS:
 	msg = "device already exists, existing one being used";
 	break;
-    case E_NODEV:
+    case E_EXISTS_BAD:
+	msg = "device already exists, bail out";
+	break;
+	case E_NODEV:
 	msg = "no such device";
 	break;
     case E_NOMOD:
@@ -39,7 +42,7 @@ const char *SPerror(int type)
 	msg = "no such terminal on this device";
 	break;
     case E_BADPARM:
-	msg = "no such parameter on this device";
+	msg = "no such parameter on this device or parameter is missing";
 	break;
     case E_NOMEM:
 	msg = "out of memory";

@@ -4,11 +4,8 @@ Author: 1985 Thomas L. Quarles
 **********/
 
 extern int CCVSask(CKTcircuit*,GENinstance*,int,IFvalue*,IFvalue*);
-extern int CCVSdelete(GENmodel*,IFuid,GENinstance**);
-extern void CCVSdestroy(GENmodel**);
 extern int CCVSfindBr(CKTcircuit*,GENmodel*,IFuid);
 extern int CCVSload(GENmodel*,CKTcircuit*);
-extern int CCVSmDelete(GENmodel**,IFuid,GENmodel*);
 extern int CCVSparam(int,IFvalue*,GENinstance*,IFvalue*);
 extern int CCVSpzLoad(GENmodel*,CKTcircuit*,SPcomplex*);
 extern int CCVSsAcLoad(GENmodel*,CKTcircuit*);
@@ -17,3 +14,9 @@ extern void CCVSsPrint(GENmodel*,CKTcircuit*);
 extern int CCVSsSetup(SENstruct*,GENmodel*);
 extern int CCVSsetup(SMPmatrix*,GENmodel*,CKTcircuit*,int*);
 extern int CCVSunsetup(GENmodel*,CKTcircuit*);
+
+#ifdef KLU
+extern int CCVSbindCSC (GENmodel*, CKTcircuit*) ;
+extern int CCVSbindCSCComplex (GENmodel*, CKTcircuit*) ;
+extern int CCVSbindCSCComplexToReal (GENmodel*, CKTcircuit*) ;
+#endif

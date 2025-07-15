@@ -7,7 +7,7 @@ libmos6_la_SOURCES =	\
 	mos6ask.c	\
 	mos6conv.c	\
 	mos6defs.h	\
-	mos6dest.c	\
+	mos6del.c	\
 	mos6ext.h	\
 	mos6ic.c	\
 	mos6init.c	\
@@ -22,7 +22,11 @@ libmos6_la_SOURCES =	\
 	mos6trun.c
 
 
+if KLU_WANTED
+libmos6_la_SOURCES += mos6bindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)
+
 MAINTAINERCLEANFILES = Makefile.in

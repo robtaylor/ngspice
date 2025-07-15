@@ -291,9 +291,9 @@ double gigT;
 
 double m;
 
-for (; model != NULL; model = model->B3SOIPDnextModel)
-{    for (here = model->B3SOIPDinstances; here != NULL; 
-          here = here->B3SOIPDnextInstance)
+for (; model != NULL; model = B3SOIPDnextModel(model))
+{    for (here = B3SOIPDinstances(model); here != NULL; 
+          here = B3SOIPDnextInstance(here))
      {
           Check = 0;
           ByPass = 0;
@@ -3977,14 +3977,7 @@ for (; model != NULL; model = model->B3SOIPDnextModel)
                       gTtdp = - (gTtg + gTtb + gTtsp);
 		  }
 
-		   if (model->B3SOIPDtype > 0)
-		   {   
-		       ceqqg = ceqqg;
-		       ceqqb = ceqqb;
-		       ceqqe = ceqqe;
-		       ceqqd = ceqqd;
-		   }
-		   else
+		   if (model->B3SOIPDtype < 0)
 		   {   
 		       ceqbodcon = -ceqbodcon;
 		       ceqbody = -ceqbody;

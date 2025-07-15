@@ -8,12 +8,9 @@ libbsim3soipd_la_SOURCES = \
 	b3soipdask.c	\
 	b3soipdcheck.c	\
 	b3soipdcvtest.c	\
-	b3soipddel.c	\
-	b3soipddest.c	\
 	b3soipdgetic.c	\
 	b3soipdld.c	\
 	b3soipdmask.c	\
-	b3soipdmdel.c	\
 	b3soipdmpar.c	\
 	b3soipdnoi.c	\
 	b3soipdpar.c	\
@@ -28,6 +25,9 @@ libbsim3soipd_la_SOURCES = \
 	b3soipditf.h
 
 
+if KLU_WANTED
+libbsim3soipd_la_SOURCES += b3soipdbindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)

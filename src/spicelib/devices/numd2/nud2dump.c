@@ -38,6 +38,7 @@ NUMD2dump(GENmodel *inModel, CKTcircuit *ckt)
   char *prefix;
   int *state_num;
   int anyOutput = 0;
+  bool writeAscii = TRUE;
 
   if (ckt->CKTmode & MODEDCOP) {
     prefix = "OP";
@@ -56,10 +57,10 @@ NUMD2dump(GENmodel *inModel, CKTcircuit *ckt)
     return;
   }
 
-  for (; model != NULL; model = model->NUMD2nextModel) {
+  for (; model != NULL; model = NUMD2nextModel(model)) {
     output = model->NUMD2outputs;
-    for (inst = model->NUMD2instances; inst != NULL;
-	inst = inst->NUMD2nextInstance) {
+    for (inst = NUMD2instances(model); inst != NULL;
+         inst = NUMD2nextInstance(inst)) {
 
       if (inst->NUMD2printGiven) {
 	if ((ckt->CKTmode & MODETRAN) &&
@@ -69,12 +70,16 @@ NUMD2dump(GENmodel *inModel, CKTcircuit *ckt)
 	anyOutput = 1;
 	sprintf(fileName, "%s%s.%d.%s", output->OUTProotFile, prefix,
 	    *state_num, inst->NUMD2name);
-	if ((fpState = fopen(fileName, "wb")) == NULL) {
+
+	writeAscii = compareFiletypeVar("ascii");
+
+	fpState = fopen(fileName, (writeAscii ? "w" : "wb"));
+	if (!fpState) {
 	  perror(fileName);
 	} else {
 	  NUMD2putHeader(fpState, ckt, inst);
 	  TWOprnSolution(fpState, inst->NUMD2pDevice,
-	      model->NUMD2outputs);
+	      model->NUMD2outputs, writeAscii, "numd2");
 	  fclose(fpState);
 	  LOGmakeEntry(fileName, description);
 	}
@@ -143,10 +148,10 @@ NUMD2acct(GENmodel *inModel, CKTcircuit *ckt, FILE *file)
 
   NG_IGNORE(ckt);
 
-  for (; model != NULL; model = model->NUMD2nextModel) {
+  for (; model != NULL; model = NUMD2nextModel(model)) {
     output = model->NUMD2outputs;
-    for (inst = model->NUMD2instances; inst != NULL;
-	inst = inst->NUMD2nextInstance) {
+    for (inst = NUMD2instances(model); inst != NULL;
+         inst = NUMD2nextInstance(inst)) {
 
       if (output->OUTPstats) {
 	TWOmemStats(file, inst->NUMD2pDevice);

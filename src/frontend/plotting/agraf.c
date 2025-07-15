@@ -58,7 +58,7 @@ ft_agraf(double *xlims, double *ylims, struct dvec *xscale, struct plot *plot, s
 
     /* Make sure the margin is correct */
     omargin = margin;
-    novalue = cp_getvar("noasciiplotvalue", CP_BOOL, NULL);
+    novalue = cp_getvar("noasciiplotvalue", CP_BOOL, NULL, 0);
     if (!novalue && !vec_eq(xscale, vecs))
         margin *= 2;
     else
@@ -67,16 +67,16 @@ ft_agraf(double *xlims, double *ylims, struct dvec *xscale, struct plot *plot, s
     if ((xscale->v_gridtype == GRID_YLOG) || (xscale->v_gridtype == GRID_LOGLOG))
         ylogscale = TRUE;
 
-    if (!cp_getvar("width", CP_NUM, &maxy))
+    if (!cp_getvar("width", CP_NUM, &maxy, 0))
         maxy = DEF_WIDTH;
 
-    if (!cp_getvar("height", CP_NUM, &height))
+    if (!cp_getvar("height", CP_NUM, &height, 0))
         height = DEF_HEIGHT;
 
     if (ft_nopage)
         nobreakp = TRUE;
     else
-        nobreakp = cp_getvar("nobreak", CP_BOOL, NULL);
+        nobreakp = cp_getvar("nobreak", CP_BOOL, NULL, 0);
 
     maxy -= (margin + FUDGE);
     maxx = xscale->v_length;
@@ -85,12 +85,6 @@ ft_agraf(double *xlims, double *ylims, struct dvec *xscale, struct plot *plot, s
     xrange[1] = xlims[1];
     yrange[0] = ylims[0];
     yrange[1] = ylims[1];
-
-    if (maxx < 2) {
-        fprintf(cp_err,
-                "Error: asciiplot can't handle scale with length < 2\n");
-        return;
-    }
 
     if (maxx <= 0) {
         fprintf(cp_err, "Note: no points to plot\n");
@@ -178,7 +172,7 @@ ft_agraf(double *xlims, double *ylims, struct dvec *xscale, struct plot *plot, s
             field[k * omaxy + i] = LCHAR;
         line1[i + margin + 2 * shift] = '|';
         (void) sprintf(buf, "%.2e", j * pow(10.0, (double) mag));
-        bcopy(buf, &line2[i + margin - ((j < 0) ? 2 : 1) - shift],
+        memcpy(&line2[i + margin - ((j < 0) ? 2 : 1) - shift], buf,
               strlen(buf));
     }
     line1[i - spacing + margin + 1] = '\0';
@@ -294,12 +288,18 @@ ft_agraf(double *xlims, double *ylims, struct dvec *xscale, struct plot *plot, s
     for (i = 0; i < maxx; i++) {
         if (nointerp)
             x = isreal(xscale) ? xscale->v_realdata[i] :
-                realpart(xscale->v_compdata[i]);
+            realpart(xscale->v_compdata[i]);
         else if (xlog && xrange[0] > 0.0 && xrange[1] > 0.0)
-            x = xrange[0] * pow(10.0, mylog10(xrange[1]/xrange[0])
-                                 * i / (maxx - 1));
+            if (maxx == 1)
+                x = (xrange[0] + xrange[1]) / 2.;
+            else
+                x = xrange[0] * pow(10.0, mylog10(xrange[1] / xrange[0])
+                    * i / (maxx - 1));
         else
-            x = xrange[0] + (xrange[1] - xrange[0]) * i / (maxx - 1);
+            if (maxx == 1)
+                x = (xrange[0] + xrange[1]) / 2.;
+            else
+                x = xrange[0] + (xrange[1] - xrange[0]) * i / (maxx - 1);
 
         if (x < 0.0)
             out_printf("%.3e ", x);
@@ -328,9 +328,9 @@ ft_agraf(double *xlims, double *ylims, struct dvec *xscale, struct plot *plot, s
 
     out_printf("%s\n%s\n", line1, line2);
 
-    tfree(field);
-    tfree(line1);
-    tfree(line2);
+    txfree(field);
+    txfree(line1);
+    txfree(line2);
     if (!novalue)
-        tfree(values);
+        txfree(values);
 }

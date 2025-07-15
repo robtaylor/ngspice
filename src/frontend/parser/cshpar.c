@@ -13,18 +13,6 @@ Author: 1985 Wayne A. Christopher, U. C. Berkeley CAD Group
 #include <signal.h>
 #include "cshpar.h"
 
-#ifdef HAVE_SGTTY_H
-#include <sgtty.h>
-#else
-#ifdef HAVE_TERMIO_H
-#include <termio.h>
-#else
-#ifdef HAVE_TERMIOS_H
-#include <termios.h>
-#endif
-#endif
-#endif
-
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -37,6 +25,8 @@ Author: 1985 Wayne A. Christopher, U. C. Berkeley CAD Group
 #include <sys/wait.h>
 #endif
 
+/* perform history substitution only when variable 'histsubst' is set */
+bool cp_no_histsubst = TRUE;
 
 /* Things go as follows:
  * (1) Read the line and do some initial quoting (by setting the 8th bit),
@@ -54,29 +44,48 @@ Author: 1985 Wayne A. Christopher, U. C. Berkeley CAD Group
 static void pwlist(wordlist *wlist, char *name);
 
 
-wordlist *
-cp_parse(char *string)
+wordlist *cp_parse(char *string)
 {
     wordlist *wlist;
 
     wlist = cp_lexer(string);
 
-    if (!string)
-        cp_event++;
+    /* Test for valid wordlist */
+    if (!wlist) {
+        return (wordlist *) NULL;
+    }
+    if (!wlist->wl_word) {
+        wl_free(wlist);
+        return (wordlist *) NULL;
+    }
 
-    if (!wlist || !wlist->wl_word)
-        return (wlist);
+    if (!string) { /* cp_lexer read user data */
+        cp_event++;
+    }
 
     pwlist(wlist, "Initial parse");
 
-    wlist = cp_histsubst(wlist);
-    if (!wlist || !wlist->wl_word)
-        return (wlist);
-    pwlist(wlist, "After history substitution");
-    if (cp_didhsubst) {
-        wl_print(wlist, stdout);
-        putc('\n', stdout);
-    }
+    /* Do history substitution (!1, etc.) if enabled */
+    if (!cp_no_histsubst) {
+        wlist = cp_histsubst(wlist);
+
+        /* Test for valid wordlist */
+        if (!wlist) {
+            return (wordlist *) NULL;
+        }
+        if (!wlist->wl_word) {
+            wl_free(wlist);
+            return (wordlist *) NULL;
+        }
+
+        pwlist(wlist, "After history substitution");
+        if (cp_didhsubst) {
+            wl_print(wlist, stdout);
+            putc('\n', stdout);
+        }
+    } /* end of case that history substitutions are allowed */
+
+
 
     /* Add the word list to the history. */
     /* MW. If string==NULL we do not have to do this, and then play
@@ -87,8 +96,9 @@ cp_parse(char *string)
     wlist = cp_doalias(wlist);
     pwlist(wlist, "After alias substitution");
     pwlist(wlist, "Returning ");
-    return (wlist);
-}
+    return wlist;
+} /* end of function cp_parse */
+
 
 
 static void

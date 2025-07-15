@@ -5,12 +5,17 @@ reserved.
 
 /* extern int CPLaccept(CKTcircuit*, GENmodel*); */
 extern int CPLask(CKTcircuit*, GENinstance*, int, IFvalue*, IFvalue*);
-extern int CPLdelete(GENmodel*, IFuid,GENinstance**);
-extern void CPLdestroy(GENmodel**);
 extern int CPLload(GENmodel*, CKTcircuit*);
 extern int CPLmAsk(CKTcircuit*, GENmodel*, int, IFvalue*);
-extern int CPLmDelete(GENmodel**, IFuid,GENmodel*);
 extern int CPLmParam(int,IFvalue*, GENmodel*);
 extern int CPLparam(int,IFvalue*, GENinstance*, IFvalue*);
 extern int CPLsetup(SMPmatrix*, GENmodel*, CKTcircuit*, int*);
 extern int CPLunsetup(GENmodel*, CKTcircuit*);
+extern int CPLmDelete(GENmodel*);
+extern int CPLDelete(GENinstance*);
+
+#ifdef KLU
+extern int CPLbindCSC (GENmodel *, CKTcircuit *) ;
+extern int CPLbindCSCComplex (GENmodel *, CKTcircuit *) ;
+extern int CPLbindCSCComplexToReal (GENmodel *, CKTcircuit *) ;
+#endif

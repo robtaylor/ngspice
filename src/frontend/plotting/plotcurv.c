@@ -20,7 +20,7 @@ Author: 1985 Wayne A. Christopher, U. C. Berkeley CAD Group
 
 static void plotinterval(struct dvec *v, double lo, double hi, register double *coeffs,
                          int degree, bool rotated);
-
+static int get_xdirection(struct dvec *xs, int len, bool mn, bool analog);
 
 /* Plot the vector v, with scale xs.  If we are doing curve-fitting, then
  * do some tricky stuff.
@@ -35,13 +35,12 @@ ft_graf(struct dvec *v, struct dvec *xs, bool nostart)
     register double *xdata, *ydata;
     bool rot, increasing = FALSE;
     double dx = 0.0, dy = 0.0, lx = 0.0, ly = 0.0;
-    int dir;
 
     /* if already started, use saved degree */
     if (nostart) {
         degree = currentgraph->degree;
     } else {
-        if (!cp_getvar("polydegree", CP_NUM, &degree))
+        if (!cp_getvar("polydegree", CP_NUM, &degree, 0))
             degree = 1;
         currentgraph->degree = degree;
     }
@@ -55,7 +54,7 @@ ft_graf(struct dvec *v, struct dvec *xs, bool nostart)
         return;
     }
 
-    if (!cp_getvar("gridsize", CP_NUM, &gridsize))
+    if (!cp_getvar("gridsize", CP_NUM, &gridsize, 0))
         gridsize = 0;
 
     if ((gridsize < 0) || (gridsize > 10000)) {
@@ -88,15 +87,26 @@ ft_graf(struct dvec *v, struct dvec *xs, bool nostart)
     if (!nostart)
         gr_start(v);
 
-    /* Do the one value case */
+    if (xs) {
+        /* Check vector lengths. */
 
-    if (!xs) {
-        for (i = 0; i < v->v_length; i++) {
+        if (v->v_length != xs->v_length && !v->v_scale) {
+            fprintf(stderr,
+                    "Warning: length of vector %s (%d) and its scale %s (%d) "
+                    "do not match, plot may be truncated!\n",
+                    v->v_name, v->v_length, xs->v_name, xs->v_length);
+        }
+        length = MIN(v->v_length, xs->v_length);
+    } else {
+        /* Do the one value case */
+
+        length = v->v_length;
+        for (i = 0; i < length; i++) {
 
             /* We should do the one - point case too!
              *      Important for pole-zero for example
              */
-            if (v->v_length == 1) {
+            if (length == 1) {
                 j = 0;
             } else {
                 j = i-1;
@@ -130,25 +140,30 @@ ft_graf(struct dvec *v, struct dvec *xs, bool nostart)
      * interpolation.
      */
     if ((degree == 1) && (gridsize == 0)) {
-        dir = 0;
-        for (i = 0, j = v->v_length; i < j; i++) {
+        /* We have to take care of non-monotonic x-axis values.
+        If they occur, plotting is suppressed, except for mono is set
+        to FALSE by flag 'retraceplot' in command 'plot'.
+        Then everything is plotted. */
+
+        bool mono = (currentgraph->plottype != PLOT_RETLIN);
+        int dir = get_xdirection(xs, length, mono,
+                                 !(v->v_flags & VF_EVENT_NODE));
+        for (i = 0; i < length; i++) {
             dx = isreal(xs) ? xs->v_realdata[i] :
                 realpart(xs->v_compdata[i]);
             dy = isreal(v) ? v->v_realdata[i] :
                 realpart(v->v_compdata[i]);
-            if ((i == 0 || (dir > 0 ? lx > dx : dir < 0 ? lx < dx : 0)) &&
-                xs->v_plot && xs->v_plot->pl_scale == xs)
+            if ((i == 0 || (dir > 0 ? lx > dx : (dir < 0 ? lx < dx : 0))) &&
+                (mono || (xs->v_plot && xs->v_plot->pl_scale == xs)))
             {
                 gr_point(v, dx, dy, lx, ly, 0);
             } else {
                 gr_point(v, dx, dy, lx, ly, i);
-                if (!dir)
-                    dir = lx > dx ? -1 : lx < dx ? 1 : 0;
             }
             lx = dx;
             ly = dy;
         }
-        if (v->v_length == 1)
+        if (length == 1)
             gr_point(v, dx, dy, lx, ly, 1);
         gr_end(v);
         return;
@@ -164,16 +179,16 @@ ft_graf(struct dvec *v, struct dvec *xs, bool nostart)
         if (isreal(v)) {
             ydata = v->v_realdata;
         } else {
-            ydata = TMALLOC(double, v->v_length);
-            for (i = 0; i < v->v_length; i++)
+            ydata = TMALLOC(double, length);
+            for (i = 0; i < length; i++)
                 ydata[i] = realpart(v->v_compdata[i]);
         }
 
         if (isreal(xs)) {
             xdata = xs->v_realdata;
         } else {
-            xdata = TMALLOC(double, xs->v_length);
-            for (i = 0; i < xs->v_length; i++)
+            xdata = TMALLOC(double, length);
+            for (i = 0; i < length; i++)
                 xdata[i] = realpart(xs->v_compdata[i]);
         }
 
@@ -185,7 +200,7 @@ ft_graf(struct dvec *v, struct dvec *xs, bool nostart)
         else
             for (i = 0, dy = mm[1]; i < gridsize; i++, dy -= dx)
                 gridbuf[i] = dy;
-        if (!ft_interpolate(ydata, result, xdata, v->v_length, gridbuf,
+        if (!ft_interpolate(ydata, result, xdata, length, gridbuf,
                             gridsize, degree)) {
             fprintf(cp_err, "Error: can't put %s on gridsize %d\n",
                     v->v_name, gridsize);
@@ -219,13 +234,13 @@ ft_graf(struct dvec *v, struct dvec *xs, bool nostart)
 
     /* Plot the first degree segments... */
     if (isreal(v))
-        bcopy(v->v_realdata, ydata, (size_t)(degree + 1) * sizeof(double));
+        memcpy(ydata, v->v_realdata, (size_t)(degree + 1) * sizeof(double));
     else
         for (i = 0; i <= degree; i++)
             ydata[i] = realpart(v->v_compdata[i]);
 
     if (isreal(xs))
-        bcopy(xs->v_realdata, xdata, (size_t)(degree + 1) * sizeof(double));
+        memcpy(xdata, xs->v_realdata, (size_t)(degree + 1) * sizeof(double));
     else
         for (i = 0; i <= degree; i++)
             xdata[i] = realpart(xs->v_compdata[i]);
@@ -256,7 +271,7 @@ ft_graf(struct dvec *v, struct dvec *xs, bool nostart)
     /* Now plot the rest, piece by piece... l is the
      * last element under consideration.
      */
-    length = v->v_length;
+
     for (l = degree + 1; l < length; l++) {
 
         /* Shift the old stuff by one and get another value. */
@@ -324,7 +339,7 @@ plotinterval(struct dvec *v, double lo, double hi, register double *coeffs, int 
     /* This is a problem -- how do we know what granularity to use?  If
      * the guy cares about this he will use gridsize.
      */
-    if (!cp_getvar("polysteps", CP_NUM, &steps))
+    if (!cp_getvar("polysteps", CP_NUM, &steps, 0))
         steps = GRANULARITY;
 
     incr = (hi - lo) / (double) (steps + 1);
@@ -341,4 +356,56 @@ plotinterval(struct dvec *v, double lo, double hi, register double *coeffs, int 
         ly = dy;
         /* fprintf(cp_err, "plot (%G, %G)\n\r", dx, dy); */
     }
+}
+
+/* Check if the majority of the x-axis data points are increasing or decreasing.
+   If more than 10% of the data points deviate from the majority direction, issue a warning,
+   if 'retraceplot' is not set.
+*/
+static int get_xdirection(struct dvec* xs, int len, bool mn, bool analog) {
+    int i, dir = 1, inc = 0, dec = 0;
+    double dx, lx;
+    static bool msgsent = FALSE;
+
+    lx = isreal(xs) ? xs->v_realdata[0] :
+            realpart(xs->v_compdata[0]);
+
+    for (i = 1; i < len; i++) {
+        dx = isreal(xs) ? xs->v_realdata[i] :
+            realpart(xs->v_compdata[i]);
+        if (dx > lx)
+            inc++;
+        else if (dx < lx)
+            dec++;
+        lx = dx;
+    }
+
+    /* Event nodes may never change, so no advance is OK. Similarly, vertical
+     * edges may falsely suggest that "retrace" is needed.
+     */
+
+    if (analog) {
+        if ((inc + dec) == 0) {
+            fprintf(stderr,
+                    "Warning, (new) x axis (%s) seems to have only one "
+                    "data point: %d points %d increasing %d decreasing.\n",
+                    xs->v_name, xs->v_length, inc, dec);
+        }
+
+        if (mn && !msgsent && (((double)inc / len > 0.1 && inc < dec) ||
+                               ((double)dec / len > 0.1 && inc > dec))) {
+            fprintf(stderr,
+                    "Warning, more than 10%% of scale vector %s data points "
+                    "are not monotonic.\n",
+                    xs->v_name);
+            fprintf(stderr,
+                    "    Please consider using the 'retraceplot' "
+                    "flag to the plot command to plot all data.\n");
+            msgsent = TRUE;
+        }
+    }
+
+    if (inc < dec)
+        dir = -1;
+    return dir;
 }

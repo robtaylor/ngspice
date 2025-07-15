@@ -1,0 +1,19 @@
+BSIM3 NMOS Test Circuit
+* Basic BSIM3 NMOS transistor test
+
+.model nmos3 nmos level=49 version=3.1
++ tox=5.15e-9 xj=1.0e-7 nch=1.7e17 lln=1.0 lwn=1.0 wln=1.0 wwn=1.0
++ lint=0 wint=0 mobmod=1 binunit=2 xl=0 xw=0 binflag=0
++ dwg=0 dwb=0
+
+M1 d g s b nmos3 W=10u L=1u
+
+VGS g 0 2.0
+VDS d 0 3.0
+VBS b 0 0.0
+VS s 0 0.0
+
+.OP
+.DC VGS 0 3 0.1
+.PRINT DC I(VDS) V(d) V(g) V(s)
+.END

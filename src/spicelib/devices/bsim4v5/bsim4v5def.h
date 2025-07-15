@@ -20,14 +20,18 @@ File: bsim4v5def.h
 
 typedef struct sBSIM4v5instance
 {
-    struct sBSIM4v5model *BSIM4v5modPtr;
-    struct sBSIM4v5instance *BSIM4v5nextInstance;
-    IFuid BSIM4v5name;
-    int BSIM4v5states;     /* index into state table for this device */
-    int BSIM4v5dNode;
-    int BSIM4v5gNodeExt;
-    int BSIM4v5sNode;
-    int BSIM4v5bNode;
+
+    struct GENinstance gen;
+
+#define BSIM4v5modPtr(inst) ((struct sBSIM4v5model *)((inst)->gen.GENmodPtr))
+#define BSIM4v5nextInstance(inst) ((struct sBSIM4v5instance *)((inst)->gen.GENnextInstance))
+#define BSIM4v5name gen.GENname
+#define BSIM4v5states gen.GENstate
+
+    const int BSIM4v5dNode;
+    const int BSIM4v5gNodeExt;
+    const int BSIM4v5sNode;
+    const int BSIM4v5bNode;
     int BSIM4v5dNodePrime;
     int BSIM4v5gNodePrime;
     int BSIM4v5gNodeMid;
@@ -98,6 +102,7 @@ typedef struct sBSIM4v5instance
     double BSIM4v5rbpd;
     
     double BSIM4v5delvto;
+    double BSIM4v5mulu0;
     double BSIM4v5xgw;
     double BSIM4v5ngcon;
 
@@ -280,6 +285,7 @@ typedef struct sBSIM4v5instance
     unsigned BSIM4v5rbpdGiven   :1;
     unsigned BSIM4v5rbpsGiven   :1;
     unsigned BSIM4v5delvtoGiven   :1;
+    unsigned BSIM4v5mulu0Given   :1;
     unsigned BSIM4v5xgwGiven   :1;
     unsigned BSIM4v5ngconGiven   :1;
     unsigned BSIM4v5icVDSGiven :1;
@@ -376,6 +382,125 @@ typedef struct sBSIM4v5instance
     double *BSIM4v5GPqPtr;
     double *BSIM4v5SPqPtr;
 
+#ifdef USE_OMP
+    /* per instance storage of results, to update matrix at a later stge */
+    double BSIM4v5rhsdPrime;
+    double BSIM4v5rhsgPrime;
+    double BSIM4v5rhsgExt;
+    double BSIM4v5grhsMid;
+    double BSIM4v5rhsbPrime;
+    double BSIM4v5rhssPrime;
+    double BSIM4v5rhsdb;
+    double BSIM4v5rhssb;
+    double BSIM4v5rhsd;
+    double BSIM4v5rhss;
+    double BSIM4v5rhsq;
+
+    double BSIM4v5_1;
+    double BSIM4v5_2;
+    double BSIM4v5_3;
+    double BSIM4v5_4;
+    double BSIM4v5_5;
+    double BSIM4v5_6;
+    double BSIM4v5_7;
+    double BSIM4v5_8;
+    double BSIM4v5_9;
+    double BSIM4v5_10;
+    double BSIM4v5_11;
+    double BSIM4v5_12;
+    double BSIM4v5_13;
+    double BSIM4v5_14;
+    double BSIM4v5_15;
+    double BSIM4v5_16;
+    double BSIM4v5_17;
+    double BSIM4v5_18;
+    double BSIM4v5_19;
+    double BSIM4v5_20;
+    double BSIM4v5_21;
+    double BSIM4v5_22;
+    double BSIM4v5_23;
+    double BSIM4v5_24;
+    double BSIM4v5_25;
+    double BSIM4v5_26;
+    double BSIM4v5_27;
+    double BSIM4v5_28;
+    double BSIM4v5_29;
+    double BSIM4v5_30;
+    double BSIM4v5_31;
+    double BSIM4v5_32;
+    double BSIM4v5_33;
+    double BSIM4v5_34;
+    double BSIM4v5_35;
+    double BSIM4v5_36;
+    double BSIM4v5_37;
+    double BSIM4v5_38;
+    double BSIM4v5_39;
+    double BSIM4v5_40;
+    double BSIM4v5_41;
+    double BSIM4v5_42;
+    double BSIM4v5_43;
+    double BSIM4v5_44;
+    double BSIM4v5_45;
+    double BSIM4v5_46;
+    double BSIM4v5_47;
+    double BSIM4v5_48;
+    double BSIM4v5_49;
+    double BSIM4v5_50;
+    double BSIM4v5_51;
+    double BSIM4v5_52;
+    double BSIM4v5_53;
+    double BSIM4v5_54;
+    double BSIM4v5_55;
+    double BSIM4v5_56;
+    double BSIM4v5_57;
+    double BSIM4v5_58;
+    double BSIM4v5_59;
+    double BSIM4v5_60;
+    double BSIM4v5_61;
+    double BSIM4v5_62;
+    double BSIM4v5_63;
+    double BSIM4v5_64;
+    double BSIM4v5_65;
+    double BSIM4v5_66;
+    double BSIM4v5_67;
+    double BSIM4v5_68;
+    double BSIM4v5_69;
+    double BSIM4v5_70;
+    double BSIM4v5_71;
+    double BSIM4v5_72;
+    double BSIM4v5_73;
+    double BSIM4v5_74;
+    double BSIM4v5_75;
+    double BSIM4v5_76;
+    double BSIM4v5_77;
+    double BSIM4v5_78;
+    double BSIM4v5_79;
+    double BSIM4v5_80;
+    double BSIM4v5_81;
+    double BSIM4v5_82;
+    double BSIM4v5_83;
+    double BSIM4v5_84;
+    double BSIM4v5_85;
+    double BSIM4v5_86;
+    double BSIM4v5_87;
+    double BSIM4v5_88;
+    double BSIM4v5_89;
+    double BSIM4v5_90;
+    double BSIM4v5_91;
+    double BSIM4v5_92;
+    double BSIM4v5_93;
+    double BSIM4v5_94;
+    double BSIM4v5_95;
+    double BSIM4v5_96;
+    double BSIM4v5_97;
+    double BSIM4v5_98;
+    double BSIM4v5_99;
+    double BSIM4v5_100;
+    double BSIM4v5_101;
+    double BSIM4v5_102;
+    double BSIM4v5_103;
+
+#endif
 
 #define BSIM4v5vbd BSIM4v5states+ 0
 #define BSIM4v5vbs BSIM4v5states+ 1
@@ -437,6 +562,79 @@ typedef struct sBSIM4v5instance
 #else /* NONOISE */
         double **BSIM4v5nVar;
 #endif /* NONOISE */
+
+#ifdef KLU
+    BindElement *BSIM4v5DPbpBinding ;
+    BindElement *BSIM4v5GPbpBinding ;
+    BindElement *BSIM4v5SPbpBinding ;
+    BindElement *BSIM4v5BPdpBinding ;
+    BindElement *BSIM4v5BPgpBinding ;
+    BindElement *BSIM4v5BPspBinding ;
+    BindElement *BSIM4v5BPbpBinding ;
+    BindElement *BSIM4v5DdBinding ;
+    BindElement *BSIM4v5GPgpBinding ;
+    BindElement *BSIM4v5SsBinding ;
+    BindElement *BSIM4v5DPdpBinding ;
+    BindElement *BSIM4v5SPspBinding ;
+    BindElement *BSIM4v5DdpBinding ;
+    BindElement *BSIM4v5GPdpBinding ;
+    BindElement *BSIM4v5GPspBinding ;
+    BindElement *BSIM4v5SspBinding ;
+    BindElement *BSIM4v5DPspBinding ;
+    BindElement *BSIM4v5DPdBinding ;
+    BindElement *BSIM4v5DPgpBinding ;
+    BindElement *BSIM4v5SPgpBinding ;
+    BindElement *BSIM4v5SPsBinding ;
+    BindElement *BSIM4v5SPdpBinding ;
+    BindElement *BSIM4v5QqBinding ;
+    BindElement *BSIM4v5QbpBinding ;
+    BindElement *BSIM4v5QdpBinding ;
+    BindElement *BSIM4v5QspBinding ;
+    BindElement *BSIM4v5QgpBinding ;
+    BindElement *BSIM4v5DPqBinding ;
+    BindElement *BSIM4v5SPqBinding ;
+    BindElement *BSIM4v5GPqBinding ;
+    BindElement *BSIM4v5GEgeBinding ;
+    BindElement *BSIM4v5GEgpBinding ;
+    BindElement *BSIM4v5GPgeBinding ;
+    BindElement *BSIM4v5GEdpBinding ;
+    BindElement *BSIM4v5GEspBinding ;
+    BindElement *BSIM4v5GEbpBinding ;
+    BindElement *BSIM4v5GMdpBinding ;
+    BindElement *BSIM4v5GMgpBinding ;
+    BindElement *BSIM4v5GMgmBinding ;
+    BindElement *BSIM4v5GMgeBinding ;
+    BindElement *BSIM4v5GMspBinding ;
+    BindElement *BSIM4v5GMbpBinding ;
+    BindElement *BSIM4v5DPgmBinding ;
+    BindElement *BSIM4v5GPgmBinding ;
+    BindElement *BSIM4v5GEgmBinding ;
+    BindElement *BSIM4v5SPgmBinding ;
+    BindElement *BSIM4v5BPgmBinding ;
+    BindElement *BSIM4v5DPdbBinding ;
+    BindElement *BSIM4v5SPsbBinding ;
+    BindElement *BSIM4v5DBdpBinding ;
+    BindElement *BSIM4v5DBdbBinding ;
+    BindElement *BSIM4v5DBbpBinding ;
+    BindElement *BSIM4v5DBbBinding ;
+    BindElement *BSIM4v5BPdbBinding ;
+    BindElement *BSIM4v5BPbBinding ;
+    BindElement *BSIM4v5BPsbBinding ;
+    BindElement *BSIM4v5SBspBinding ;
+    BindElement *BSIM4v5SBbpBinding ;
+    BindElement *BSIM4v5SBbBinding ;
+    BindElement *BSIM4v5SBsbBinding ;
+    BindElement *BSIM4v5BdbBinding ;
+    BindElement *BSIM4v5BbpBinding ;
+    BindElement *BSIM4v5BsbBinding ;
+    BindElement *BSIM4v5BbBinding ;
+    BindElement *BSIM4v5DgpBinding ;
+    BindElement *BSIM4v5DspBinding ;
+    BindElement *BSIM4v5DbpBinding ;
+    BindElement *BSIM4v5SdpBinding ;
+    BindElement *BSIM4v5SgpBinding ;
+    BindElement *BSIM4v5SbpBinding ;
+#endif
 
 } BSIM4v5instance ;
 
@@ -655,12 +853,13 @@ struct bsim4v5SizeDependParam
 
 typedef struct sBSIM4v5model 
 {
-    int BSIM4v5modType;
-    struct sBSIM4v5model *BSIM4v5nextModel;
-    BSIM4v5instance *BSIM4v5instances;
-    IFuid BSIM4v5modName; 
 
-    /* --- end of generic struct GENmodel --- */
+    struct GENmodel gen;
+
+#define BSIM4v5modType gen.GENmodType
+#define BSIM4v5nextModel(inst) ((struct sBSIM4v5model *)((inst)->gen.GENnextModel))
+#define BSIM4v5instances(inst) ((BSIM4v5instance *)((inst)->gen.GENinstances))
+#define BSIM4v5modName gen.GENmodName
 
     int BSIM4v5type;
 
@@ -1479,8 +1678,18 @@ typedef struct sBSIM4v5model
     double BSIM4v5vdsMax;
     double BSIM4v5vbsMax;
     double BSIM4v5vbdMax;
+    double BSIM4v5vgsrMax;
+    double BSIM4v5vgdrMax;
+    double BSIM4v5vgbrMax;
+    double BSIM4v5vbsrMax;
+    double BSIM4v5vbdrMax;
 
     struct bsim4v5SizeDependParam *pSizeDependParamKnot;
+
+#ifdef USE_OMP
+    int BSIM4v5InstCount;
+    struct sBSIM4v5instance **BSIM4v5InstanceArray;
+#endif
 
     /* Flags */
     unsigned BSIM4v5rgeomodGiven :1;
@@ -2208,6 +2417,11 @@ typedef struct sBSIM4v5model
     unsigned  BSIM4v5vdsMaxGiven  :1;
     unsigned  BSIM4v5vbsMaxGiven  :1;
     unsigned  BSIM4v5vbdMaxGiven  :1;
+    unsigned  BSIM4v5vgsrMaxGiven  :1;
+    unsigned  BSIM4v5vgdrMaxGiven  :1;
+    unsigned  BSIM4v5vgbrMaxGiven  :1;
+    unsigned  BSIM4v5vbsrMaxGiven  :1;
+    unsigned  BSIM4v5vbdrMaxGiven  :1;
 
     unsigned  BSIM4v5LintGiven   :1;
     unsigned  BSIM4v5LlGiven   :1;
@@ -2321,6 +2535,7 @@ typedef struct sBSIM4v5model
 #define BSIM4v5_SCC                 36 
 #define BSIM4v5_SC                  37
 #define BSIM4v5_M                   38
+#define BSIM4v5_MULU0               39
 
 /* Global parameters */
 #define BSIM4v5_MOD_TEMPMOD         89
@@ -3181,12 +3396,25 @@ typedef struct sBSIM4v5model
 #define BSIM4v5_MOD_RBSDBYW             1125
 #define BSIM4v5_MOD_RBSDBYNF            1126
 
-#define BSIM4v5_MOD_VGS_MAX            1201
-#define BSIM4v5_MOD_VGD_MAX            1202
-#define BSIM4v5_MOD_VGB_MAX            1203
-#define BSIM4v5_MOD_VDS_MAX            1204
-#define BSIM4v5_MOD_VBS_MAX            1205
-#define BSIM4v5_MOD_VBD_MAX            1206
+#define BSIM4v5_MOD_VGS_MAX             1201
+#define BSIM4v5_MOD_VGD_MAX             1202
+#define BSIM4v5_MOD_VGB_MAX             1203
+#define BSIM4v5_MOD_VDS_MAX             1204
+#define BSIM4v5_MOD_VBS_MAX             1205
+#define BSIM4v5_MOD_VBD_MAX             1206
+#define BSIM4v5_MOD_VGSR_MAX            1207
+#define BSIM4v5_MOD_VGDR_MAX            1208
+#define BSIM4v5_MOD_VGBR_MAX            1209
+#define BSIM4v5_MOD_VBSR_MAX            1210
+#define BSIM4v5_MOD_VBDR_MAX            1211
+
+#define BSIM4v5_VGSTEFF                 1400
+#define BSIM4v5_VDSEFF                  1401
+#define BSIM4v5_CGSO                    1402
+#define BSIM4v5_CGDO                    1403
+#define BSIM4v5_CGBO                    1404
+#define BSIM4v5_WEFF                    1405
+#define BSIM4v5_LEFF                    1406
 
 #include "bsim4v5ext.h"
 

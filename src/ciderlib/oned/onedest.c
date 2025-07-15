@@ -12,6 +12,8 @@ Author:	1991 David A. Gates, U. C. Berkeley CAD Group
 #include "onedext.h"
 #include "oneddefs.h"
 
+extern void CiderLoaded(int);
+
 void
 ONEdestroy(ONEdevice *pDevice)
 {
@@ -33,7 +35,15 @@ ONEdestroy(ONEdevice *pDevice)
     FREE(pDevice->copiedSolution);
     FREE(pDevice->rhs);
     FREE(pDevice->rhsImag);
-    spDestroy(pDevice->matrix);
+
+#ifdef KLU
+    SMPdestroyKLUforCIDER (pDevice->matrix) ;
+#else
+    SMPdestroy (pDevice->matrix) ;
+#endif
+
+    FREE (pDevice->matrix) ;
+
     break;
   case SLV_EQUIL:
     /* free up the vectors allocated in the equilibrium solution */
@@ -41,7 +51,15 @@ ONEdestroy(ONEdevice *pDevice)
     FREE(pDevice->dcDeltaSolution);
     FREE(pDevice->copiedSolution);
     FREE(pDevice->rhs);
-    spDestroy(pDevice->matrix);
+
+#ifdef KLU
+    SMPdestroyKLUforCIDER (pDevice->matrix) ;
+#else
+    SMPdestroy (pDevice->matrix) ;
+#endif
+
+    FREE (pDevice->matrix) ;
+
     break;
   case SLV_NONE:
     break;
@@ -53,7 +71,7 @@ ONEdestroy(ONEdevice *pDevice)
 
   /* destroy the mesh */
   if (pDevice->elemArray) {
-    for (eIndex = 1; eIndex < pDevice->numNodes-1; eIndex++) {
+    for (eIndex = 1; eIndex < pDevice->numNodes; eIndex++) {
       pElem = pDevice->elemArray[eIndex];
       pEdge = pElem->pEdge;
       FREE(pEdge);
@@ -67,8 +85,25 @@ ONEdestroy(ONEdevice *pDevice)
     }
     FREE(pDevice->elemArray);
   }
+
+  if (pDevice->pMaterials) {
+      ONEmaterial* pMtmp = pDevice->pMaterials;
+      while (pMtmp) {
+          ONEmaterial* pMtmpnext = pMtmp->next;
+          FREE(pMtmp);
+          pMtmp = pMtmpnext;
+      }
+  }
+
+  if (pDevice->pStats) {
+    FREE(pDevice->pStats);
+  }
+
   /* destroy any other lists */
   /* NOT IMPLEMENTED */
 
   FREE(pDevice);
+  {
+    CiderLoaded(-1);
+  }
 }

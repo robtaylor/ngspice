@@ -7,8 +7,6 @@ libhfet_la_SOURCES =	\
 	hfetacl.c	\
 	hfetask.c	\
 	hfetdefs.h	\
-	hfetdel.c	\
-	hfetdest.c	\
 	hfetext.h	\
 	hfetgetic.c	\
 	hfetinit.c	\
@@ -16,7 +14,6 @@ libhfet_la_SOURCES =	\
 	hfetitf.h	\
 	hfetload.c	\
 	hfetmask.c	\
-	hfetmdel.c	\
 	hfetmpar.c	\
 	hfetparam.c	\
 	hfetpzl.c	\
@@ -25,7 +22,11 @@ libhfet_la_SOURCES =	\
 	hfettrunc.c
 
 
+if KLU_WANTED
+libhfet_la_SOURCES += hfetbindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)
+
 MAINTAINERCLEANFILES = Makefile.in

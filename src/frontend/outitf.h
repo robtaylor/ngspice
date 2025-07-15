@@ -42,6 +42,7 @@ struct runDesc {
     int pointCount;
     int isComplex;
     int windowCount;
+    int maxData;
 };
 
 
@@ -54,7 +55,7 @@ int OUTwBeginPlot(CKTcircuit *circuitPtr, JOB *analysisPtr,
                   IFuid refName, int refType,
                   int numNames, IFuid *dataNames, int dataType, runDesc **plotPtr);
 int OUTpData(runDesc *plotPtr, IFvalue *refValue, IFvalue *valuePtr);
-int OUTwReference(void *plotPtr, IFvalue *valuePtr, void **refPtr);
+int OUTwReference(runDesc *plotPtr, IFvalue *valuePtr, void **refPtr);
 int OUTwData(runDesc *plotPtr, int dataIndex, IFvalue *valuePtr, void *refPtr);
 int OUTwEnd(runDesc *plotPtr);
 int OUTendPlot(runDesc *plotPtr);
@@ -70,5 +71,5 @@ void OUTerrorf(int, const char *fmt, ...)  __attribute__ ((format (__printf__, 2
 void OUTerrorf(int, const char *fmt, ...);
 #endif
 
-
+void AddRealValueToVector(struct dvec *v, double value);
 #endif

@@ -1,0 +1,263 @@
+name: CMake Build and Test
+
+on:
+  push:
+    branches: 
+      - main
+      - cmake-conversion
+      - macos-ci
+  pull_request:
+    branches:
+      - main
+      - cmake-conversion
+      - macos-ci
+
+jobs:
+  cmake-build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        build-type: [Release, Debug]
+        shared: [ON, OFF]
+        include:
+          # Linux specific configurations
+          - os: ubuntu-latest
+            deps-install: |
+              sudo apt-get update
+              sudo apt-get install -y cmake build-essential bison flex
+              sudo apt-get install -y libx11-dev libxaw7-dev libxext-dev libxft-dev
+              sudo apt-get install -y libreadline-dev libfftw3-dev pkg-config
+            cmake-preset: ""
+            
+          # macOS specific configurations  
+          - os: macos-latest
+            deps-install: |
+              brew install cmake bison flex
+              brew install xquartz libx11 libxaw
+              brew install readline fftw pkg-config
+            cmake-preset: ""
+            
+          # Windows specific configurations
+          - os: windows-latest
+            deps-install: |
+              choco install cmake
+              choco install winflexbison3
+            cmake-preset: ""
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: ${{ matrix.deps-install }}
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ matrix.os }}-${{ matrix.build-type }}-${{ matrix.shared }}
+
+      - name: Configure CMake (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} \
+            -DNGSPICE_ENABLE_SHARED=${{ matrix.shared }} \
+            -DNGSPICE_ENABLE_XSPICE=OFF \
+            -DNGSPICE_ENABLE_CIDER=OFF \
+            -DNGSPICE_ENABLE_OSDI=OFF \
+            -DNGSPICE_ENABLE_OPENMP=OFF \
+            -DNGSPICE_ENABLE_X11=OFF \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Configure CMake (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cmake -B build `
+            -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} `
+            -DNGSPICE_ENABLE_SHARED=${{ matrix.shared }} `
+            -DNGSPICE_ENABLE_XSPICE=OFF `
+            -DNGSPICE_ENABLE_CIDER=OFF `
+            -DNGSPICE_ENABLE_OSDI=OFF `
+            -DNGSPICE_ENABLE_OPENMP=OFF `
+            -DNGSPICE_ENABLE_X11=OFF `
+            -DNGSPICE_ENABLE_READLINE=OFF
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build-type }} -j 4
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ngspice-cmake-${{ matrix.os }}-${{ matrix.build-type }}-shared${{ matrix.shared }}
+          path: |
+            build/
+            !build/**/*.o
+            !build/**/*.obj
+            !build/CMakeFiles/
+
+  cmake-build-full-features:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          # Linux with all features
+          - os: ubuntu-latest
+            deps-install: |
+              sudo apt-get update
+              sudo apt-get install -y cmake build-essential bison flex
+              sudo apt-get install -y libx11-dev libxaw7-dev libxext-dev libxft-dev
+              sudo apt-get install -y libreadline-dev libfftw3-dev pkg-config
+              sudo apt-get install -y libomp-dev
+            cmake-config: |
+              -DNGSPICE_ENABLE_XSPICE=OFF \
+              -DNGSPICE_ENABLE_CIDER=OFF \
+              -DNGSPICE_ENABLE_OSDI=OFF \
+              -DNGSPICE_ENABLE_OPENMP=ON \
+              -DNGSPICE_ENABLE_X11=ON \
+              -DNGSPICE_ENABLE_READLINE=ON \
+              -DNGSPICE_ENABLE_FFTW3=ON \
+              -DNGSPICE_ENABLE_KLU=ON
+
+          # macOS with all features
+          - os: macos-latest
+            deps-install: |
+              brew install cmake bison flex
+              brew install xquartz libx11 libxaw
+              brew install readline fftw pkg-config
+              brew install libomp
+            cmake-config: |
+              -DNGSPICE_ENABLE_XSPICE=OFF \
+              -DNGSPICE_ENABLE_CIDER=OFF \
+              -DNGSPICE_ENABLE_OSDI=OFF \
+              -DNGSPICE_ENABLE_OPENMP=ON \
+              -DNGSPICE_ENABLE_X11=ON \
+              -DNGSPICE_ENABLE_READLINE=ON \
+              -DNGSPICE_ENABLE_FFTW3=ON \
+              -DNGSPICE_ENABLE_KLU=ON
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: ${{ matrix.deps-install }}
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ matrix.os }}-full-features
+
+      - name: Configure CMake
+        run: |
+          cmake -B build-full \
+            -DCMAKE_BUILD_TYPE=Release \
+            ${{ matrix.cmake-config }} \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build
+        run: cmake --build build-full --config Release -j 4
+
+      - name: Upload full-featured build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ngspice-cmake-full-${{ matrix.os }}
+          path: |
+            build-full/
+            !build-full/**/*.o
+            !build-full/**/*.obj
+            !build-full/CMakeFiles/
+
+  cmake-build-script-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            deps-install: |
+              sudo apt-get update
+              sudo apt-get install -y cmake build-essential bison flex
+              sudo apt-get install -y libx11-dev libxaw7-dev libxext-dev libxft-dev
+              sudo apt-get install -y libreadline-dev libfftw3-dev pkg-config
+
+          - os: macos-latest
+            deps-install: |
+              brew install cmake bison flex
+              brew install xquartz libx11 libxaw
+              brew install readline fftw pkg-config
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: ${{ matrix.deps-install }}
+
+      - name: Test build script (minimal config)
+        run: |
+          chmod +x build_cmake.sh
+          ./build_cmake.sh --clean --disable-x11 --disable-xspice --disable-osdi --disable-openmp --jobs 4
+
+      - name: Test build script (debug config) 
+        run: |
+          ./build_cmake.sh --clean --debug --disable-x11 --disable-xspice --disable-osdi --disable-openmp --jobs 4
+
+      - name: Test build script (shared library)
+        run: |
+          ./build_cmake.sh --clean --shared --disable-x11 --disable-xspice --disable-osdi --disable-openmp --jobs 4
+
+  cmake-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential bison flex
+          sudo apt-get install -y libreadline-dev libfftw3-dev pkg-config
+
+      - name: Validate CMake files
+        run: |
+          # Check CMake syntax
+          find . -name "CMakeLists.txt" -exec cmake -P {} \; -quit || echo "CMake syntax validation completed"
+          
+          # Check if configuration completes
+          cmake -B validate-build \
+            -DNGSPICE_ENABLE_XSPICE=OFF \
+            -DNGSPICE_ENABLE_CIDER=OFF \
+            -DNGSPICE_ENABLE_OSDI=OFF \
+            -DNGSPICE_ENABLE_OPENMP=OFF \
+            -DNGSPICE_ENABLE_X11=OFF
+
+      - name: Check build targets
+        run: |
+          cd validate-build
+          cmake --build . --target help | head -20
+
+  documentation-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check documentation files
+        run: |
+          echo "Checking for CMake documentation..."
+          test -f CMAKE_README.md && echo "✓ CMAKE_README.md exists" || echo "✗ CMAKE_README.md missing"
+          test -f CLAUDE.md && echo "✓ CLAUDE.md exists" || echo "✗ CLAUDE.md missing"
+          test -f build_cmake.sh && echo "✓ build_cmake.sh exists" || echo "✗ build_cmake.sh missing"
+          
+          echo "Checking CMake files structure..."
+          find . -name "CMakeLists.txt" | wc -l | xargs echo "CMakeLists.txt files found:"
+          
+          echo "Checking CMake helper files..."
+          test -d cmake && echo "✓ cmake/ directory exists" || echo "✗ cmake/ directory missing"

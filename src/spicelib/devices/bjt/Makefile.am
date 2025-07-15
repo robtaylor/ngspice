@@ -9,7 +9,6 @@ libbjt_la_SOURCES =	\
 	bjtconv.c	\
 	bjtdefs.h	\
 	bjtdel.c	\
-	bjtdest.c	\
 	bjtdisto.c	\
 	bjtdset.c	\
 	bjtdset.h	\
@@ -20,7 +19,6 @@ libbjt_la_SOURCES =	\
 	bjtitf.h	\
 	bjtload.c	\
 	bjtmask.c	\
-	bjtmdel.c	\
 	bjtmpar.c	\
 	bjtnoise.c	\
 	bjtparam.c	\
@@ -36,6 +34,9 @@ libbjt_la_SOURCES =	\
 	bjttrunc.c
 
 
+if KLU_WANTED
+libbjt_la_SOURCES += bjtbindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)

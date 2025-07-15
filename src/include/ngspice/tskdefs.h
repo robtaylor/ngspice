@@ -20,6 +20,8 @@ struct TSKtask {
     double TSKnomTemp;
     int TSKmaxOrder;        /* maximum integration method order */
     int TSKintegrateMethod; /* the integration method to be used */
+    double TSKxmu;          /* for trapezoidal method */
+    int TSKindverbosity;    /* control check of inductive systems */
     int TSKcurrentAnalysis; /* the analysis in progress (if any) */
 
 /* defines for the value of  TSKcurrentAnalysis */
@@ -27,6 +29,9 @@ struct TSKtask {
 #define DOING_TRCV 2
 #define DOING_AC   4
 #define DOING_TRAN 8
+#ifdef RFSPICE
+#define DOING_SP   16
+#endif
 
     int TSKbypass;
     int TSKdcMaxIter;       /* iteration limit for dc op.  (itl1) */
@@ -36,7 +41,7 @@ struct TSKtask {
     int TSKnumSrcSteps;     /* number of steps for source stepping */
     int TSKnumGminSteps;    /* number of steps for Gmin stepping */
     double TSKgminFactor;   /* factor for Gmin stepping */
-    double TSKminBreak;
+    double TSKminBreak;     /* minimum time difference between breakpoints */
     double TSKabstol;
     double TSKpivotAbsTol;
     double TSKpivotRelTol;
@@ -49,6 +54,7 @@ struct TSKtask {
 #endif /* NEWTRUNC */
     double TSKgmin;
     double TSKgshunt;   /* shunt conductance (CKTdiagGmin) */
+    double TSKcshunt;   /* shunt capacitor to ground */
     double TSKdelmin;
     double TSKtrtol;
     double TSKdefaultMosM;
@@ -63,9 +69,16 @@ struct TSKtask {
     unsigned int TSKkeepOpInfo:1; /* flag for small signal analyses */
     unsigned int TSKcopyNodesets:1; /* flag for nodeset copy */
     unsigned int TSKnodeDamping:1;  /* flag for node damping */
+    unsigned int TSKnoopac:1; /* flag for no OP calculation before AC */
     double TSKabsDv;                 /* abs limit for iter-iter voltage change */
     double TSKrelDv;                 /* rel limit for iter-iter voltage change */
-    unsigned int TSKnoopac:1; /* flag for no OP calculation before AC */
+    double TSKepsmin;         /* minimum value for log */
+
+#ifdef KLU
+    unsigned int TSKkluMODE:1;
+    double TSKkluMemGrowFactor ;
+#endif
+
 };
 
 #endif

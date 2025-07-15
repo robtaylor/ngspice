@@ -36,7 +36,7 @@ v1 1 0 0v pulse(0 5 0.1ns 0.1ns 0.1ns 1ns 100ns)
 rs 1 2 10
 xdrv 1 2 vcc bjtdrvr
 xrcv 3 4 vcc bjtdrvr
-xrcv 3 4 vcc dioload
+*xrcv 3 4 vcc dioload
 d1 3 vcc diod
 d2 0 3 diod
 cl 3 0 1pF
@@ -60,6 +60,9 @@ x1 2 3 xonecm
 tran 0.001ns 10ns 0 0.1ns
 * onecm10
 *tran 0.001ns 10ns 0 0.01ns
+rusage
+set color0=white
+set xbrushwidth=3
 plot v(1) v(2) v(3)
 .endc
 

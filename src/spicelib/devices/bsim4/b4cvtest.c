@@ -1,17 +1,30 @@
-/**** BSIM4.8.0 Released by Navid Paydavosi 11/01/2013 ****/
+/* ******************************************************************************
+   *  BSIM4 4.8.2 released by Chetan Kumar Dabhi 01/01/2020                     *
+   *  BSIM4 Model Equations                                                     *
+   ******************************************************************************
 
-/**********
- * Copyright 2006 Regents of the University of California. All rights reserved.
- * File: b4cvtest.c of BSIM4.8.0.
- * Author: 2000 Weidong Liu
- * Authors: 2001- Xuemei Xi, Mohan Dunga, Ali Niknejad, Chenming Hu.
- * Authors: 2006- Mohan Dunga, Ali Niknejad, Chenming Hu
- * Authors: 2007- Mohan Dunga, Wenwei Yang, Ali Niknejad, Chenming Hu
- * Project Director: Prof. Chenming Hu.
- * Modified by Xuemei Xi, 04/06/2001.
- * Modified by Xuemei Xi, 10/05/2001.
- * Modified by Xuemei Xi, 05/09/2003.
- **********/
+   ******************************************************************************
+   *  Copyright (c) 2020 University of California                               *
+   *                                                                            *
+   *  Project Director: Prof. Chenming Hu.                                      *
+   *  Current developers: Chetan Kumar Dabhi   (Ph.D. student, IIT Kanpur)      *
+   *                      Prof. Yogesh Chauhan (IIT Kanpur)                     *
+   *                      Dr. Pragya Kushwaha  (Postdoc, UC Berkeley)           *
+   *                      Dr. Avirup Dasgupta  (Postdoc, UC Berkeley)           *
+   *                      Ming-Yen Kao         (Ph.D. student, UC Berkeley)     *
+   *  Authors: Gary W. Ng, Weidong Liu, Xuemei Xi, Mohan Dunga, Wenwei Yang     *
+   *           Ali Niknejad, Chetan Kumar Dabhi, Yogesh Singh Chauhan,          *
+   *           Sayeef Salahuddin, Chenming Hu                                   * 
+   ******************************************************************************/
+
+/*
+Licensed under Educational Community License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License. You may obtain a copy of the license at
+http://opensource.org/licenses/ECL-2.0
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT 
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations
+under the License.
+*/
 
 #include "ngspice/ngspice.h"
 #include "ngspice/cktdefs.h"
@@ -41,9 +54,9 @@ double Isestot, cseshat, Idedtot, cdedhat;
 double Igstot, cgshat, Igdtot, cgdhat, Igbtot, cgbhat;
 double tol0, tol1, tol2, tol3, tol4, tol5, tol6;
 
-    for (; model != NULL; model = model->BSIM4nextModel)
-    {    for (here = model->BSIM4instances; here != NULL ;
-              here=here->BSIM4nextInstance) 
+    for (; model != NULL; model = BSIM4nextModel(model))
+    {    for (here = BSIM4instances(model); here != NULL ;
+              here=BSIM4nextInstance(here)) 
          {
               vds = model->BSIM4type
                   * (*(ckt->CKTrhsOld + here->BSIM4dNodePrime)

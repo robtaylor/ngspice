@@ -6,14 +6,11 @@ libvccs_la_SOURCES =	\
 	vccs.c		\
 	vccsask.c	\
 	vccsdefs.h	\
-	vccsdel.c	\
-	vccsdest.c	\
 	vccsext.h	\
 	vccsinit.c	\
 	vccsinit.h	\
 	vccsitf.h	\
 	vccsload.c	\
-	vccsmdel.c	\
 	vccspar.c	\
 	vccspzld.c	\
 	vccssacl.c	\
@@ -23,7 +20,11 @@ libvccs_la_SOURCES =	\
 	vccssset.c
 
 
+if KLU_WANTED
+libvccs_la_SOURCES += vccsbindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)
+
 MAINTAINERCLEANFILES = Makefile.in

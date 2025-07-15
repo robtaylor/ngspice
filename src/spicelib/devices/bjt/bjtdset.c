@@ -35,7 +35,7 @@ int BJTdSetup(GENmodel *inModel, CKTcircuit *ckt)
     double cbe;
     double cben;
     double cdis;
-    double csat;
+    double csatbe, csatbc;
     double ctot;
     double czbc;
     double czbcf2;
@@ -141,11 +141,11 @@ int BJTdSetup(GENmodel *inModel, CKTcircuit *ckt)
 
 
     /*  loop through all the models */
-    for( ; model != NULL; model = model->BJTnextModel ) {
+    for( ; model != NULL; model = BJTnextModel(model)) {
 
         /* loop through all the instances of the model */
-        for (here = model->BJTinstances; here != NULL ;
-             here=here->BJTnextInstance) {
+        for (here = BJTinstances(model); here != NULL ;
+             here=BJTnextInstance(here)) {
 
             vt = here->BJTtemp * CONSTKoverQ;
 
@@ -153,20 +153,17 @@ int BJTdSetup(GENmodel *inModel, CKTcircuit *ckt)
             /*
              *   dc model paramters
              */
-            csat=here->BJTtSatCur*here->BJTarea * here->BJTm;
-            rbpr=here->BJTtminBaseResist/(here->BJTarea * here->BJTm);
-            rbpi=here->BJTtbaseResist/(here->BJTarea * here->BJTm)-rbpr;
-            oik=here->BJTtinvRollOffF/(here->BJTarea * here->BJTm);
-            c2=here->BJTtBEleakCur*here->BJTarea * here->BJTm;
+            csatbe=here->BJTBEtSatCur * here->BJTm;
+            csatbc=here->BJTBCtSatCur * here->BJTm;
+            rbpr=here->BJTtminBaseResist/here->BJTm;
+            rbpi=here->BJTtbaseResist/here->BJTm-rbpr;
+            oik=here->BJTtinvRollOffF/here->BJTm;
+            c2=here->BJTtBEleakCur * here->BJTm;
             vte=here->BJTtleakBEemissionCoeff*vt;
-            oikr=here->BJTtinvRollOffR/(here->BJTarea * here->BJTm);
+            oikr=here->BJTtinvRollOffR/here->BJTm;
             c4=here->BJTtBCleakCur * here->BJTm;
-            if (model->BJTsubs == VERTICAL)
-                c4 *= here->BJTareab;
-            else
-                c4 *= here->BJTareac; /* lateral transistor */
             vtc=here->BJTtleakBCemissionCoeff*vt;
-            xjrb=here->BJTtbaseCurrentHalfResist*here->BJTarea * here->BJTm;
+            xjrb=here->BJTtbaseCurrentHalfResist * here->BJTm;
 
 
             /*
@@ -228,9 +225,9 @@ int BJTdSetup(GENmodel *inModel, CKTcircuit *ckt)
             vtn=vt*here->BJTtemissionCoeffF;
             if(vbe > -5*vtn){
                 evbe=exp(vbe/vtn);
-                cbe=csat*(evbe-1)+ckt->CKTgmin*vbe;
-                gbe=csat*evbe/vtn+ckt->CKTgmin;
-                gbe2 = csat*evbe/vtn/vtn;
+                cbe=csatbe*(evbe-1)+ckt->CKTgmin*vbe;
+                gbe=csatbe*evbe/vtn+ckt->CKTgmin;
+                gbe2 = csatbe*evbe/vtn/vtn;
                 gbe3 = gbe2/vtn;
 
                 /* note - these are actually derivs, not Taylor
@@ -247,7 +244,7 @@ int BJTdSetup(GENmodel *inModel, CKTcircuit *ckt)
                     gben3=gben2/vte;
                 }
             } else {
-                gbe = -csat/vbe+ckt->CKTgmin;
+                gbe = -csatbe/vbe+ckt->CKTgmin;
                 gbe2=gbe3=gben2=gben3=0;
                 cbe=gbe*vbe;
                 gben = -c2/vbe;
@@ -256,9 +253,9 @@ int BJTdSetup(GENmodel *inModel, CKTcircuit *ckt)
             vtn=vt*here->BJTtemissionCoeffR;
             if(vbc > -5*vtn) {
                 evbc=exp(vbc/vtn);
-                cbc=csat*(evbc-1)+ckt->CKTgmin*vbc;
-                gbc=csat*evbc/vtn+ckt->CKTgmin;
-                gbc2=csat*evbc/vtn/vtn;
+                cbc=csatbc*(evbc-1)+ckt->CKTgmin*vbc;
+                gbc=csatbc*evbc/vtn+ckt->CKTgmin;
+                gbc2=csatbc*evbc/vtn/vtn;
                 gbc3=gbc2/vtn;
                 if (c4 == 0) {
                     cbcn=0;
@@ -272,7 +269,7 @@ int BJTdSetup(GENmodel *inModel, CKTcircuit *ckt)
                     gbcn3=gbcn2/vtc;
                 }
             } else {
-                gbc = -csat/vbc+ckt->CKTgmin;
+                gbc = -csatbc/vbc+ckt->CKTgmin;
                 gbc2=gbc3=0;
                 cbc = gbc*vbc;
                 gbcn = -c4/vbc;
@@ -467,7 +464,6 @@ int BJTdSetup(GENmodel *inModel, CKTcircuit *ckt)
             /* ib term */
 
             EqualDeriv(&d_ib, &d_p);
-            d_ib.d1_p = 0.0;
             d_ib.value = cb;
             d_ib.d1_p = gbe/here->BJTtBetaF + gben;
             d_ib.d2_p2 = gbe2/here->BJTtBetaF + gben2;
@@ -488,25 +484,17 @@ int BJTdSetup(GENmodel *inModel, CKTcircuit *ckt)
             xme=here->BJTtjunctionExpBE;
             cdis=model->BJTbaseFractionBCcap;
             ctot=here->BJTtBCcap * here->BJTm;
-            if (model->BJTsubs == VERTICAL)
-                ctot *= here->BJTareab;
-            else
-                ctot *= here->BJTareac;
             czbc=ctot*cdis;
             czbx=ctot-czbc;
             pc=here->BJTtBCpot;
             xmc=here->BJTtjunctionExpBC;
             fcpe=here->BJTtDepCap;
-            czcs=model->BJTcapSub * here->BJTm;
-            if (model->BJTsubs == VERTICAL)
-                czcs *= here->BJTareac;
-            else
-                czcs *= here->BJTareab;
+            czcs=here->BJTtSubcap * here->BJTm;
             ps=model->BJTpotentialSubstrate;
             xms=model->BJTexponentialSubstrate;
             xtf=model->BJTtransitTimeBiasCoeffF;
             ovtf=model->BJTtransitTimeVBCFactor;
-            xjtf=here->BJTttransitTimeHighCurrentF*here->BJTarea * here->BJTm;
+            xjtf=here->BJTttransitTimeHighCurrentF * here->BJTm;
             if(tf != 0 && vbe >0) {
                 EqualDeriv(&d_cbe, &d_p);
                 d_cbe.value = cbe;
@@ -580,8 +568,8 @@ int BJTdSetup(GENmodel *inModel, CKTcircuit *ckt)
                     czbe*xme*(xme+1)*sarg/(arg*arg*pe*pe*6);
             } else {
                 f1=here->BJTtf1;
-                f2=model->BJTf2;
-                f3=model->BJTf3;
+                f2=here->BJTtf2;
+                f3=here->BJTtf3;
                 czbef2=czbe/f2;
                 lcapbe1 = czbef2*(f3+xme*vbe/pe);
                 lcapbe2 = 0.5*xme*czbef2/pe;
@@ -594,8 +582,8 @@ int BJTdSetup(GENmodel *inModel, CKTcircuit *ckt)
 
             fcpc=here->BJTtf4;
             f1=here->BJTtf5;
-            f2=model->BJTf6;
-            f3=model->BJTf7;
+            f2=here->BJTtf6;
+            f3=here->BJTtf7;
             if (vbc < fcpc) {
                 arg=1-vbc/pc;
                 sarg=exp(-xmc*log(arg));

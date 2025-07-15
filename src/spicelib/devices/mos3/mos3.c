@@ -137,7 +137,7 @@ IFparm MOS3mPTable[] = { /* model parameters */
  IOP("wd",    MOS3_MOD_WD,    IF_REAL   ,"Width Narrowing (Diffusion)"),
  IOP("xw",    MOS3_MOD_XW,    IF_REAL   ,"Width mask adjustment"),
  IOPU("delvto",   MOS3_MOD_DELVTO,   IF_REAL   ,"Threshold voltage Adjust"),
- IOPR("delvt0",   MOS3_MOD_DELVTO,   IF_REAL   ,"Threshold voltage Adjust"),
+ IOPUR("delvt0",  MOS3_MOD_DELVTO,   IF_REAL   ,"Threshold voltage Adjust"),
  IOP("u0",    MOS3_MOD_U0,    IF_REAL   ,"Surface mobility"),
  IOPR("uo",    MOS3_MOD_U0,    IF_REAL   ,"Surface mobility"),
  IOP("fc",    MOS3_MOD_FC,    IF_REAL   ,"Forward bias jct. fit parm."),
@@ -151,12 +151,14 @@ IFparm MOS3mPTable[] = { /* model parameters */
  IOP("alpha", MOS3_MOD_ALPHA, IF_REAL ,"Alpha"),
  IOP("eta",   MOS3_MOD_ETA,   IF_REAL ,"Vds dependence of threshold voltage"),
  IOP("delta", MOS3_MOD_DELTA, IF_REAL   ,"Width effect on threshold"),
- IOPR("input_delta", MOS3_DELTA, IF_REAL ,""),
+ IOP("input_delta", MOS3_DELTA, IF_REAL ,""),
  IOP("theta", MOS3_MOD_THETA, IF_REAL ,"Vgs dependence on mobility"),
  IOP("kappa", MOS3_MOD_KAPPA, IF_REAL ,"Kappa"),
  IOPU("tnom",  MOS3_MOD_TNOM,  IF_REAL ,"Parameter measurement temperature"),
  IOP("kf",     MOS3_MOD_KF,    IF_REAL ,"Flicker noise coefficient"),
- IOP("af",     MOS3_MOD_AF,    IF_REAL ,"Flicker noise exponent")
+ IOP("af",     MOS3_MOD_AF,    IF_REAL ,"Flicker noise exponent"),
+ IOP("nlev",   MOS3_MOD_NLEV,  IF_INTEGER  ,"Noise model selection"),
+ IOP("gdsnoi", MOS3_MOD_GDSNOI, IF_REAL   ,"Channel shot noise coefficient")
 };
 
 char *MOS3names[] = {

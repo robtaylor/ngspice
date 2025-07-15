@@ -74,26 +74,26 @@ CKTcircuit *ckt)
 #ifdef USE_OMP
     int idx;
     BSIM4v7model *model = (BSIM4v7model*)inModel;
-    int good = 0;
+    int error = 0;
     BSIM4v7instance **InstArray;
     InstArray = model->BSIM4v7InstanceArray;
 
 #pragma omp parallel for
     for (idx = 0; idx < model->BSIM4v7InstCount; idx++) {
         BSIM4v7instance *here = InstArray[idx];
-        int local_good = BSIM4v7LoadOMP(here, ckt);
-        if (local_good)
-            good = local_good;
+        int local_error = BSIM4v7LoadOMP(here, ckt);
+        if (local_error)
+            error = local_error;
     }
 
     BSIM4v7LoadRhsMat(inModel, ckt);
     
-    return good;
+    return error;
 }
 
 
 int BSIM4v7LoadOMP(BSIM4v7instance *here, CKTcircuit *ckt) {
-BSIM4v7model *model;
+BSIM4v7model *model = BSIM4v7modPtr(here);
 #else
 BSIM4v7model *model = (BSIM4v7model*)inModel;
 BSIM4v7instance *here;
@@ -241,10 +241,6 @@ int ByPass, ChargeComputationNeeded, error, Check, Check1, Check2;
 
 double m;
 
-#ifdef USE_OMP
-model = here->BSIM4v7modPtr;
-#endif
-
 ScalingFactor = 1.0e-9;
 ChargeComputationNeeded =  
                  ((ckt->CKTmode & (MODEDCTRANCURVE | MODEAC | MODETRAN | MODEINITSMSIG)) ||
@@ -252,9 +248,9 @@ ChargeComputationNeeded =
                  ? 1 : 0;
 
 #ifndef USE_OMP
-for (; model != NULL; model = model->BSIM4v7nextModel)
-{    for (here = model->BSIM4v7instances; here != NULL; 
-          here = here->BSIM4v7nextInstance)
+for (; model != NULL; model = BSIM4v7nextModel(model))
+{    for (here = BSIM4v7instances(model); here != NULL; 
+          here = BSIM4v7nextInstance(here))
      {
 #endif
 
@@ -4527,6 +4523,10 @@ line755:
           if (!ChargeComputationNeeded)
               goto line850;
 
+          /* no integration, if dc sweep, but keep evaluating capacitances */
+          if (ckt->CKTmode & MODEDCTRANCURVE)
+              goto line850;
+
           if (ckt->CKTmode & MODEINITTRAN)
           {   *(ckt->CKTstate1 + here->BSIM4v7qb) =
                     *(ckt->CKTstate0 + here->BSIM4v7qb);
@@ -5027,7 +5027,7 @@ line900:
            here->BSIM4v7_25 = m * (gcrgb + gcgmbb);
 
            here->BSIM4v7_26 = m * gcdgmb;
-           here->BSIM4v7_26 = m * gcrg;
+           here->BSIM4v7_27 = m * gcrg;
            here->BSIM4v7_28 = m * gcsgmb;
            here->BSIM4v7_29 = m * gcbgmb;
 
@@ -5359,7 +5359,7 @@ int BSIM4v7polyDepletion(
 #ifdef USE_OMP
 void BSIM4v7LoadRhsMat(GENmodel *inModel, CKTcircuit *ckt)
 {
-    unsigned int InstCount, idx;
+    int InstCount, idx;
     BSIM4v7instance **InstArray;
     BSIM4v7instance *here;
     BSIM4v7model *model = (BSIM4v7model*)inModel;
@@ -5369,6 +5369,7 @@ void BSIM4v7LoadRhsMat(GENmodel *inModel, CKTcircuit *ckt)
 
     for(idx = 0; idx < InstCount; idx++) {
        here = InstArray[idx];
+       model = BSIM4v7modPtr(here);
         /* Update b for Ax = b */
            (*(ckt->CKTrhs + here->BSIM4v7dNodePrime) += here->BSIM4v7rhsdPrime);
            (*(ckt->CKTrhs + here->BSIM4v7gNodePrime) -= here->BSIM4v7rhsgPrime);

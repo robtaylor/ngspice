@@ -92,7 +92,7 @@ double vtfbphi2eot, phieot, TempRatioeot, Vtm0eot, Vtmeot,vbieot;
 int Size_Not_Found, i;
 
     /*  loop through all the BSIM4v7 device models */
-    for (; model != NULL; model = model->BSIM4v7nextModel)
+    for (; model != NULL; model = BSIM4v7nextModel(model))
     {    Temp = ckt->CKTtemp;
          if (model->BSIM4v7SbulkJctPotential < 0.1)
          {   model->BSIM4v7SbulkJctPotential = 0.1;
@@ -184,6 +184,13 @@ int Size_Not_Found, i;
          }
          if (!model->BSIM4v7cgboGiven)
              model->BSIM4v7cgbo = 2.0 * model->BSIM4v7dwc * model->BSIM4v7coxe;
+
+         struct bsim4SizeDependParam *p = model->pSizeDependParamKnot;
+         while (p) {
+             struct bsim4SizeDependParam *next_p = p->pNext;
+             FREE(p);
+             p = next_p;
+         }
          model->pSizeDependParamKnot = NULL;
          pLastKnot = NULL;
 
@@ -406,8 +413,8 @@ int Size_Not_Found, i;
 
 
          /* loop through all the instances of the model */
-         for (here = model->BSIM4v7instances; here != NULL;
-              here = here->BSIM4v7nextInstance)
+         for (here = BSIM4v7instances(model); here != NULL;
+              here = BSIM4v7nextInstance(here))
          {
               pSizeDependParamKnot = model->pSizeDependParamKnot;
               Size_Not_Found = 1;
@@ -1650,6 +1657,9 @@ int Size_Not_Found, i;
             here->BSIM4v7vth0 += here->BSIM4v7delvto;
             here->BSIM4v7vfb = pParam->BSIM4v7vfb + model->BSIM4v7type * here->BSIM4v7delvto;
 
+            /* low field mobility multiplier */
+            here->BSIM4v7u0temp = pParam->BSIM4v7u0temp * here->BSIM4v7mulu0;
+
             /* Instance variables calculation  */
             T3 = model->BSIM4v7type * here->BSIM4v7vth0
                - here->BSIM4v7vfb - pParam->BSIM4v7phi;
@@ -2303,7 +2313,8 @@ int Size_Not_Found, i;
 
               if (BSIM4v7checkModel(model, here, ckt))
               {
-                  SPfrontEnd->IFerrorf (ERR_FATAL, "Fatal error(s) detected during BSIM4v7.6.0 parameter checking for %s in model %s", model->BSIM4v7modName, here->BSIM4v7name);
+                  SPfrontEnd->IFerrorf(ERR_FATAL,
+                      "detected during BSIM4.7.0 parameter checking for \n    model %s of device instance %s\n", model->BSIM4v7modName, here->BSIM4v7name);
                   return(E_BADPARM);
               }
          } /* End instance */

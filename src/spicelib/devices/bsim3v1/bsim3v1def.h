@@ -16,15 +16,18 @@ File: bsim3v1def.h
 
 typedef struct sBSIM3v1instance
 {
-    struct sBSIM3v1model *BSIM3v1modPtr;
-    struct sBSIM3v1instance *BSIM3v1nextInstance;
-    IFuid BSIM3v1name;
-    int BSIM3v1states;     /* index into state table for this device */
 
-    int BSIM3v1dNode;
-    int BSIM3v1gNode;
-    int BSIM3v1sNode;
-    int BSIM3v1bNode;
+    struct GENinstance gen;
+
+#define BSIM3v1modPtr(inst) ((struct sBSIM3v1model *)((inst)->gen.GENmodPtr))
+#define BSIM3v1nextInstance(inst) ((struct sBSIM3v1instance *)((inst)->gen.GENnextInstance))
+#define BSIM3v1name gen.GENname
+#define BSIM3v1states gen.GENstate
+
+    const int BSIM3v1dNode;
+    const int BSIM3v1gNode;
+    const int BSIM3v1sNode;
+    const int BSIM3v1bNode;
     int BSIM3v1dNodePrime;
     int BSIM3v1sNodePrime;
     int BSIM3v1qNode; /* MCJ */
@@ -189,6 +192,40 @@ typedef struct sBSIM3v1instance
         double **BSIM3v1nVar;
 #endif /* NONOISE */
 
+#ifdef KLU
+    BindElement *BSIM3v1DdBinding ;
+    BindElement *BSIM3v1GgBinding ;
+    BindElement *BSIM3v1SsBinding ;
+    BindElement *BSIM3v1BbBinding ;
+    BindElement *BSIM3v1DPdpBinding ;
+    BindElement *BSIM3v1SPspBinding ;
+    BindElement *BSIM3v1DdpBinding ;
+    BindElement *BSIM3v1GbBinding ;
+    BindElement *BSIM3v1GdpBinding ;
+    BindElement *BSIM3v1GspBinding ;
+    BindElement *BSIM3v1SspBinding ;
+    BindElement *BSIM3v1BdpBinding ;
+    BindElement *BSIM3v1BspBinding ;
+    BindElement *BSIM3v1DPspBinding ;
+    BindElement *BSIM3v1DPdBinding ;
+    BindElement *BSIM3v1BgBinding ;
+    BindElement *BSIM3v1DPgBinding ;
+    BindElement *BSIM3v1SPgBinding ;
+    BindElement *BSIM3v1SPsBinding ;
+    BindElement *BSIM3v1DPbBinding ;
+    BindElement *BSIM3v1SPbBinding ;
+    BindElement *BSIM3v1SPdpBinding ;
+    BindElement *BSIM3v1QqBinding ;
+    BindElement *BSIM3v1QdpBinding ;
+    BindElement *BSIM3v1QspBinding ;
+    BindElement *BSIM3v1QgBinding ;
+    BindElement *BSIM3v1QbBinding ;
+    BindElement *BSIM3v1DPqBinding ;
+    BindElement *BSIM3v1SPqBinding ;
+    BindElement *BSIM3v1GqBinding ;
+    BindElement *BSIM3v1BqBinding ;
+#endif
+
 } BSIM3v1instance ;
 
 struct bsim3v1SizeDependParam
@@ -320,12 +357,13 @@ struct bsim3v1SizeDependParam
 
 typedef struct sBSIM3v1model 
 {
-    int BSIM3v1modType;
-    struct sBSIM3v1model *BSIM3v1nextModel;
-    BSIM3v1instance *BSIM3v1instances;
-    IFuid BSIM3v1modName; 
 
-    /* --- end of generic struct GENmodel --- */
+    struct GENmodel gen;
+
+#define BSIM3v1modType gen.GENmodType
+#define BSIM3v1nextModel(inst) ((struct sBSIM3v1model *)((inst)->gen.GENnextModel))
+#define BSIM3v1instances(inst) ((BSIM3v1instance *)((inst)->gen.GENinstances))
+#define BSIM3v1modName gen.GENmodName
 
     int BSIM3v1type;
 

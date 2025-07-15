@@ -19,6 +19,7 @@ Modified: 2000 AlansFixes
 #include "ngspice/sperror.h"
 
 #ifdef XSPICE
+#include "ngspice/enh.h"
 /* gtri - add - wbk - 11/26/90 - add include for MIF global data */
 #include "ngspice/mif.h"
 /* gtri - end - wbk - 11/26/90 */
@@ -26,12 +27,13 @@ Modified: 2000 AlansFixes
 
 static int ZeroNoncurRow(SMPmatrix *matrix, CKTnode *nodes, int rownum);
 
+// #define PER_DEVICE_STATS
 int
 CKTload(CKTcircuit *ckt)
 {
     int i;
     int size;
-    double startTime;
+    double startTime, td0;
     CKTnode *node;
     int error;
 #ifdef STEPDEBUG
@@ -48,6 +50,13 @@ CKTload(CKTcircuit *ckt)
     /* gtri - begin - Put resistors to ground at all nodes */
 #endif
 
+    td0 = SPfrontEnd->IFseconds();
+
+#ifdef PER_DEVICE_STATS
+    ckt->CKTstat->devTimes[DEVmaxnum] += SPfrontEnd->IFseconds() - td0;
+    ckt->CKTstat->devCounts[DEVmaxnum]++;
+#endif
+
     startTime = SPfrontEnd->IFseconds();
     size = SMPmatSize(ckt->CKTmatrix);
     for (i = 0; i <= size; i++) {
@@ -60,7 +69,14 @@ CKTload(CKTcircuit *ckt)
 
     for (i = 0; i < DEVmaxnum; i++) {
         if (DEVices[i] && DEVices[i]->DEVload && ckt->CKThead[i]) {
+#ifdef PER_DEVICE_STATS
+            td0 = SPfrontEnd->IFseconds();
+#endif
             error = DEVices[i]->DEVload (ckt->CKThead[i], ckt);
+#ifdef PER_DEVICE_STATS
+            ckt->CKTstat->devTimes[i] += SPfrontEnd->IFseconds() - td0;
+            ckt->CKTstat->devCounts[i]++;
+#endif
             if (ckt->CKTnoncon)
                 ckt->CKTtroubleNode = 0;
 #ifdef STEPDEBUG

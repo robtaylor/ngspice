@@ -1,27 +1,30 @@
-/**** BSIM4.8.0 Released by Navid Paydavosi 11/01/2013 ****/
+/* ******************************************************************************
+   *  BSIM4 4.8.2 released by Chetan Kumar Dabhi 01/01/2020                     *
+   *  BSIM4 Model Equations                                                     *
+   ******************************************************************************
 
-/**********
- * Copyright 2006 Regents of the University of California. All rights reserved.
- * File: b4temp.c of BSIM4.7.0.
- * Author: 2000 Weidong Liu
- * Authors: 2001- Xuemei Xi, Mohan Dunga, Ali Niknejad, Chenming Hu.
- * Authors: 2006- Mohan Dunga, Ali Niknejad, Chenming Hu
- * Authors: 2007- Mohan Dunga, Wenwei Yang, Ali Niknejad, Chenming Hu
-  * Authors: 2008- Wenwei Yang, Ali Niknejad, Chenming Hu
- * Project Director: Prof. Chenming Hu.
- * Modified by Xuemei Xi, 04/06/2001.
- * Modified by Xuemei Xi, 10/05/2001.
- * Modified by Xuemei Xi, 11/15/2002.
- * Modified by Xuemei Xi, 05/09/2003.
- * Modified by Xuemei Xi, 03/04/2004.
- * Modified by Xuemei Xi, Mohan Dunga, 07/29/2005.
- * Modified by Mohan Dunga, 12/13/2006.
- * Modified by Mohan Dunga, Wenwei Yang, 05/18/2007.
- * Modified by Wenwei Yang, 07/31/2008.
- * Modified by Tanvir Morshed, Darsen Lu 03/27/2011
- * Modified by Pankaj Kumar Thakur, 07/23/2012
- **********/
+   ******************************************************************************
+   *  Copyright (c) 2020 University of California                               *
+   *                                                                            *
+   *  Project Director: Prof. Chenming Hu.                                      *
+   *  Current developers: Chetan Kumar Dabhi   (Ph.D. student, IIT Kanpur)      *
+   *                      Prof. Yogesh Chauhan (IIT Kanpur)                     *
+   *                      Dr. Pragya Kushwaha  (Postdoc, UC Berkeley)           *
+   *                      Dr. Avirup Dasgupta  (Postdoc, UC Berkeley)           *
+   *                      Ming-Yen Kao         (Ph.D. student, UC Berkeley)     *
+   *  Authors: Gary W. Ng, Weidong Liu, Xuemei Xi, Mohan Dunga, Wenwei Yang     *
+   *           Ali Niknejad, Chetan Kumar Dabhi, Yogesh Singh Chauhan,          *
+   *           Sayeef Salahuddin, Chenming Hu                                   * 
+   ******************************************************************************/
 
+/*
+Licensed under Educational Community License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License. You may obtain a copy of the license at
+http://opensource.org/licenses/ECL-2.0
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT 
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations
+under the License.
+*/
 
 #include "ngspice/ngspice.h"
 #include "ngspice/smpdefs.h"
@@ -93,7 +96,7 @@ double vtfbphi2eot, phieot, TempRatioeot, Vtm0eot, Vtmeot,vbieot;
 int Size_Not_Found, i;
 
     /*  loop through all the BSIM4 device models */
-    for (; model != NULL; model = model->BSIM4nextModel)
+    for (; model != NULL; model = BSIM4nextModel(model))
     {    Temp = ckt->CKTtemp;
          if (model->BSIM4SbulkJctPotential < 0.1)
          {   model->BSIM4SbulkJctPotential = 0.1;
@@ -124,15 +127,21 @@ int Size_Not_Found, i;
          if(model->BSIM4mtrlMod == 0)
          {
              if ((model->BSIM4toxeGiven) && (model->BSIM4toxpGiven) && (model->BSIM4dtoxGiven)
-                 && (model->BSIM4toxe != (model->BSIM4toxp + model->BSIM4dtox)))
-                 printf("Warning: toxe, toxp and dtox all given and toxe != toxp + dtox; dtox ignored.\n");
+             && (model->BSIM4toxe != (model->BSIM4toxp + model->BSIM4dtox)))
+             {   printf("Warning: toxe, toxp and dtox all given and toxe != toxp + dtox; dtox ignored.\n");
+             }
              else if ((model->BSIM4toxeGiven) && (!model->BSIM4toxpGiven))
-               model->BSIM4toxp = model->BSIM4toxe - model->BSIM4dtox;
-             else if ((!model->BSIM4toxeGiven) && (model->BSIM4toxpGiven)){
-               model->BSIM4toxe = model->BSIM4toxp + model->BSIM4dtox;
-                 if (!model->BSIM4toxmGiven)                        /* v4.7 */
+             {   model->BSIM4toxp = model->BSIM4toxe - model->BSIM4dtox;
+             }
+             else if ((!model->BSIM4toxeGiven) && (model->BSIM4toxpGiven))
+             {
+                 model->BSIM4toxe = model->BSIM4toxp + model->BSIM4dtox;
+                 if (!model->BSIM4toxmGiven)            /* v4.7 */
                      model->BSIM4toxm = model->BSIM4toxe;
              }
+             if (!model->BSIM4cfGiven)            /* v4.8.2 */
+                 model->BSIM4cf = 2.0 * model->BSIM4epsrox * EPS0 / PI
+                  * log(1.0 + 0.4e-6 / model->BSIM4toxe);
          }
          else if(model->BSIM4mtrlCompatMod != 0) /* v4.7 */
          {
@@ -185,6 +194,13 @@ int Size_Not_Found, i;
          }
          if (!model->BSIM4cgboGiven)
              model->BSIM4cgbo = 2.0 * model->BSIM4dwc * model->BSIM4coxe;
+
+         struct bsim4SizeDependParam *p = model->pSizeDependParamKnot;
+         while (p) {
+             struct bsim4SizeDependParam *next_p = p->pNext;
+             FREE(p);
+             p = next_p;
+         }
          model->pSizeDependParamKnot = NULL;
          pLastKnot = NULL;
 
@@ -407,8 +423,8 @@ int Size_Not_Found, i;
 
 
          /* loop through all the instances of the model */
-         for (here = model->BSIM4instances; here != NULL;
-              here = here->BSIM4nextInstance)
+         for (here = BSIM4instances(model); here != NULL;
+              here = BSIM4nextInstance(here))
          {
               pSizeDependParamKnot = model->pSizeDependParamKnot;
               Size_Not_Found = 1;
@@ -1349,10 +1365,33 @@ int Size_Not_Found, i;
                                             / pParam->BSIM4poxedge / pParam->BSIM4poxedge;
                   pParam->BSIM4Aechvb = (model->BSIM4type == NMOS) ? 4.97232e-7 : 3.42537e-7;
                   pParam->BSIM4Bechvb = (model->BSIM4type == NMOS) ? 7.45669e11 : 1.16645e12;
-                  pParam->BSIM4AechvbEdgeS = pParam->BSIM4Aechvb * pParam->BSIM4weff
-                                          * model->BSIM4dlcig * pParam->BSIM4ToxRatioEdge;
-                  pParam->BSIM4AechvbEdgeD = pParam->BSIM4Aechvb * pParam->BSIM4weff
-                                          * model->BSIM4dlcigd * pParam->BSIM4ToxRatioEdge;
+
+                  if ((strcmp(model->BSIM4version, "4.8.1")) && (strncmp(model->BSIM4version, "4.81", 4)) &&
+                      (strcmp(model->BSIM4version, "4.8.2")) && (strncmp(model->BSIM4version, "4.82", 4)))
+                  {
+                      pParam->BSIM4AechvbEdgeS = pParam->BSIM4Aechvb * pParam->BSIM4weff
+                                              * model->BSIM4dlcig * pParam->BSIM4ToxRatioEdge;
+                      pParam->BSIM4AechvbEdgeD = pParam->BSIM4Aechvb * pParam->BSIM4weff
+                                              * model->BSIM4dlcigd * pParam->BSIM4ToxRatioEdge;
+                  }
+                  else
+                  {
+                      if (model->BSIM4dlcig < 0.0)
+                      {
+                          printf("Warning: dlcig = %g is negative. Set to zero.\n", model->BSIM4dlcig);
+                          model->BSIM4dlcig = 0.0;
+                      }
+                      pParam->BSIM4AechvbEdgeS = pParam->BSIM4Aechvb * pParam->BSIM4weff
+                          * model->BSIM4dlcig * pParam->BSIM4ToxRatioEdge;
+                      if (model->BSIM4dlcigd < 0.0)
+                      {
+                          printf("Warning: dlcigd = %g is negative. Set to zero.\n", model->BSIM4dlcigd);
+                          model->BSIM4dlcigd = 0.0;
+                      }
+                      pParam->BSIM4AechvbEdgeD = pParam->BSIM4Aechvb * pParam->BSIM4weff
+                          * model->BSIM4dlcigd * pParam->BSIM4ToxRatioEdge;
+                  }
+
                   pParam->BSIM4BechvbEdge = -pParam->BSIM4Bechvb
                                           * toxe * pParam->BSIM4poxedge;
                   pParam->BSIM4Aechvb *= pParam->BSIM4weff * pParam->BSIM4leff
@@ -1562,7 +1601,7 @@ int Size_Not_Found, i;
                   /*high k*/
                   /*Calculate VgsteffVth for mobMod=3*/
                   if(model->BSIM4mobMod==3)
-                  {	/*Calculate n @ Vbs=Vds=0*/
+                  {        /*Calculate n @ Vbs=Vds=0*/
                       lt1 = model->BSIM4factor1* pParam->BSIM4sqrtXdep0;
                       T0 = pParam->BSIM4dvt1 * pParam->BSIM4leff / lt1;
                       if (T0 < EXP_THRESHOLD)
@@ -1718,6 +1757,9 @@ int Size_Not_Found, i;
             here->BSIM4vth0 += here->BSIM4delvto;
             here->BSIM4vfb = pParam->BSIM4vfb + model->BSIM4type * here->BSIM4delvto;
 
+            /* low field mobility multiplier */
+            here->BSIM4u0temp = pParam->BSIM4u0temp * here->BSIM4mulu0;
+
             /* Instance variables calculation  */
             T3 = model->BSIM4type * here->BSIM4vth0
                - here->BSIM4vfb - pParam->BSIM4phi;
@@ -1810,14 +1852,14 @@ int Size_Not_Found, i;
                       }
 
                     /*rbpbx =  exp( log(model->BSIM4rbpbx0) + model->BSIM4rbpbxl * lnl +
-                      	model->BSIM4rbpbxw * lnw + model->BSIM4rbpbxnf * lnnf );
+                              model->BSIM4rbpbxw * lnw + model->BSIM4rbpbxnf * lnnf );
                     rbpby =  exp( log(model->BSIM4rbpby0) + model->BSIM4rbpbyl * lnl +
-                      	model->BSIM4rbpbyw * lnw + model->BSIM4rbpbynf * lnnf );
+                              model->BSIM4rbpbyw * lnw + model->BSIM4rbpbynf * lnnf );
                             */
                             rbpbx =  model->BSIM4rbpbx0 * exp(  model->BSIM4rbpbxl * lnl +
-                      	model->BSIM4rbpbxw * lnw + model->BSIM4rbpbxnf * lnnf );
+                              model->BSIM4rbpbxw * lnw + model->BSIM4rbpbxnf * lnnf );
                     rbpby =  model->BSIM4rbpby0 * exp(  model->BSIM4rbpbyl * lnl +
-                      	model->BSIM4rbpbyw * lnw + model->BSIM4rbpbynf * lnnf );
+                              model->BSIM4rbpbyw * lnw + model->BSIM4rbpbynf * lnnf );
 
                     here->BSIM4rbpb = rbpbx*rbpby/(rbpbx + rbpby);
                   }
@@ -2286,8 +2328,6 @@ int Size_Not_Found, i;
 
                     /* Calculate n */
                     tmp1 = epssub / pParam->BSIM4Xdep0;
-                    here->BSIM4nstar = Vtmeot / Charge_q *
-                      (model->BSIM4coxe        + tmp1 + pParam->BSIM4cit);
                     tmp2 = pParam->BSIM4nfactor * tmp1;
                     tmp3 = (tmp2 + pParam->BSIM4cdsc * Theta0 + pParam->BSIM4cit) / model->BSIM4coxe;
                     if (tmp3 >= -0.5)
@@ -2334,7 +2374,7 @@ int Size_Not_Found, i;
                         niter++;
                       } while ((niter<=4)&&(ABS(toxpf-toxpi)>1e-12));
                       here->BSIM4toxp = toxpf;
-                      here->BSIM4coxp = epsrox * EPS0 / model->BSIM4toxp;
+                      here->BSIM4coxp = epsrox * EPS0 / here->BSIM4toxp;
                 } else {
                     here->BSIM4toxp = model->BSIM4toxp;
                     here->BSIM4coxp = model->BSIM4coxp;
@@ -2342,7 +2382,8 @@ int Size_Not_Found, i;
 
               if (BSIM4checkModel(model, here, ckt))
               {
-                  SPfrontEnd->IFerrorf (ERR_FATAL, "Fatal error(s) detected during BSIM4.6.0 parameter checking for %s in model %s", model->BSIM4modName, here->BSIM4name);
+                  SPfrontEnd->IFerrorf(ERR_FATAL,
+                      "detected during BSIM4.8.2 parameter checking for \n    model %s of device instance %s\n", model->BSIM4modName, here->BSIM4name);
                   return(E_BADPARM);
               }
          } /* End instance */

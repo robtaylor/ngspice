@@ -8,11 +8,9 @@ extern int MOS2acLoad(GENmodel*,CKTcircuit*);
 extern int MOS2ask(CKTcircuit*,GENinstance*,int,IFvalue*,IFvalue*);
 extern int MOS2mAsk(CKTcircuit*,GENmodel*,int,IFvalue*);
 extern int MOS2convTest(GENmodel*,CKTcircuit*);
-extern int MOS2delete(GENmodel*,IFuid,GENinstance**);
-extern void MOS2destroy(GENmodel**);
+extern int MOS2delete(GENinstance*);
 extern int MOS2getic(GENmodel*,CKTcircuit*);
 extern int MOS2load(GENmodel*,CKTcircuit*);
-extern int MOS2mDelete(GENmodel**,IFuid,GENmodel*);
 extern int MOS2mParam(int,IFvalue*,GENmodel*);
 extern int MOS2param(int,IFvalue*,GENinstance*,IFvalue*);
 extern int MOS2pzLoad(GENmodel*,CKTcircuit*,SPcomplex*);
@@ -29,3 +27,9 @@ extern int MOS2disto(int,GENmodel*,CKTcircuit*);
 extern int MOS2noise(int,int,GENmodel*,CKTcircuit*,Ndata*,double*);
 
 extern int MOS2dSetup(GENmodel*,CKTcircuit*);
+
+#ifdef KLU
+extern int MOS2bindCSC (GENmodel*, CKTcircuit*) ;
+extern int MOS2bindCSCComplex (GENmodel*, CKTcircuit*) ;
+extern int MOS2bindCSCComplexToReal (GENmodel*, CKTcircuit*) ;
+#endif

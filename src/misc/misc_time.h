@@ -9,12 +9,16 @@
 char * datestring(void);
 double seconds(void);
 
-#ifdef HAVE_FTIME
+typedef struct {
+    double secs;
+    int seconds;
+    int milliseconds;
+} PerfTime;
 
-extern struct timeb timebegin;
+void perf_timer_get_time(PerfTime *);
 
-void timediff(struct timeb *, struct timeb *, int *, int *);
+extern PerfTime timebegin;
 
-#endif
+void timediff(PerfTime *, PerfTime *, int *, int *);
 
 #endif

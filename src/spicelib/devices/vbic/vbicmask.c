@@ -225,14 +225,8 @@ VBICmAsk(CKTcircuit *ckt, GENmodel *instPtr, int which, IFvalue *value)
         case VBIC_MOD_XRE:
             value->rValue = here->VBICtempExpRE;
             return(OK);
-        case VBIC_MOD_XRB:
-            value->rValue = here->VBICtempExpRB;
-            return(OK);
         case VBIC_MOD_XRBI:
             value->rValue = here->VBICtempExpRBI;
-            return(OK);
-        case VBIC_MOD_XRC:
-            value->rValue = here->VBICtempExpRC;
             return(OK);
         case VBIC_MOD_XRCI:
             value->rValue = here->VBICtempExpRCI;
@@ -363,11 +357,26 @@ VBICmAsk(CKTcircuit *ckt, GENmodel *instPtr, int which, IFvalue *value)
         case VBIC_MOD_VCE_MAX:
             value->rValue = here->VBICvceMax;
             return(OK);
+        case VBIC_MOD_VSUB_MAX:
+            value->rValue = here->VBICvsubMax;
+            return(OK);
+        case VBIC_MOD_VBEFWD_MAX:
+            value->rValue = here->VBICvbefwdMax;
+            return(OK);
+        case VBIC_MOD_VBCFWD_MAX:
+            value->rValue = here->VBICvbcfwdMax;
+            return(OK);
+        case VBIC_MOD_VSUBFWD_MAX:
+            value->rValue = here->VBICvsubfwdMax;
+            return(OK);
         case VBIC_MOD_TYPE:
             if (here->VBICtype == NPN)
                 value->sValue = "npn";
             else
                 value->sValue = "pnp";
+            return(OK);
+        case VBIC_MOD_SELFT:
+            value->iValue = here->VBICselft;
             return(OK);
         default:
             return(E_BADPARM);

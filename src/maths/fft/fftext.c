@@ -42,18 +42,18 @@ int fftInit(int M)
     /*** I did NOT test cases with M>27 ***/
     if ((M >= 0) && ((size_t) M < 8*sizeof(int))) {
         theError = 0;
-        if (UtblArray[M] == 0) {	// have we not inited this size fft yet?
+        if (UtblArray[M] == NULL) {	// have we not inited this size fft yet?
             // init cos table
             UtblArray[M] = TMALLOC(double, POW2(M)/4+1);
-            if (UtblArray[M] == 0)
+            if (UtblArray[M] == NULL)
                 theError = 2;
             else {
                 fftCosInit(M, UtblArray[M]);
             }
             if (M > 1) {
-                if (BRLowArray[M/2] == 0) {	// init bit reversed table for cmplx fft
+                if (BRLowArray[M/2] == NULL) {	// init bit reversed table for cmplx fft
                     BRLowArray[M/2] = TMALLOC(short, POW2(M/2-1));
-                    if (BRLowArray[M/2] == 0)
+                    if (BRLowArray[M/2] == NULL)
                         theError = 2;
                     else {
                         fftBRInit(M, BRLowArray[M/2]);
@@ -61,9 +61,9 @@ int fftInit(int M)
                 }
             }
             if (M > 2) {
-                if (BRLowArray[(M-1)/2] == 0) {	// init bit reversed table for real fft
+                if (BRLowArray[(M-1)/2] == NULL) {	// init bit reversed table for real fft
                     BRLowArray[(M-1)/2] = TMALLOC(short, POW2((M-1)/2-1));
-                    if (BRLowArray[(M-1)/2] == 0)
+                    if (BRLowArray[(M-1)/2] == NULL)
                         theError = 2;
                     else {
                         fftBRInit(M-1, BRLowArray[(M-1)/2]);
@@ -80,15 +80,15 @@ void fftFree(void)
 // release storage for all private cosine and bit reversed tables
     int i1;
     for (i1=8*sizeof(int)/2-1; i1>=0; i1--) {
-        if (BRLowArray[i1] != 0) {
-            free(BRLowArray[i1]);
-            BRLowArray[i1] = 0;
+        if (BRLowArray[i1] != NULL) {
+            tfree(BRLowArray[i1]);
+            BRLowArray[i1] = NULL;
         }
     }
     for (i1=8*sizeof(int)-1; i1>=0; i1--) {
-        if (UtblArray[i1] != 0) {
-            free(UtblArray[i1]);
-            UtblArray[i1] = 0;
+        if (UtblArray[i1] != NULL) {
+            tfree(UtblArray[i1]);
+            UtblArray[i1] = NULL;
         }
     }
 }
@@ -114,8 +114,10 @@ fft_windows(char *window, double *win, double *time, int length, double maxt, do
         for (i = 0; i < length; i++) {
             if (maxt-time[i] > span)
                 win[i] = 0.0;
+            else if (maxt-time[i] < span/2)
+                win[i] = 4.0 * (maxt-time[i]) / span;
             else
-                win[i] = 2.0 - fabs(2+4*(time[i]-maxt)/span);
+                win[i] = 4.0 - 4.0 * (maxt-time[i]) / span;
         }
     else if (eq(window, "hann") || eq(window, "hanning") || eq(window, "cosine"))
         for (i = 0; i < length; i++) {
@@ -139,6 +141,17 @@ fft_windows(char *window, double *win, double *time, int length, double maxt, do
                 win[i]  = 1.0;
                 win[i] -= 0.50/0.42*cos(2*M_PI*(time[i]-maxt)/span);
                 win[i] += 0.08/0.42*cos(4*M_PI*(time[i]-maxt)/span);
+            }
+        }
+    else if (eq(window, "blackmanharris"))
+        for (i = 0; i < length; i++) {
+            if (maxt-time[i] > span) {
+                win[i] = 0;
+            } else {
+                win[i]  = 1.0;
+                win[i] -= 0.48829/0.35875*cos(2*M_PI*(time[i]-maxt)/span);
+                win[i] += 0.14128/0.35875*cos(4*M_PI*(time[i]-maxt)/span);
+                win[i] -= 0.01168/0.35875*cos(6*M_PI*(time[i]-maxt)/span);
             }
         }
     else if (eq(window, "flattop"))

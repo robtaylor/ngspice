@@ -3,11 +3,10 @@ FILE    EVTbackup.c
 
 MEMBER OF process XSPICE
 
-Copyright 1991
+Public Domain
+
 Georgia Tech Research Corporation
 Atlanta, Georgia 30332
-All Rights Reserved
-
 PROJECT A-8503
 
 AUTHORS
@@ -480,17 +479,26 @@ static void EVTbackup_inst_queue(
     }
     inst_queue->next_time = next_time;
 
-    /* Update the modified list by looking for any queued events */
-    /* with posted time > last_time */
+    /* Update the modified list by looking for events that were processed
+     * or queued in the current timestep.
+     */
+
     for(i = 0, j = 0; i < num_modified; i++) {
 
         inst_index = inst_queue->modified_index[i];
         inst = *(inst_queue->last_step[inst_index]);
 
-        while(inst) {
-            if(inst->posted_time > inst_queue->last_time)
-                break;
-            inst = inst->next;
+        if (inst_queue->current[inst_index] ==
+            inst_queue->last_step[inst_index]) {
+            /* Nothing now removed from the queue,
+             * but it may have been modified by an addition.
+             */
+
+            while (inst) {
+                if (inst->posted_time > inst_queue->last_time)
+                    break;
+                inst = inst->next;
+            }
         }
 
         if(! inst) {
@@ -531,7 +539,7 @@ static void EVTbackup_output_queue(
 
     Evt_Output_Queue_t    *output_queue;
 
-    Evt_Output_Event_t    **output_ptr;
+    Evt_Output_Event_t    **output_ptr, **free_list;
     Evt_Output_Event_t    *output;
 
     double              next_time;
@@ -555,12 +563,13 @@ static void EVTbackup_output_queue(
 
         output_ptr = output_queue->last_step[output_index];
         output = *output_ptr;
+        free_list = output_queue->free_list[output_index];
 
         while(output) {
             if(output->posted_time > new_time) {
                 *output_ptr = output->next;
-                output->next = output_queue->free[output_index];
-                output_queue->free[output_index] = output;
+                output->next = *free_list;
+                *free_list = output;
                 output = *output_ptr;
             }
             else {
@@ -619,17 +628,26 @@ static void EVTbackup_output_queue(
     }
     output_queue->next_time = next_time;
 
-    /* Update the modified list by looking for any queued events */
-    /* with posted time > last_time */
+    /* Update the modified list by looking for events that were processed
+     * or queued in the current timestep.
+     */
+
     for(i = 0, j = 0; i < num_modified; i++) {
 
         output_index = output_queue->modified_index[i];
         output = *(output_queue->last_step[output_index]);
 
-        while(output) {
-            if(output->posted_time > output_queue->last_time)
-                break;
-            output = output->next;
+        if (output_queue->current[output_index] ==
+            output_queue->last_step[output_index]) {
+            /* Nothing now removed from the queue,
+             * but it may have been modified by an addition.
+	     */
+
+            while(output) {
+                if(output->posted_time > output_queue->last_time)
+                    break;
+                output = output->next;
+            }
         }
 
         if(! output) {

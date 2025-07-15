@@ -40,9 +40,9 @@ NUMDadmittance(ONEdevice *pDevice, double omega, SPcomplex *yd)
   int index, i;
   double yReal, yImag;
   double *solutionReal, *solutionImag;
-  SPcomplex yAc, cOmega;
+  SPcomplex yAc_adm, cOmega;
   SPcomplex *y;
-  BOOLEAN SORFailed;
+  bool SORFailed;
   double startTime;
 
 
@@ -91,10 +91,10 @@ NUMDadmittance(ONEdevice *pDevice, double omega, SPcomplex *yd)
     if (SORFailed && AcAnalysisMethod == SOR) {
       AcAnalysisMethod = DIRECT;
       printf("SOR failed at %g Hz, switching to direct-method ac analysis.\n",
-	  omega / (TWO_PI * TNorm) );
+	  omega / (2 * M_PI * TNorm) );
     } else if (SORFailed) {	/* Told to only do SOR, so give up. */
       printf("SOR failed at %g Hz, returning null admittance.\n",
-	  omega / (TWO_PI * TNorm) );
+	  omega / (2 * M_PI * TNorm) );
       CMPLX_ASSIGN_VALUE(*yd, 0.0, 0.0);
       return (AcAnalysisMethod);
     }
@@ -116,43 +116,67 @@ NUMDadmittance(ONEdevice *pDevice, double omega, SPcomplex *yd)
       pDevice->rhs[pNode->pEqn] -= pEdge->dJpDpsiP1;
     }
     ONE_jacLoad(pDevice);
-    spSetComplex(pDevice->matrix);
-    for (index = 1; index < pDevice->numNodes; index++) {
-      pElem = pDevice->elemArray[index];
-      if (pElem->elemType == SEMICON) {
-	for (i = 0; i <= 1; i++) {
-	  pNode = pElem->pNodes[i];
-	  if (pNode->nodeType != CONTACT) {
-	    spADD_COMPLEX_ELEMENT(pNode->fNN, 0.0, -0.5 * pElem->dx * omega);
-	    spADD_COMPLEX_ELEMENT(pNode->fPP, 0.0, 0.5 * pElem->dx * omega);
-	  }
-	}
+
+#ifdef KLU
+    if (pDevice->matrix->CKTkluMODE) {
+      pDevice->matrix->SMPkluMatrix->KLUmatrixIsComplex = KLUMatrixComplex ;
+    } else {
+#endif
+
+      spSetComplex (pDevice->matrix->SPmatrix) ;
+
+      for (index = 1; index < pDevice->numNodes; index++) {
+        pElem = pDevice->elemArray[index];
+        if (pElem->elemType == SEMICON) {
+          for (i = 0; i <= 1; i++) {
+            pNode = pElem->pNodes[i];
+	    if (pNode->nodeType != CONTACT) {
+	      spADD_COMPLEX_ELEMENT(pNode->fNN, 0.0, -0.5 * pElem->dx * omega);
+	      spADD_COMPLEX_ELEMENT(pNode->fPP, 0.0, 0.5 * pElem->dx * omega);
+            }
+          }
+        }
       }
+
+#ifdef KLU
     }
+#endif
+
     pDevice->pStats->loadTime[STAT_AC] += SPfrontEnd->IFseconds() - startTime;
 
     /* FACTOR */
     startTime = SPfrontEnd->IFseconds();
-    spFactor(pDevice->matrix);
+
+#ifdef KLU
+    SMPluFacKLUforCIDER (pDevice->matrix) ;
+#else
+    SMPcLUfac(pDevice->matrix, 0);
+#endif
+
     pDevice->pStats->factorTime[STAT_AC] += SPfrontEnd->IFseconds() - startTime;
 
     /* SOLVE */
     startTime = SPfrontEnd->IFseconds();
-    spSolve(pDevice->matrix, pDevice->rhs, solutionReal,
-	pDevice->rhsImag, solutionImag);
+
+#ifdef KLU
+    SMPsolveKLUforCIDER (pDevice->matrix, pDevice->rhs, solutionReal, pDevice->rhsImag, solutionImag) ;
+#else
+    SMPcSolveForCIDER (pDevice->matrix, pDevice->rhs, solutionReal, pDevice->rhsImag, solutionImag) ;
+#endif
+
     pDevice->pStats->solveTime[STAT_AC] += SPfrontEnd->IFseconds() - startTime;
   }
   /* MISC */
   startTime = SPfrontEnd->IFseconds();
   pNode = pDevice->elemArray[1]->pLeftNode;
   y = computeAdmittance(pNode, FALSE, solutionReal, solutionImag, &cOmega);
-  CMPLX_ASSIGN_VALUE(yAc, -y->real, -y->imag);
-  CMPLX_ASSIGN(*yd, yAc);
+  CMPLX_ASSIGN_VALUE(yAc_adm, -y->real, -y->imag);
+  CMPLX_ASSIGN(*yd, yAc_adm);
   CMPLX_MULT_SELF_SCALAR(*yd, GNorm * pDevice->area);
   pDevice->pStats->miscTime[STAT_AC] += SPfrontEnd->IFseconds() - startTime;
 
   return (AcAnalysisMethod);
-}
+} /* end of function NUMDadmittance */
 
 
 int
@@ -167,7 +191,7 @@ NBJTadmittance(ONEdevice *pDevice, double omega, SPcomplex *yIeVce,
   int index, i;
   double area = pDevice->area;
   double *solutionReal, *solutionImag;
-  BOOLEAN SORFailed;
+  bool SORFailed;
   SPcomplex *y;
   SPcomplex cOmega, pIeVce, pIcVce, pIeVbe, pIcVbe;
   double startTime;
@@ -215,10 +239,10 @@ NBJTadmittance(ONEdevice *pDevice, double omega, SPcomplex *yIeVce,
     if (SORFailed && (AcAnalysisMethod == SOR)) {
       AcAnalysisMethod = DIRECT;
       printf("SOR failed at %g Hz, switching to direct-method ac analysis.\n",
-	  omega / (TWO_PI * TNorm) );
+	  omega / (2 * M_PI * TNorm) );
     } else if (SORFailed) {	/* Told to only do SOR, so give up. */
       printf("SOR failed at %g Hz, returning null admittance.\n",
-	  omega / (TWO_PI * TNorm) );
+	  omega / (2 * M_PI * TNorm) );
       CMPLX_ASSIGN_VALUE(*yIeVce, 0.0, 0.0);
       CMPLX_ASSIGN_VALUE(*yIcVce, 0.0, 0.0);
       CMPLX_ASSIGN_VALUE(*yIeVbe, 0.0, 0.0);
@@ -260,10 +284,10 @@ NBJTadmittance(ONEdevice *pDevice, double omega, SPcomplex *yIeVce,
       if (SORFailed && (AcAnalysisMethod == SOR)) {
 	AcAnalysisMethod = DIRECT;
 	printf("SOR failed at %g Hz, switching to direct-method ac analysis.\n",
-	    omega / (TWO_PI * TNorm) );
+	    omega / (2 * M_PI * TNorm) );
       } else if (SORFailed) {	/* Told to only do SOR, so give up. */
 	printf("SOR failed at %g Hz, returning null admittance.\n",
-	    omega / (TWO_PI * TNorm) );
+	    omega / (2 * M_PI * TNorm) );
 	CMPLX_ASSIGN_VALUE(*yIeVce, 0.0, 0.0);
 	CMPLX_ASSIGN_VALUE(*yIcVce, 0.0, 0.0);
 	CMPLX_ASSIGN_VALUE(*yIeVbe, 0.0, 0.0);
@@ -288,30 +312,54 @@ NBJTadmittance(ONEdevice *pDevice, double omega, SPcomplex *yIeVce,
       pDevice->rhs[pNode->nEqn] -= pEdge->dJnDpsiP1;
       pDevice->rhs[pNode->pEqn] -= pEdge->dJpDpsiP1;
     }
-    spSetComplex(pDevice->matrix);
-    for (index = 1; index < pDevice->numNodes; index++) {
-      pElem = pDevice->elemArray[index];
-      if (pElem->elemType == SEMICON) {
-	for (i = 0; i <= 1; i++) {
-	  pNode = pElem->pNodes[i];
-	  if (pNode->nodeType != CONTACT) {
-	    spADD_COMPLEX_ELEMENT(pNode->fNN, 0.0, -0.5 * pElem->dx * omega);
-	    spADD_COMPLEX_ELEMENT(pNode->fPP, 0.0, 0.5 * pElem->dx * omega);
-	  }
-	}
+
+#ifdef KLU
+    if (pDevice->matrix->CKTkluMODE) {
+      pDevice->matrix->SMPkluMatrix->KLUmatrixIsComplex = KLUMatrixComplex ;
+    } else {
+#endif
+
+      spSetComplex (pDevice->matrix->SPmatrix) ;
+
+      for (index = 1; index < pDevice->numNodes; index++) {
+        pElem = pDevice->elemArray[index];
+        if (pElem->elemType == SEMICON) {
+          for (i = 0; i <= 1; i++) {
+            pNode = pElem->pNodes[i];
+            if (pNode->nodeType != CONTACT) {
+              spADD_COMPLEX_ELEMENT(pNode->fNN, 0.0, -0.5 * pElem->dx * omega);
+              spADD_COMPLEX_ELEMENT(pNode->fPP, 0.0, 0.5 * pElem->dx * omega);
+            }
+          }
+        }
       }
+
+#ifdef KLU
     }
+#endif
+
     pDevice->pStats->loadTime[STAT_AC] += SPfrontEnd->IFseconds() - startTime;
 
     /* FACTOR */
     startTime = SPfrontEnd->IFseconds();
-    spFactor(pDevice->matrix);
+
+#ifdef KLU
+    SMPluFacKLUforCIDER (pDevice->matrix) ;
+#else
+    SMPcLUfac(pDevice->matrix, 0);
+#endif
+
     pDevice->pStats->factorTime[STAT_AC] += SPfrontEnd->IFseconds() - startTime;
 
     /* SOLVE */
     startTime = SPfrontEnd->IFseconds();
-    spSolve(pDevice->matrix, pDevice->rhs, solutionReal,
-	pDevice->rhsImag, solutionImag);
+
+#ifdef KLU
+    SMPsolveKLUforCIDER (pDevice->matrix, pDevice->rhs, solutionReal, pDevice->rhsImag, solutionImag) ;
+#else
+    SMPcSolveForCIDER (pDevice->matrix, pDevice->rhs, solutionReal, pDevice->rhsImag, solutionImag) ;
+#endif
+
     pDevice->pStats->solveTime[STAT_AC] += SPfrontEnd->IFseconds() - startTime;
 
     /* MISC */
@@ -345,8 +393,13 @@ NBJTadmittance(ONEdevice *pDevice, double omega, SPcomplex *yIeVce,
 
     /* SOLVE */
     startTime = SPfrontEnd->IFseconds();
-    spSolve(pDevice->matrix, pDevice->rhs, solutionReal,
-	pDevice->rhsImag, solutionImag);
+
+#ifdef KLU
+    SMPsolveKLUforCIDER (pDevice->matrix, pDevice->rhs, solutionReal, pDevice->rhsImag, solutionImag) ;
+#else
+    SMPcSolveForCIDER (pDevice->matrix, pDevice->rhs, solutionReal, pDevice->rhsImag, solutionImag) ;
+#endif
+
     pDevice->pStats->solveTime[STAT_AC] += SPfrontEnd->IFseconds() - startTime;
   }
   /* MISC */
@@ -372,7 +425,7 @@ NBJTadmittance(ONEdevice *pDevice, double omega, SPcomplex *yIeVce,
   return (AcAnalysisMethod);
 }
 
-BOOLEAN
+bool
 ONEsorSolve(ONEdevice *pDevice, double *xReal, double *xImag, double omega)
 {
   ONEnode *pNode;
@@ -381,8 +434,8 @@ ONEsorSolve(ONEdevice *pDevice, double *xReal, double *xImag, double omega)
   double *rhsSOR = pDevice->rhsImag;
   int numEqns = pDevice->numEqns;
   int numNodes = pDevice->numNodes;
-  BOOLEAN SORConverged = FALSE;
-  BOOLEAN SORFailed = FALSE;
+  bool SORConverged = FALSE;
+  bool SORFailed = FALSE;
   int i, index, indexN, indexP, iterationNum;
   double dx;
 
@@ -418,7 +471,11 @@ ONEsorSolve(ONEdevice *pDevice, double *xReal, double *xImag, double omega)
       rhsSOR[index] += pDevice->rhs[index];
     }
     /* compute xReal(k+1). solution stored in rhsSOR */
-    spSolve(pDevice->matrix, rhsSOR, rhsSOR, NULL, NULL);
+#ifdef KLU
+    SMPsolveKLUforCIDER (pDevice->matrix, rhsSOR, rhsSOR, NULL, NULL) ;
+#else
+    SMPsolve(pDevice->matrix, rhsSOR, rhsSOR);
+#endif
 
     /* modify solution when wRelax is not 1 */
     if (wRelax != 1) {
@@ -454,8 +511,12 @@ ONEsorSolve(ONEdevice *pDevice, double *xReal, double *xImag, double omega)
       }
     }
     /* compute xImag(k+1) */
-    spSolve(pDevice->matrix, rhsSOR, rhsSOR,
-	NULL, NULL);
+#ifdef KLU
+    SMPsolveKLUforCIDER (pDevice->matrix, rhsSOR, rhsSOR, NULL, NULL) ;
+#else
+    SMPsolve(pDevice->matrix, rhsSOR, rhsSOR);
+#endif
+
     /* modify solution when wRelax is not 1 */
     if (wRelax != 1) {
       for (index = 1; index <= numEqns; index++) {
@@ -516,25 +577,44 @@ NUMDys(ONEdevice *pDevice, SPcomplex *s, SPcomplex *yd)
     pDevice->rhs[pNode->nEqn] -= pEdge->dJnDpsiP1;
     pDevice->rhs[pNode->pEqn] -= pEdge->dJpDpsiP1;
   }
-  spSetComplex(pDevice->matrix);
-  for (index = 1; index < pDevice->numNodes; index++) {
-    pElem = pDevice->elemArray[index];
-    if (pElem->elemType == SEMICON) {
-      for (i = 0; i <= 1; i++) {
-	pNode = pElem->pNodes[i];
-	if (pNode->nodeType != CONTACT) {
-	  CMPLX_MULT_SCALAR(temp, cOmega, 0.5 * pElem->dx);
-	  spADD_COMPLEX_ELEMENT(pNode->fNN, -temp.real, -temp.imag);
-	  spADD_COMPLEX_ELEMENT(pNode->fPP, temp.real, temp.imag);
-	}
+
+#ifdef KLU
+  if (pDevice->matrix->CKTkluMODE) {
+    pDevice->matrix->SMPkluMatrix->KLUmatrixIsComplex = KLUMatrixComplex ;
+  } else {
+#endif
+
+    spSetComplex (pDevice->matrix->SPmatrix) ;
+
+    for (index = 1; index < pDevice->numNodes; index++) {
+      pElem = pDevice->elemArray[index];
+      if (pElem->elemType == SEMICON) {
+        for (i = 0; i <= 1; i++) {
+          pNode = pElem->pNodes[i];
+          if (pNode->nodeType != CONTACT) {
+            CMPLX_MULT_SCALAR(temp, cOmega, 0.5 * pElem->dx);
+            spADD_COMPLEX_ELEMENT(pNode->fNN, -temp.real, -temp.imag);
+            spADD_COMPLEX_ELEMENT(pNode->fPP, temp.real, temp.imag);
+          }
+        }
       }
     }
+
+#ifdef KLU
   }
+#endif
 
+#ifdef KLU
+  SMPluFacKLUforCIDER (pDevice->matrix) ;
+#else
+  SMPcLUfac (pDevice->matrix, 0) ;
+#endif
 
-  spFactor(pDevice->matrix);
-  spSolve(pDevice->matrix, pDevice->rhs, solutionReal,
-      pDevice->rhsImag, solutionImag);
+#ifdef KLU
+  SMPsolveKLUforCIDER (pDevice->matrix, pDevice->rhs, solutionReal, pDevice->rhsImag, solutionImag) ;
+#else
+  SMPcSolveForCIDER (pDevice->matrix, pDevice->rhs, solutionReal, pDevice->rhsImag, solutionImag) ;
+#endif
 
   pElem = pDevice->elemArray[1];
   pNode = pElem->pLeftNode;
@@ -584,24 +664,45 @@ NBJTys(ONEdevice *pDevice, SPcomplex *s, SPcomplex *yIeVce,
     pDevice->rhs[pNode->nEqn] -= pEdge->dJnDpsiP1;
     pDevice->rhs[pNode->pEqn] -= pEdge->dJpDpsiP1;
   }
-  spSetComplex(pDevice->matrix);
-  for (index = 1; index < pDevice->numNodes; index++) {
-    pElem = pDevice->elemArray[index];
-    if (pElem->elemType == SEMICON) {
-      for (i = 0; i <= 1; i++) {
-	pNode = pElem->pNodes[i];
-	if (pNode->nodeType != CONTACT) {
-	  CMPLX_MULT_SCALAR(temp, cOmega, 0.5 * pElem->dx);
-	  spADD_COMPLEX_ELEMENT(pNode->fNN, -temp.real, -temp.imag);
-	  spADD_COMPLEX_ELEMENT(pNode->fPP, temp.real, temp.imag);
-	}
+
+#ifdef KLU
+  if (pDevice->matrix->CKTkluMODE) {
+    pDevice->matrix->SMPkluMatrix->KLUmatrixIsComplex = KLUMatrixComplex ;
+  } else {
+#endif
+
+    spSetComplex (pDevice->matrix->SPmatrix) ;
+
+    for (index = 1; index < pDevice->numNodes; index++) {
+      pElem = pDevice->elemArray[index];
+      if (pElem->elemType == SEMICON) {
+        for (i = 0; i <= 1; i++) {
+          pNode = pElem->pNodes[i];
+          if (pNode->nodeType != CONTACT) {
+            CMPLX_MULT_SCALAR(temp, cOmega, 0.5 * pElem->dx);
+            spADD_COMPLEX_ELEMENT(pNode->fNN, -temp.real, -temp.imag);
+            spADD_COMPLEX_ELEMENT(pNode->fPP, temp.real, temp.imag);
+          }
+        }
       }
     }
-  }
 
-  spFactor(pDevice->matrix);
-  spSolve(pDevice->matrix, pDevice->rhs, solutionReal,
-      pDevice->rhsImag, solutionImag);
+#ifdef KLU
+  }
+#endif
+
+#ifdef KLU
+  SMPluFacKLUforCIDER (pDevice->matrix) ;
+#else
+  SMPcLUfac (pDevice->matrix, 0) ;
+#endif
+
+#ifdef KLU
+  SMPsolveKLUforCIDER(pDevice->matrix, pDevice->rhs, solutionReal, pDevice->rhsImag, solutionImag);
+#else
+  SMPcSolveForCIDER (pDevice->matrix, pDevice->rhs, solutionReal, pDevice->rhsImag, solutionImag) ;
+#endif
+
   pElem = pDevice->elemArray[1];
   pNode = pElem->pLeftNode;
   y = computeAdmittance(pNode, FALSE, solutionReal, solutionImag, &cOmega);
@@ -624,8 +725,12 @@ NBJTys(ONEdevice *pDevice, SPcomplex *s, SPcomplex *yIeVce,
   }
 
   /* don't need to LU factor the jacobian since it exists */
-  spSolve(pDevice->matrix, pDevice->rhs, solutionReal,
-      pDevice->rhsImag, solutionImag);
+#ifdef KLU
+    SMPsolveKLUforCIDER (pDevice->matrix, pDevice->rhs, solutionReal, pDevice->rhsImag, solutionImag) ;
+#else
+    SMPcSolveForCIDER (pDevice->matrix, pDevice->rhs, solutionReal, pDevice->rhsImag, solutionImag) ;
+#endif
+
   pElem = pDevice->elemArray[1];
   pNode = pElem->pLeftNode;
   y = computeAdmittance(pNode, FALSE, solutionReal, solutionImag, &cOmega);
@@ -649,7 +754,7 @@ NBJTys(ONEdevice *pDevice, SPcomplex *s, SPcomplex *yIeVce,
 /* cOmega is the complex frequency */
 
 SPcomplex *
-computeAdmittance(ONEnode *pNode, BOOLEAN delVContact, double *xReal, 
+computeAdmittance(ONEnode *pNode, bool delVContact, double *xReal, 
                   double *xImag, SPcomplex *cOmega)
 {
   ONEnode *pHNode;

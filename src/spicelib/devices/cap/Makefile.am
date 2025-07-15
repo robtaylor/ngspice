@@ -7,8 +7,6 @@ libcap_la_SOURCES =	\
 	capacld.c	\
 	capask.c	\
 	capdefs.h	\
-	capdel.c	\
-	capdest.c	\
 	capext.h	\
 	capgetic.c	\
 	capinit.c	\
@@ -16,7 +14,6 @@ libcap_la_SOURCES =	\
 	capitf.h	\
 	capload.c	\
 	capmask.c	\
-	capmdel.c	\
 	capmpar.c	\
 	capparam.c	\
 	cappzld.c	\
@@ -31,6 +28,9 @@ libcap_la_SOURCES =	\
 	captrunc.c
 
 
+if KLU_WANTED
+libcap_la_SOURCES += capbindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)

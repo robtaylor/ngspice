@@ -18,12 +18,9 @@
 extern int HSMHVacLoad(GENmodel *,CKTcircuit*);
 extern int HSMHVask(CKTcircuit *,GENinstance*,int,IFvalue*,IFvalue*);
 extern int HSMHVconvTest(GENmodel *,CKTcircuit*);
-extern int HSMHVdelete(GENmodel*,IFuid,GENinstance**);
-extern void HSMHVdestroy(GENmodel**);
 extern int HSMHVgetic(GENmodel*,CKTcircuit*);
 extern int HSMHVload(GENmodel*,CKTcircuit*);
 extern int HSMHVmAsk(CKTcircuit*,GENmodel *,int, IFvalue*);
-extern int HSMHVmDelete(GENmodel**,IFuid,GENmodel*);
 extern int HSMHVmParam(int,IFvalue*,GENmodel*);
 extern void HSMHVmosCap(CKTcircuit*, double, double, double, double*,
         double, double, double, double, double, double,
@@ -38,3 +35,9 @@ extern int HSMHVtemp(GENmodel*,CKTcircuit*);
 extern int HSMHVtrunc(GENmodel*,CKTcircuit*,double*);
 extern int HSMHVnoise(int,int,GENmodel*,CKTcircuit*,Ndata*,double*);
 extern int HSMHVsoaCheck(CKTcircuit *, GENmodel *);
+
+#ifdef KLU
+extern int HSMHVbindCSC (GENmodel*, CKTcircuit*);
+extern int HSMHVbindCSCComplex (GENmodel*, CKTcircuit*);
+extern int HSMHVbindCSCComplexToReal (GENmodel*, CKTcircuit*) ;
+#endif

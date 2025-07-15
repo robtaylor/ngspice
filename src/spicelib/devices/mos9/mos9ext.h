@@ -7,12 +7,10 @@ Modified: Alan Gillespie
 extern int MOS9acLoad(GENmodel*,CKTcircuit*);
 extern int MOS9ask(CKTcircuit*,GENinstance*,int,IFvalue*,IFvalue*);
 extern int MOS9convTest(GENmodel *,CKTcircuit *);
-extern int MOS9delete(GENmodel*,IFuid,GENinstance**);
-extern void MOS9destroy(GENmodel**);
+extern int MOS9delete(GENinstance*);
 extern int MOS9getic(GENmodel*,CKTcircuit*);
 extern int MOS9load(GENmodel*,CKTcircuit*);
 extern int MOS9mAsk(CKTcircuit*,GENmodel*,int,IFvalue*);
-extern int MOS9mDelete(GENmodel**,IFuid,GENmodel*);
 extern int MOS9mParam(int,IFvalue*,GENmodel*);
 extern int MOS9param(int,IFvalue*,GENinstance*,IFvalue*);
 extern int MOS9pzLoad(GENmodel*,CKTcircuit*,SPcomplex*);
@@ -28,3 +26,9 @@ extern int MOS9trunc(GENmodel*,CKTcircuit*,double*);
 extern int MOS9disto(int,GENmodel*,CKTcircuit*);
 extern int MOS9noise(int,int,GENmodel*,CKTcircuit*,Ndata*,double*);
 extern int MOS9dSetup(GENmodel*,CKTcircuit*);
+
+#ifdef KLU
+extern int MOS9bindCSC (GENmodel*, CKTcircuit*) ;
+extern int MOS9bindCSCComplex (GENmodel*, CKTcircuit*) ;
+extern int MOS9bindCSCComplexToReal (GENmodel*, CKTcircuit*) ;
+#endif

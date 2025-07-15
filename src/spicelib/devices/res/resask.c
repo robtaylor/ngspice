@@ -38,19 +38,15 @@ RESask(CKTcircuit *ckt, GENinstance *inst, int which, IFvalue *value,
         return(OK);
     case RES_CONDUCT:
         value->rValue = fast->RESconduct;
-        value->rValue *= fast->RESm;
         return(OK);
     case RES_RESIST:
         value->rValue = fast->RESresist;
-        value->rValue /= fast->RESm;
         return(OK);
     case RES_ACCONDUCT:
         value->rValue = fast->RESacConduct;
-        value->rValue *= fast->RESm;
         return (OK);
     case RES_ACRESIST:
         value->rValue = fast->RESacResist;
-        value->rValue /= fast->RESm;
         return(OK);
     case RES_LENGTH:
         value->rValue = fast->RESlength;
@@ -69,6 +65,9 @@ RESask(CKTcircuit *ckt, GENinstance *inst, int which, IFvalue *value,
         return(OK);
     case RES_TC2:
         value->rValue = fast->REStc2;
+        return(OK);
+    case RES_TCE:
+        value->rValue = fast->REStce;
         return(OK);
     case RES_BV_MAX:
         value->rValue = fast->RESbv_max;
@@ -138,15 +137,13 @@ RESask(CKTcircuit *ckt, GENinstance *inst, int which, IFvalue *value,
         return(OK);
     case RES_CURRENT:
         if (ckt->CKTcurrentAnalysis & DOING_AC) {
-            errMsg = TMALLOC(char, strlen(msg) + 1);
+            errMsg = tprintf("%s: %s", inst->GENname, msg);
             errRtn = "RESask";
-            strcpy(errMsg, msg);
             return(E_ASKCURRENT);
         } else if (ckt->CKTrhsOld) {
             value->rValue = (*(ckt->CKTrhsOld + fast->RESposNode) -
-                             *(ckt->CKTrhsOld + fast->RESnegNode))
-                            *fast->RESconduct;
-            value->rValue *= fast->RESm;
+                             *(ckt->CKTrhsOld + fast->RESnegNode));
+            value->rValue *= fast->RESconduct;
             return(OK);
         } else {
             errMsg = tprintf("No current values available for %s", fast->RESname);
@@ -155,17 +152,15 @@ RESask(CKTcircuit *ckt, GENinstance *inst, int which, IFvalue *value,
         }
     case RES_POWER:
         if (ckt->CKTcurrentAnalysis & DOING_AC) {
-            errMsg = TMALLOC(char, strlen(msg) + 1);
+            errMsg = tprintf("%s: %s", inst->GENname, msg);
             errRtn = "RESask";
-            strcpy(errMsg, msg);
             return(E_ASKPOWER);
         } else if (ckt->CKTrhsOld) {
             value->rValue = (*(ckt->CKTrhsOld + fast->RESposNode) -
                              *(ckt->CKTrhsOld + fast->RESnegNode)) *
-                            fast->RESconduct *
                             (*(ckt->CKTrhsOld + fast->RESposNode) -
                              *(ckt->CKTrhsOld + fast->RESnegNode));
-            value->rValue *= fast->RESm;
+            value->rValue *= fast->RESconduct;
             return(OK);
         } else {
             errMsg = tprintf("No power values available for %s", fast->RESname);

@@ -47,8 +47,16 @@ NUMOSsetup(SMPmatrix *matrix, GENmodel *inModel, CKTcircuit *ckt, int *states)
   DOPtable *dopTableList = NULL;
   double startTime;
 
+#ifdef KLU
+    if (ckt->CKTkluMODE) {
+        fprintf(stderr, "Error: CIDER simulation is not (yet) supported with 'option klu'.\n");
+        fprintf(stderr, "    Use 'option sparse' instead.\n");
+        controlled_exit(1);
+    }
+#endif
+
   /* loop through all the models */
-  for (; model != NULL; model = model->NUMOSnextModel) {
+  for (; model != NULL; model = NUMOSnextModel(model)) {
     if (!model->NUMOSpInfo) {
       TSCALLOC(model->NUMOSpInfo, 1, TWOtranInfo);
     }
@@ -160,8 +168,8 @@ NUMOSsetup(SMPmatrix *matrix, GENmodel *inModel, CKTcircuit *ckt, int *states)
     model->NUMOSdopTables = dopTableList;
 
     /* loop through all the instances of the model */
-    for (inst = model->NUMOSinstances; inst != NULL;
-	inst = inst->NUMOSnextInstance) {
+    for (inst = NUMOSinstances(model); inst != NULL;
+         inst = NUMOSnextInstance(inst)) {
 
       startTime = SPfrontEnd->IFseconds();
 
@@ -210,7 +218,7 @@ NUMOSsetup(SMPmatrix *matrix, GENmodel *inModel, CKTcircuit *ckt, int *states)
 	    pMaterial = pMaterial->next;
 	  }
 	  /* Copy everything, then fix the incorrect pointer. */
-	  bcopy(pM, pMaterial, sizeof(TWOmaterial));
+	  memcpy(pMaterial, pM, sizeof(TWOmaterial));
 	  pMaterial->next = NULL;
 	}
 
@@ -224,7 +232,7 @@ NUMOSsetup(SMPmatrix *matrix, GENmodel *inModel, CKTcircuit *ckt, int *states)
       TWOgetStatePointers(inst->NUMOSpDevice, states);
 
       /* Wipe out statistics from previous runs (if any). */
-      bzero(inst->NUMOSpDevice->pStats, sizeof(TWOstats));
+      memset(inst->NUMOSpDevice->pStats, 0, sizeof(TWOstats));
 
       inst->NUMOSpDevice->pStats->totalTime[STAT_SETUP] +=
 	  SPfrontEnd->IFseconds() - startTime;

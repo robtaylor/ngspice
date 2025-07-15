@@ -56,15 +56,24 @@
  *    Matrix type and macro definitions for the sparse matrix routines.
  */
 #include <assert.h>
-
 #define spINSIDE_SPARSE
 #include "spconfig.h"
 #include "ngspice/spmatrix.h"
 #include "spdefs.h"
 
-
-
-
+#ifdef HAS_WINGUI
+extern void SetAnalyse(char *Analyse, int Percent);
+/* to increase responsiveness of Windows GUI */
+#define INCRESP \
+do { \
+    static int ii = 100; \
+    ii--;\
+    if (ii == 0) { \
+        SetAnalyse("or", 0); \
+        ii = 100; \
+    } \
+} while(0)
+#endif
 
 /*
  * Function declarations
@@ -214,7 +223,16 @@ spOrderAndFactor(MatrixPtr Matrix, RealNumber RHS[], RealNumber RelThreshold,
     if (!Matrix->NeedsOrdering) {
         /* Matrix has been factored before and reordering is not required. */
         for (Step = 1; Step <= Size; Step++) {
+#ifdef HAS_WINGUI
+            /* macro to improve responsiveness of Windows GUI */
+            INCRESP;
+#endif
             pPivot = Matrix->Diag[Step];
+            if (!pPivot) {
+                fprintf(stderr, "Warning: spfactor.c, 230, Pivot for step = %d not found\n", Step);
+                ReorderingRequired = YES;
+                break; /* for loop */
+            }
             LargestInCol = FindLargestInCol(pPivot->NextInCol);
             if ((LargestInCol * RelThreshold < ELEMENT_MAG(pPivot))) {
                 if (Matrix->Complex)
@@ -258,6 +276,10 @@ spOrderAndFactor(MatrixPtr Matrix, RealNumber RHS[], RealNumber RelThreshold,
 
     /* Perform reordering and factorization. */
     for (; Step <= Size; Step++) {
+#ifdef HAS_WINGUI
+        /* macro to improve responsiveness of Windows GUI */
+        INCRESP;
+#endif
         pPivot = SearchForPivot( Matrix, Step, DiagPivoting );
         if (pPivot == NULL) return MatrixIsSingular( Matrix, Step );
         ExchangeRowsAndCols( Matrix, pPivot, Step );

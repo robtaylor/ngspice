@@ -15,11 +15,34 @@ Modified: 2001 AlansFixes
 #include "ngspice/grid.h"
 #include "../display.h"
 
+#include <stdlib.h>
+
+#if defined(_MSC_VER) || defined(__MINGW32__)
+#include <windows.h>
+#endif
+
+#ifdef HAS_WINGUI
+typedef struct {      /* Extra window data */
+    HWND  wnd;        /* window */
+    HDC   hDC;        /* Device context of window */
+    RECT  Area;       /* plot area */
+    int   ColorIndex; /* Index of actual color */
+    int   PaintFlag;  /* 1 with WM_PAINT */
+    int   FirstFlag;  /* 1 before first update */
+} tWindowData;
+typedef tWindowData *tpWindowData;       /* pointer to it */
+#endif
+
+#ifndef X_DISPLAY_MISSING
+extern int X11_GetLenStr(GRAPH *gr, char* instring);
+#endif
+
 #define RAD_TO_DEG      (180.0 / M_PI)
-#define LABEL_CHARS     16
+#define RELPOSXUNIT 0.6 /* old position of the UNIT label */
 
 typedef enum { x_axis, y_axis } Axis;
 
+static int unitshift; /* shift of unit label if x label is too large */
 
 static double *lingrid(GRAPH *graph, double lo, double hi, double delta, int type, Axis axis);
 static double *loggrid(GRAPH *graph, double lo, double hi, int type, Axis axis);
@@ -31,9 +54,9 @@ static void smithgrid(GRAPH *graph);
 static void drawsmithgrid(GRAPH *graph);
 static void arcset(GRAPH *graph, double rad, double prevrad, double irad, double iprevrad,
                    double radoff, int maxrad, int centx, int centy, int xoffset, int yoffset,
-                   char *plab, char *nlab, int pdeg, int ndeg, int pxmin, int pxmax);
+                   char *plab, char *nlab, int pdeg, int ndeg, int pxmin, int pxmax, bool isgrid);
 static double cliparc(double cx, double cy, double rad, double start, double end, int iclipx,
-                      int iclipy, int icliprad, int flag);
+                      int iclipy, int icliprad, int flag, bool isgrid);
 
 static void drawlingrid(GRAPH *graph, char *units, int spacing, int nsp, double dst, double lmt,
                         double hmt, bool onedec, int mult, double mag, int digits, Axis axis);
@@ -49,9 +72,6 @@ void
 gr_fixgrid(GRAPH *graph, double xdelta, double ydelta, int xtype, int ytype)
 {
     double *dd;
-
-    if (graph->grid.gridtype == GRID_NONE)
-        graph->grid.gridtype = GRID_LIN;
 
     SetColor(1);
     SetLinestyle(1);
@@ -104,33 +124,99 @@ gr_fixgrid(GRAPH *graph, double xdelta, double ydelta, int xtype, int ytype)
 
     graph->datawindow.xmin = dd[0];
     graph->datawindow.xmax = dd[1];
-
-    /* do we really need this? */
-    /*
-      SetLinestyle(0);
-      DevDrawLine(graph->viewportxoff, graph->viewportyoff,
-      graph->viewport.width + graph->viewportxoff,
-      graph->viewportyoff);
-      DevDrawLine(graph->viewportxoff, graph->viewportyoff,
-      graph->viewportxoff,
-      graph->viewport.height + graph->viewportyoff);
-      SetLinestyle(1);
-    */
 }
 
 
 void
 gr_redrawgrid(GRAPH *graph)
 {
-
     SetColor(1);
     SetLinestyle(1);
     /* draw labels */
     if (graph->grid.xlabel) {
+#if defined(EXT_ASC) || (!defined  HAS_WINGUI && defined X_DISPLAY_MISSING)
         DevDrawText(graph->grid.xlabel,
-                    (int) (graph->absolute.width * 0.35),
-                    graph->fontheight);
+            (int)(graph->absolute.width * 0.35),
+            graph->fontheight, 0);
+#else
+        if (eq(dispdev->name, "postscript"))
+        {
+            DevDrawText(graph->grid.xlabel,
+                (int)(graph->absolute.width * 0.35),
+                graph->fontheight, 0);
+        }
+        else if (eq(dispdev->name, "svg"))
+        {
+            DevDrawText(graph->grid.xlabel,
+                (int)(graph->absolute.width * 0.35),
+                graph->fontheight, 0);
+        }
+        else {
+#ifndef X_DISPLAY_MISSING
+
+            /* x axis centered to graphics on X11 */
+            /* utf-8: figure out the real length of the x label */
+            int wlen = 0, i = 0;
+            while (graph->grid.xlabel[i]) {
+                if ((graph->grid.xlabel[i] & 0xc0) != 0x80)
+                    wlen++;
+                i++;
+            }
+#ifdef HAVE_LIBXFT
+            /* string lenth in pixels */
+            int strsize = X11_GetLenStr(graph, graph->grid.xlabel);
+            DevDrawText(graph->grid.xlabel,
+                (int)((graph->absolute.width - strsize) / 2), graph->fontheight, 0);
+
+            /* fix the position of the UNIT label */
+            if (RELPOSXUNIT * graph->absolute.width < ((graph->absolute.width + strsize) / 2 + graph->fontwidth))
+                unitshift = (int)((graph->absolute.width + strsize) / 2
+                                   - RELPOSXUNIT * graph->absolute.width)
+                                   + graph->fontwidth;
+            else
+                unitshift = 0; /* reset for next plot window */
+#else
+            DevDrawText(graph->grid.xlabel,
+                    (int) (graph->absolute.width * 0.35), graph->fontheight,
+                    0);
+            unitshift = 0;
+#endif
+        }
+#endif
+#ifdef HAS_WINGUI
+            /* x axis centered to graphics on Windows */
+            /* utf-8: figure out the real length of the x label */
+            const int n_byte_wide = 2 * (int) strlen(graph->grid.xlabel) + 1;
+            wchar_t * const wtext  = TMALLOC(wchar_t, n_byte_wide);
+            int wlen = MultiByteToWideChar(CP_UTF8, 0, graph->grid.xlabel, -1,
+                    wtext, n_byte_wide);
+            if (wlen == 0) {
+                fprintf(stderr, "UTF-8 to wide char conversion failed with 0x%x\n", GetLastError());
+                fprintf(stderr, "%s could not be converted\n", graph->grid.xlabel);
+            }
+            else {
+                SIZE sz;
+                TEXTMETRICW tmw;
+                tpWindowData wd = graph->devdep;
+                GetTextMetricsW(wd->hDC, &tmw);
+                GetTextExtentPoint32W(wd->hDC, wtext, wlen, &sz);
+                DevDrawText(graph->grid.xlabel,
+                    (int)((graph->absolute.width - sz.cx + tmw.tmOverhang) / 2),
+                    graph->fontheight, 0);
+                /* fix the position of the UNIT label */
+                if (RELPOSXUNIT * graph->absolute.width < (graph->absolute.width + sz.cx + tmw.tmOverhang) / 2 + graph->fontwidth)
+                    unitshift = (int)((graph->absolute.width + sz.cx + tmw.tmOverhang) / 2 
+                                       - RELPOSXUNIT * graph->absolute.width)
+                                       + graph->fontwidth;
+                else
+                    unitshift = 0; /* reset for next plot window */
+            }
+            txfree(wtext);
+        }
+#endif
+#endif // EXT_ASC
     }
+    /* y axis: vertical text, centered to graph */
     if (graph->grid.ylabel) {
         if (graph->grid.gridtype == GRID_POLAR ||
             graph->grid.gridtype == GRID_SMITH ||
@@ -138,13 +224,113 @@ gr_redrawgrid(GRAPH *graph)
         {
             DevDrawText(graph->grid.ylabel,
                         graph->fontwidth,
-                        (graph->absolute.height * 3) / 4);
+                        (graph->absolute.height * 3) / 4, 0);
         } else {
-            DevDrawText(graph->grid.ylabel,
+
+            if (eq(dispdev->name, "postscript")) {
+                DevDrawText(graph->grid.ylabel,
                         graph->fontwidth,
-                        graph->absolute.height / 2);
+                        /* vertical text, midpoint in y is aligned midpoint
+                         * of text string */
+                        (graph->absolute.height - (int) strlen(
+                                graph->grid.ylabel) * graph->fontwidth) / 2,
+                        90);
+            }
+#if !defined(_MSC_VER ) && !defined(__MINGW32__)
+            /* svg for non-Windows */
+            else if (eq(dispdev->name, "svg")) {
+                DevDrawText(graph->grid.ylabel,
+                        2 * graph->fontwidth,
+                        /* vertical text, midpoint in y is aligned midpoint
+                         * of text string */
+                        (graph->absolute.height - (int)strlen(graph->grid.ylabel) * graph->fontwidth) / 2,
+                        90);
+            }
+#else
+            /* Windows and UTF-8: check for string length (in pixels),
+               place vertical text centered in y with respect to grid */
+            else if (eq(dispdev->name, "svg")) {
+                /* utf-8: figure out the real length of the y label */
+                const int n_byte_wide = 2 * (int)strlen(graph->grid.ylabel) + 1;
+                wchar_t* const wtext = TMALLOC(wchar_t, n_byte_wide);
+                int wlen = MultiByteToWideChar(CP_UTF8, 0, graph->grid.ylabel, -1,
+                    wtext, n_byte_wide);
+                if (wlen == 0) {
+                    fprintf(stderr, "UTF-8 to wide char conversion failed with 0x%x\n", GetLastError());
+                    fprintf(stderr, "%s could not be converted\n", graph->grid.ylabel);
+                }
+                else {
+                    int textlen = graph->fontwidth * wlen;
+
+                    DevDrawText(graph->grid.ylabel,
+                        (int)(2 * graph->fontwidth),
+                        //vertical text, midpoint in y is aligned midpoint of text string
+                        (graph->absolute.height - (int)(1.2 * textlen)) / 2, 90);
+                }
+                txfree(wtext);
+    }
+#endif
+
+#ifdef EXT_ASC
+            else if (eq(dispdev->name, "Windows"))
+                DevDrawText(graph->grid.ylabel,
+                        graph->fontwidth,
+                        /* vertical text, midpoint in y is aligned midpoint
+                         * of text string */
+                        (graph->absolute.height - (int) strlen(
+                                graph->grid.ylabel) * graph->fontwidth) / 2,
+                        90);
+#else
+#ifdef HAS_WINGUI
+            /* Windows and UTF-8: check for string length (in pixels),
+               place vertical text centered in y with respect to grid */
+            else if (eq(dispdev->name, "Windows")) {
+                /* utf-8: figure out the real length of the y label */
+                const int n_byte_wide = 2 * (int) strlen(graph->grid.ylabel) + 1;
+                wchar_t * const wtext = TMALLOC(wchar_t, n_byte_wide);
+                int wlen = MultiByteToWideChar(CP_UTF8, 0, graph->grid.ylabel, -1,
+                        wtext, n_byte_wide);
+                if (wlen == 0) {
+                    fprintf(stderr, "UTF-8 to wide char conversion failed with 0x%x\n", GetLastError());
+                    fprintf(stderr, "%s could not be converted\n", graph->grid.ylabel);
+                }
+                else {
+                    SIZE sz;
+                    TEXTMETRICW tmw;
+                    tpWindowData wd = graph->devdep;
+                    GetTextMetricsW(wd->hDC, &tmw);
+                    GetTextExtentPoint32W(wd->hDC, wtext, wlen, &sz);
+//                    printf("length: %d, deviation: %d\n", sz.cx, sz.cx - graph->fontwidth*wlen);
+                    DevDrawText(graph->grid.ylabel,
+                        graph->fontwidth,
+                        /*vertical text, midpoint in y is aligned midpoint of text string */
+                        (graph->absolute.height - (int)(1.2*sz.cx + tmw.tmOverhang)) / 2, 90);
+                }
+                txfree(wtext);
+            }
+#endif
+#endif
+            else /* others */
+                DevDrawText(graph->grid.ylabel,
+#if !defined(X_DISPLAY_MISSING) && defined(HAVE_LIBXFT)
+                    /* new x11 with xft and utf-8
+                     * calculate and add offsets in fcn X11_Text in X11.c
+                     */
+                    0,
+#else
+                    graph->fontwidth,
+#endif
+                    /*vertical text, y is midpoint of graph height */    
+                    graph->absolute.height / 2, 90);
+
         }
     }
+
+    /* draw postscript title */
+    if (graph->plotname && (eq(dispdev->name, "postscript") || eq(dispdev->name, "svg")))
+            DevDrawText(graph->plotname,
+                        graph->fontwidth,
+                        graph->absolute.height - graph->fontheight, 0);
 
     switch (graph->grid.gridtype) {
     case GRID_POLAR:
@@ -230,7 +416,7 @@ lingrid(GRAPH *graph, double lo, double hi, double delta, int type, Axis axis)
     int max;
     static double dd[2];
     int mult = 1;
-    char buf[LABEL_CHARS], *s;
+    char buf[GRAPH_UNITS_LENGTH], *s;
     int slim, digits;
 
     if (axis == y_axis && graph->grid.ysized) {
@@ -304,8 +490,14 @@ lingrid(GRAPH *graph, double lo, double hi, double delta, int type, Axis axis)
         margin = graph->viewportxoff;
         /*max = graph->viewport.width + graph->viewportxoff;*/
         max = graph->absolute.width - graph->viewportxoff;
+        /* don't subtract font height from right border of grid */
+        if (graph->grid.ylabel)
+            max += (int)(1.6 * graph->fontheight);
     } else {
         graph->viewportxoff = (digits + 5 + mag - mag3) * graph->fontwidth;
+        /* add height of the vertical text to offset*/
+        if (graph->grid.ylabel)
+            graph->viewportxoff += (int)(1.6 * graph->fontheight);
         margin = graph->viewportyoff;
         /*max = graph->viewport.height + graph->viewportyoff;*/
         max = graph->absolute.height - graph->viewportyoff;
@@ -367,8 +559,7 @@ lingrid(GRAPH *graph, double lo, double hi, double delta, int type, Axis axis)
     if ((s = ft_typabbrev(type)) != NULL)
         (void) strncat(buf, s, sizeof(buf) - strlen(buf) - 1);
     else
-        (void) strncat(buf, "Units", sizeof(buf) - strlen(buf) - 1);
-
+        (void) strncat(buf, "     ", sizeof(buf) - strlen(buf) - 1);
     if (delta == 0.0) {
         int     i;
         double  step;
@@ -438,6 +629,8 @@ lingrid(GRAPH *graph, double lo, double hi, double delta, int type, Axis axis)
         nsp = (int)((hi - lo) / delta);
         if (nsp > 100)
             nsp = 100;
+        if (nsp < 1)
+            nsp = 1;
     }
     spacing = (max - margin) / nsp;
 
@@ -495,7 +688,7 @@ drawlingrid(GRAPH *graph, char *units, int spacing, int nsp, double dst, double 
 {
     int i, j;
     double m, step;
-    char buf[LABEL_CHARS];
+    char buf[GRAPH_UNITS_LENGTH];
 
     NG_IGNORE(onedec);
     NG_IGNORE(mult);
@@ -512,42 +705,45 @@ drawlingrid(GRAPH *graph, char *units, int spacing, int nsp, double dst, double 
         j = (int)m;
         if (j == 0)
             SetLinestyle(0);
-        if (graph->grid.gridtype != GRID_NONE) {
+        if (graph->grid.gridtype != GRID_NONE && graph->grid.gridtype != GRID_DIGITAL_NONE) {
             if (axis == x_axis)
                 DevDrawLine(graph->viewportxoff + i,
                             graph->viewportyoff, graph->viewportxoff + i,
-                            graph->viewport.height + graph->viewportyoff);
+                            graph->viewport.height + graph->viewportyoff, TRUE);
             else
                 DevDrawLine(graph->viewportxoff,
                             graph->viewportyoff + i,
                             graph->viewport.width + graph->viewportxoff,
-                            graph->viewportyoff + i);
+                            graph->viewportyoff + i, TRUE);
         }
         if (j == 0)
             SetLinestyle(1);
 
-        (void) sprintf(buf, "%.*f", digits + 1, m * mag / 100.0);
+        snprintf(buf, sizeof(buf), "%.*f", digits + 1, m * mag / 100.0);
 
         if (axis == x_axis)
             DevDrawText(buf, graph->viewportxoff + i -
                         ((int) strlen(buf) * graph->fontwidth) / 2,
-                        (int) (graph->fontheight * 2.5));
-        else
-            DevDrawText(buf, graph->viewportxoff -
+                        (int) (graph->fontheight * 2.5), 0);
+        else if (graph->grid.gridtype != GRID_DIGITAL && graph->grid.gridtype != GRID_DIGITAL_NONE)
+            DevDrawText(buf, graph->viewportxoff - 2 -
                         graph->fontwidth * (int) strlen(buf),
                         graph->viewportyoff + i -
-                        graph->fontheight / 2);
+                        graph->fontheight / 2, 0);
 
         /* This is to make sure things work when delta > hi - lo. */
         if (nsp == 1)
             j += 1000;
     }
-    if (axis == x_axis)
-        DevDrawText(units, (int) (graph->absolute.width * 0.6),
-                    graph->fontheight);
-    else
-        DevDrawText(units, graph->fontwidth,
-                    (int) (graph->absolute.height - 2 * graph->fontheight));
+    /* the x axis unit (bottom right) and the y axis unit (upper left) */
+    if (!graph->nounits) {
+        if (axis == x_axis)
+            DevDrawText(units, (int)(graph->absolute.width * RELPOSXUNIT + unitshift), graph->fontheight, 0);
+        /* y axis unit only when no digitop plot */
+        else if (graph->grid.gridtype != GRID_DIGITAL && graph->grid.gridtype != GRID_DIGITAL_NONE)
+            DevDrawText(units, graph->fontwidth,
+                (int)(graph->absolute.height - 2 * graph->fontheight), 0);
+    }
     DevUpdate();
 }
 
@@ -563,7 +759,7 @@ loggrid(GRAPH *graph, double lo, double hi, int type, Axis axis)
     int i, j;
     double k;
     double decs;
-    char buf[LABEL_CHARS], *s;
+    char buf[GRAPH_UNITS_LENGTH], *s;
 
     if (axis == x_axis && graph->grid.xsized) {
         lmt = graph->grid.xaxis.log.lmt;
@@ -582,7 +778,13 @@ loggrid(GRAPH *graph, double lo, double hi, int type, Axis axis)
     if (axis == x_axis) {
         margin = graph->viewportxoff;
         max = graph->absolute.width - graph->viewportxoff;
+        /* don't subtract font height from right border of grid */
+        if (graph->grid.ylabel)
+            max += (int)(1.6 * graph->fontheight);
     } else {
+        /* add height of the vertical text to offset*/
+        if (graph->grid.ylabel)
+            graph->viewportxoff += (int)(1.6 * graph->fontheight);
         margin = graph->viewportyoff;
         max = graph->absolute.height - graph->viewportyoff;
     }
@@ -628,10 +830,12 @@ loggrid(GRAPH *graph, double lo, double hi, int type, Axis axis)
     dd[0] = pow(10.0, (double) lmt);
     dd[1] = pow(10.0, (double) hmt);
 
-    if ((s = ft_typabbrev(type)) != NULL)
-        (void) strcpy(buf, s);
-    else
-        (void) strcpy(buf, "Units");
+    buf[0] = '\0';
+
+    s = ft_typabbrev(type);
+    if (!s)
+        s = "     ";
+    strncat(buf, s, sizeof(buf) - strlen(buf) - 1);
 
     if (axis == x_axis) {
         (void) strcpy(graph->grid.xaxis.log.units, buf);
@@ -663,7 +867,7 @@ drawloggrid(GRAPH *graph, char *units, int hmt, int lmt, int decsp, int subs, in
 {
     int i, j, k, m;
     double t;
-    char buf[LABEL_CHARS];
+    char buf[GRAPH_UNITS_LENGTH];
 
     /* Now plot every pp'th decade line, with subs lines between them. */
     if (subs > 1)
@@ -677,13 +881,15 @@ drawloggrid(GRAPH *graph, char *units, int hmt, int lmt, int decsp, int subs, in
                             graph->viewportyoff,
                             graph->viewportxoff + i,
                             graph->viewport.height
-                            +graph->viewportyoff);
+                            +graph->viewportyoff,
+                            TRUE);
             else
                 DevDrawLine(graph->viewportxoff,
                             graph->viewportyoff + i,
                             graph->viewport.width
                             + graph->viewportxoff,
-                            graph->viewportyoff + i);
+                            graph->viewportyoff + i,
+                            TRUE);
         }
 
         if (j == -2)
@@ -702,12 +908,12 @@ drawloggrid(GRAPH *graph, char *units, int hmt, int lmt, int decsp, int subs, in
         if (axis == x_axis)
             DevDrawText(buf, graph->viewportxoff + i -
                         ((int) strlen(buf) * graph->fontwidth) / 2,
-                        (int) (graph->fontheight * 2.5));
+                        (int) (graph->fontheight * 2.5), 0);
         else
             DevDrawText(buf, graph->viewportxoff - graph->fontwidth *
                         (int) (strlen(buf) + 1),
                         graph->viewportyoff + i -
-                        graph->fontheight / 2);
+                        graph->fontheight / 2, 0);
 
         if (j >= hmt)
             break;
@@ -724,25 +930,29 @@ drawloggrid(GRAPH *graph, char *units, int hmt, int lmt, int decsp, int subs, in
                                     graph->viewportyoff,
                                     graph->viewportxoff + m,
                                     graph->viewport.height
-                                    + graph->viewportyoff);
+                                    + graph->viewportyoff,
+                                    TRUE);
                     else
                         DevDrawLine(graph->viewportxoff,
                                     graph->viewportyoff + m,
                                     graph->viewport.width
                                     + graph->viewportxoff,
-                                    graph->viewportyoff + m);
+                                    graph->viewportyoff + m,
+                                    TRUE);
                 }
             }
             SetLinestyle(0);
         }
     }
 
-    if (axis == x_axis)
-        DevDrawText(units, (int) (graph->absolute.width * 0.6),
-                    graph->fontheight);
-    else
-        DevDrawText(units, graph->fontwidth,
-                    (int) (graph->absolute.height - 2 * graph->fontheight));
+    if (!graph->nounits) {
+        if (axis == x_axis)
+            DevDrawText(units, (int)(graph->absolute.width * RELPOSXUNIT + unitshift),
+                +graph->fontheight, 0);
+        else
+            DevDrawText(units, graph->fontwidth,
+                (int)(graph->absolute.height - 2 * graph->fontheight), 0);
+    }
 
     DevUpdate();
 }
@@ -868,7 +1078,7 @@ drawpolargrid(GRAPH *graph)
     DevDrawArc(graph->grid.xaxis.circular.center,
                graph->grid.yaxis.circular.center,
                graph->grid.xaxis.circular.radius,
-               0.0, 2*M_PI);
+               0.0, 2*M_PI, TRUE);
     SetLinestyle(1);
 
     /* Now draw the circles. */
@@ -882,7 +1092,7 @@ drawpolargrid(GRAPH *graph)
                 (double) relrad, 0.0, 2*M_PI,
                 graph->grid.xaxis.circular.center,
                 graph->grid.yaxis.circular.center,
-                graph->grid.xaxis.circular.radius, 0);
+                graph->grid.xaxis.circular.radius, 0, TRUE);
         /* Toss on the label */
         if (relcx || relcy)
             theta = atan2((double) relcy, (double) relcx);
@@ -917,7 +1127,7 @@ drawpolargrid(GRAPH *graph)
                                 graph->grid.yaxis.circular.center,
                                 graph->grid.xaxis.circular.radius))
             {
-                DevDrawLine(x1, y1, x2, y2);
+                DevDrawLine(x1, y1, x2, y2, TRUE);
                 /* Add a label here */
                 /*XXXX*/
                 adddeglabel(graph, i * 30, x2, y2, x1, y1,
@@ -953,7 +1163,7 @@ drawpolargrid(GRAPH *graph)
                                 graph->grid.xaxis.circular.center,
                                 graph->grid.yaxis.circular.center,
                                 graph->grid.xaxis.circular.radius)) {
-                DevDrawLine(x1, y1, x2, y2);
+                DevDrawLine(x1, y1, x2, y2, TRUE);
                 /* Put on the label */
                 adddeglabel(graph, i, x2, y2, x1, y1,
                             graph->grid.xaxis.circular.center,
@@ -966,7 +1176,7 @@ drawpolargrid(GRAPH *graph)
     DevDrawText(buf, graph->grid.xaxis.circular.center
                 + graph->grid.xaxis.circular.radius,
                 graph->grid.yaxis.circular.center
-                - graph->grid.xaxis.circular.radius);
+                - graph->grid.xaxis.circular.radius, 0);
     DevUpdate();
 }
 
@@ -998,9 +1208,9 @@ adddeglabel(GRAPH *graph, int deg, int x, int y, int cx, int cy, int lx, int ly)
     x = (int)(x + d * cos(angle) - w / 2);
     y = (int)(y + d * sin(angle) - h / 2);
 
-    DevDrawText(buf, x, y);
+    DevDrawText(buf, x, y, 0);
     DevDrawText("o", x + (int) strlen(buf) * graph->fontwidth,
-                y + graph->fontheight / 2);
+                y + graph->fontheight / 2, 0);
 }
 
 
@@ -1022,7 +1232,7 @@ addradlabel(GRAPH *graph, int lab, double theta, int x, int y)
     } else {
         x -= graph->fontwidth * (int) strlen(buf) + 3;
     }
-    DevDrawText(buf, x, y);
+    DevDrawText(buf, x, y, 0);
 }
 
 
@@ -1170,7 +1380,7 @@ drawsmithgrid(GRAPH *graph)
     j *= 10;
     while (mag < 20) {
         i = (int)(j * pow(10.0, (double) mag) * pixperunit / 2);
-        if (i / 5 > gr_radius + ((xoff > 0) ? xoff : - xoff))
+        if (i / 5 > gr_radius + abs(xoff))
             break;
         rnorm[k] = j * pow(10.0, (double) (mag - basemag));
         dphi[k] = 2.0 * atan(rnorm[k]);
@@ -1253,7 +1463,7 @@ drawsmithgrid(GRAPH *graph)
 
     if ((yoff > - gr_radius) && (yoff < gr_radius)) {
         zheight = (int)(gr_radius * cos(asin((double) yoff / gr_radius)));
-        zheight = (zheight > 0) ? zheight : - zheight;
+        zheight = abs(zheight);
     } else {
         zheight = gr_radius;
     }
@@ -1266,7 +1476,7 @@ drawsmithgrid(GRAPH *graph)
                (int) (0.5 + RAD_TO_DEG * (M_PI - dphi[k])),
                (int) (0.5 + RAD_TO_DEG * (M_PI + dphi[k])),
                gr_xcenter - zheight,
-               gr_xcenter + zheight);
+               gr_xcenter + zheight, TRUE);
     }
     if (mag == 20) {
         fprintf(cp_err, "smithgrid: Internal Error: screwed up\n");
@@ -1275,7 +1485,7 @@ drawsmithgrid(GRAPH *graph)
 
     SetLinestyle(0);
 
-    DevDrawArc(gr_xcenter, gr_ycenter, gr_radius, 0.0, 2*M_PI);
+    DevDrawArc(gr_xcenter, gr_ycenter, gr_radius, 0.0, 2*M_PI, TRUE);
 
     /*
      * if ((xoff > - gr_radius) && (xoff < gr_radius)) {
@@ -1292,18 +1502,18 @@ drawsmithgrid(GRAPH *graph)
         if (zheight < 0)
             zheight = - zheight;
         DevDrawLine(gr_xcenter - zheight, gr_ycenter + yoff,
-                    gr_xcenter + zheight, gr_ycenter + yoff);
+                    gr_xcenter + zheight, gr_ycenter + yoff, TRUE);
         DevDrawText("0", gr_xcenter + zheight + gi_fntwidth, gr_ycenter + yoff -
-                    gi_fntheight / 2);
-        DevDrawText("o", gr_xcenter + zheight + gi_fntwidth * 2, gr_ycenter + yoff);
+                    gi_fntheight / 2, 0);
+        DevDrawText("o", gr_xcenter + zheight + gi_fntwidth * 2, gr_ycenter + yoff, 0);
         DevDrawText("180", gr_xcenter - zheight - gi_fntwidth * 5, gr_ycenter
-                    + yoff - gi_fntheight / 2);
-        DevDrawText("o", gr_xcenter - zheight - gi_fntwidth * 2, gr_ycenter + yoff);
+                    + yoff - gi_fntheight / 2, 0);
+        DevDrawText("o", gr_xcenter - zheight - gi_fntwidth * 2, gr_ycenter + yoff, 0);
     }
 
     /* (void) sprintf(buf, "e%d", basemag); */
     (void) sprintf(buf, "e%d", 0);
-    DevDrawText(buf, gr_xcenter + gr_radius, gr_ycenter - gr_radius);
+    DevDrawText(buf, gr_xcenter + gr_radius, gr_ycenter - gr_radius, 0);
 
     DevUpdate();
 }
@@ -1319,7 +1529,7 @@ drawsmithgrid(GRAPH *graph)
  */
 
 static void
-arcset(GRAPH *graph, double rad, double prevrad, double irad, double iprevrad, double radoff, int maxrad, int centx, int centy, int xoffset, int yoffset, char *plab, char *nlab, int pdeg, int ndeg, int pxmin, int pxmax)
+arcset(GRAPH *graph, double rad, double prevrad, double irad, double iprevrad, double radoff, int maxrad, int centx, int centy, int xoffset, int yoffset, char *plab, char *nlab, int pdeg, int ndeg, int pxmin, int pxmax, bool isgrid)
 {
     double aclip;
     double angle = atan2((double) iprevrad, (double) rad);
@@ -1335,21 +1545,21 @@ arcset(GRAPH *graph, double rad, double prevrad, double irad, double iprevrad, d
 
     cliparc((double) (centx + xoffset + radoff - rad),
             (double) (centy + yoffset), rad, 2*angle,
-            2 * M_PI - 2 * angle, centx, centy, maxrad, 0);
+            2 * M_PI - 2 * angle, centx, centy, maxrad, 0, isgrid);
 
     /* These circles are not part of the smith chart
      * Let's draw them anyway
      */
     cliparc((double) (centx + xoffset + radoff + rad),
             (double) (centy + yoffset), rad, M_PI + 2 * angle,
-            M_PI - 2 * angle, centx, centy, maxrad, 0);
+            M_PI - 2 * angle, centx, centy, maxrad, 0, isgrid);
 
     /* Draw the upper and lower circles.  */
     SetColor(19);
     aclip = cliparc((double) (centx + xoffset + radoff),
                     (double) (centy + yoffset + irad), irad,
                     (double) (M_PI * 1.5 + 2 * iangle),
-                    (double) (M_PI * 1.5 - 2 * iangle), centx, centy, maxrad, 1);
+                    (double) (M_PI * 1.5 - 2 * iangle), centx, centy, maxrad, 1, isgrid);
     if ((aclip > M_PI / 180) && (pdeg > 1)) {
         xlab = (int)(centx + xoffset + radoff + irad * cos(aclip));
         ylab = (int)(centy + yoffset + irad * (1 + sin(aclip)));
@@ -1369,7 +1579,7 @@ arcset(GRAPH *graph, double rad, double prevrad, double irad, double iprevrad, d
                     (double) (centy + yoffset - irad), irad,
                     (double) (M_PI / 2 + 2 * iangle),
                     (double) (M_PI / 2 - 2 * iangle), centx, centy, maxrad,
-                    (iangle == 0) ? 2 : 0);
+                    (iangle == 0) ? 2 : 0, isgrid);
     if ((aclip >= 0 && aclip < 2*M_PI - M_PI/180) && (pdeg < 359)) {
         xlab = (int)(centx + xoffset + radoff + irad * cos(aclip));
         ylab = (int)(centy + yoffset + irad * (sin(aclip) - 1));
@@ -1386,15 +1596,15 @@ arcset(GRAPH *graph, double rad, double prevrad, double irad, double iprevrad, d
         gi_fntwidth * (int) strlen(plab) - 2;
     if ((x > pxmin) && (x < pxmax)) {
         if ((yoffset > - gr_radius) && (yoffset < gr_radius))
-            DevDrawText(plab, x, centy + yoffset - gi_fntheight - 1);
+            DevDrawText(plab, x, centy + yoffset - gi_fntheight - 1, 0);
         else
-            DevDrawText(plab, x, gr_ymargin - 3 * gi_fntheight - 2);
+            DevDrawText(plab, x, gr_ymargin - 3 * gi_fntheight - 2, 0);
     }
     /*
      * x = centx + xoffset + (int) radoff + 2 * (int)rad -
      *     gi_fntwidth * strlen(nlab) - 2;
      * if ((x > gr_xmargin) && (x < gi_maxx))
-     *     DevDrawText(nlab, x, centy + yoffset - gi_fntheight - 1);
+     *     DevDrawText(nlab, x, centy + yoffset - gi_fntheight - 1, 0);
      */
 }
 
@@ -1406,7 +1616,7 @@ arcset(GRAPH *graph, double rad, double prevrad, double irad, double iprevrad, d
  */
 
 static double
-cliparc(double cx, double cy, double rad, double start, double end, int iclipx, int iclipy, int icliprad, int flag)
+cliparc(double cx, double cy, double rad, double start, double end, int iclipx, int iclipy, int icliprad, int flag, bool isgrid)
 {
     double clipx, clipy, cliprad;
     double sclip = 0.0, eclip = 0.0;
@@ -1425,7 +1635,7 @@ cliparc(double cx, double cy, double rad, double start, double end, int iclipx, 
         return (-1);
     if (dist + rad < cliprad) {
         /* The arc is entirely in the boundary. */
-        DevDrawArc((int)cx, (int)cy, (int)rad, start, end-start);
+        DevDrawArc((int)cx, (int)cy, (int)rad, start, end-start, isgrid);
         return (flag?start:end);
     } else if ((dist - rad >= cliprad) || (rad - dist >= cliprad)) {
         /* The arc is outside of the boundary. */
@@ -1492,12 +1702,9 @@ cliparc(double cx, double cy, double rad, double start, double end, int iclipx, 
 
     if (in) {
         if (start > d) {
-            double tmp;
-            tmp = start;
-            start = d;
-            d = tmp;
+            SWAP(double, start, d);
         }
-        DevDrawArc((int)cx, (int)cy, (int)rad, start, d-start);
+        DevDrawArc((int)cx, (int)cy, (int)rad, start, d-start, isgrid);
         sclip = start;
         eclip = d;
     }
@@ -1526,7 +1733,7 @@ cliparc(double cx, double cy, double rad, double start, double end, int iclipx, 
     }
 
     if (in) {
-        DevDrawArc((int)cx, (int)cy, (int)rad, l, d-l);
+        DevDrawArc((int)cx, (int)cy, (int)rad, l, d-l, isgrid);
         sclip = l;
         eclip = d;
     }
@@ -1538,7 +1745,7 @@ cliparc(double cx, double cy, double rad, double start, double end, int iclipx, 
 
     /* And from here to the end. */
     if (in) {
-        DevDrawArc((int)cx, (int)cy, (int)rad, d, end-d);
+        DevDrawArc((int)cx, (int)cy, (int)rad, d, end-d, isgrid);
         /* special case */
         if (flag != 2) {
             sclip = d;

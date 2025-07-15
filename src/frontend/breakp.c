@@ -10,11 +10,13 @@ Author: 1985 Wayne A. Christopher, U. C. Berkeley CAD Group
 #include "ngspice/ngspice.h"
 #include "ngspice/cpdefs.h"
 #include "ngspice/ftedefs.h"
+#include "ngspice/cktdefs.h"
 #include "ngspice/dvec.h"
 #include "ngspice/ftedebug.h"
 #include "breakp.h"
 #include "breakp2.h"
 #include "runcoms2.h"
+#include "com_plot.h"
 
 #include "completion.h"
 
@@ -24,6 +26,7 @@ static void printcond(struct dbcomm *d, FILE *fp);
 
 static int howmanysteps = 0;
 static int steps = 0;
+static bool interpolated = FALSE;
 
 
 /* Set a breakpoint. Possible commands are:
@@ -36,19 +39,33 @@ static int steps = 0;
 void
 com_stop(wordlist *wl)
 {
+    /* Check for an active circuit */
+    if (ft_curckt == (struct circ *) NULL) {
+        fprintf(cp_err, "No circuit loaded. Stopping is not possible.\n");
+        return;
+    }
+
+    /* Check to see if we have to consider interpolated data. */
+    if (cp_getvar("interp", CP_BOOL, NULL, 0)) {
+        interpolated = TRUE;
+        fprintf(cp_out, "Note: Stop condition has to fit the interpolated time data!\n\n");
+    }
+    else
+        interpolated = FALSE;
+
     struct dbcomm *thisone = NULL;
     struct dbcomm *d = NULL;
     char *s, buf[64];
     int i;
-    double *val;
 
     while (wl) {
         if (thisone == NULL) {
-            thisone = d = alloc(struct dbcomm);
+            thisone = d = TMALLOC(struct dbcomm, 1);
         } else {
-            d->db_also = alloc(struct dbcomm);
+            d->db_also = TMALLOC(struct dbcomm, 1);
             d = d->db_also;
         }
+        d->db_also = NULL;
 
         /* Figure out what the first condition is. */
         d->db_analysis = NULL;
@@ -60,7 +77,7 @@ com_stop(wordlist *wl)
             } else {
 #ifdef HAVE_CTYPE_H
                 for (s = wl->wl_next->wl_word, i = 0; *s; s++)
-                    if (!isdigit(*s))
+                    if (!isdigit_c(*s))
                         goto bad;
                     else
                         i = i * 10 + (*s - '0');
@@ -73,48 +90,64 @@ com_stop(wordlist *wl)
         } else if (eq(wl->wl_word, "when") && wl->wl_next) {
             /* cp_lexer(string) will not discriminate '=', so we have
                to do it here */
-            if (strstr(wl->wl_next->wl_word, "=") &&
-                (!(wl->wl_next->wl_next) ||
-                 strstr(wl->wl_next->wl_next->wl_word, "when") ||
-                 strstr(wl->wl_next->wl_next->wl_word, "after")))
-            {
+            if (strchr(wl->wl_next->wl_word, '=') &&
+                    (!(wl->wl_next->wl_next) ||
+                    strstr(wl->wl_next->wl_next->wl_word, "when") ||
+                    strstr(wl->wl_next->wl_next->wl_word, "after"))) {
                 /* we have vec=val in a single word */
                 wordlist *wln;
                 char **charr = TMALLOC(char*, 4);
                 char *tok = copy(wl->wl_next->wl_word);
-                char *tokeq = strstr(tok, "=");
+                char *tokeq = strchr(tok, '=');
                 char *tokafter = copy(tokeq + 1);
                 *tokeq = '\0';
                 charr[0] = tok;
                 charr[1] = copy("eq");
                 charr[2] = tokafter;
                 charr[3] = NULL;
-                wln = wl_build(charr);
+                wln = wl_build((const char * const *) charr);
                 wl_splice(wl->wl_next, wln);
             }
+
             /* continue with parsing the enhanced wordlist */
             if (wl->wl_next->wl_next && wl->wl_next->wl_next->wl_next) {
                 wl = wl->wl_next;
                 d->db_number = debugnumber;
                 d->db_type = DB_STOPWHEN;
                 s = wl->wl_word;
-                val = ft_numparse(&s, FALSE);
-                if (val)
-                    d->db_value1 = *val;
-                else
-                    d->db_nodename1 = copy(wl->wl_word);
+
+                {
+                    double val;
+                    if (ft_numparse(&s, FALSE, &val) >= 0) {
+                        d->db_value1 = val;
+                    }
+                    else {
+                        d->db_nodename1 = copy(wl->wl_word);
+                    }
+                }
                 wl = wl->wl_next;
 
                 /* Now get the condition */
                 if (eq(wl->wl_word, "eq") || eq(wl->wl_word, "="))
                     d->db_op = DBC_EQU;
-                else if (eq(wl->wl_word, "ne") || eq(wl->wl_word, "<>"))
+                else if (eq(wl->wl_word, "ne"))
                     d->db_op = DBC_NEQ;
                 else if (eq(wl->wl_word, "gt") || eq(wl->wl_word, ">"))
                     d->db_op = DBC_GT;
-                else if (eq(wl->wl_word, "lt") || eq(wl->wl_word, "<"))
+                else if (eq(wl->wl_word, "lt"))
                     d->db_op = DBC_LT;
-                else if (eq(wl->wl_word, "ge") || eq(wl->wl_word, ">="))
+                else if (eq(wl->wl_word, "<")) {
+                    /* "<>" is parsed as two words. */
+
+                    if (eq(wl->wl_next->wl_word, ">")) {
+                        if (!wl->wl_next->wl_next)
+                            goto bad;
+                        d->db_op = DBC_NEQ;
+                        wl = wl->wl_next;
+                    } else {
+                        d->db_op = DBC_LT;
+                    }
+                } else if (eq(wl->wl_word, "ge") || eq(wl->wl_word, ">="))
                     d->db_op = DBC_GTE;
                 else if (eq(wl->wl_word, "le") || eq(wl->wl_word, "<="))
                     d->db_op = DBC_LTE;
@@ -124,17 +157,24 @@ com_stop(wordlist *wl)
 
                 /* Now see about the second one. */
                 s = wl->wl_word;
-                val = ft_numparse(&s, FALSE);
-                if (val)
-                    d->db_value2 = *val;
-                else
-                    d->db_nodename2 = copy(wl->wl_word);
+
+                {
+                    double val;
+                    if (ft_numparse(&s, FALSE, &val) >= 0) {
+                        d->db_value2 = val;
+                    }
+                    else {
+                        d->db_nodename2 = copy(wl->wl_word);
+                    }
+                }
                 wl = wl->wl_next;
-            } else {
+            } else { // Neither "after" nor "when".
                 goto bad;
             }
+        } else {
+            goto bad;
         }
-    }
+    } /* end of loop over wordlist */
 
     if (thisone) {
         if (dbs) {
@@ -147,42 +187,114 @@ com_stop(wordlist *wl)
         (void) sprintf(buf, "%d", debugnumber);
         cp_addkword(CT_DBNUMS, buf);
         debugnumber++;
+        /* If com_stop is called after tran simulation has already started, set a breakpoint
+           if not in the past */
+        if ((thisone->db_type == DB_STOPWHEN) && cieq(thisone->db_nodename1, "time")) {
+            if (thisone->db_value2 > ft_curckt->ci_ckt->CKTtime) {
+                CKTsetBreak(ft_curckt->ci_ckt, thisone->db_value2);
+                if (ft_ngdebug)
+                    printf("breakpoint set to time = %g\n", thisone->db_value2);
+            }
+            else {
+                fprintf(stderr, "\nWarning: command 'stop' would set breakpoint in the past, ignored!\n"
+                    "    time: %g, bkpt: %e\n\n", ft_curckt->ci_ckt->CKTtime, thisone->db_value2);
+            }
+        }
     }
 
     return;
 
 bad:
     fprintf(cp_err, "Syntax error parsing breakpoint specification.\n");
-}
+    while (thisone) {
+        d = thisone->db_also;
+        txfree(thisone);
+        thisone = d;
+    }
+} /* end of function com_stop */
+
 
 
 /* Trace a node (have wrd_point print it). Usage is "trace node ..."*/
-
 void
 com_trce(wordlist *wl)
 {
-    settrace(wl, VF_PRINT, 0);
+    settrace(wl, VF_PRINT, NULL);
 }
 
 
-/* Incrementally plot a value. This is just like trace. */
+/* Incrementally plot values. This is just like trace.
+ * Nodes may be specified with an offset, as name+number, as that is useful
+ * for separating the graphs of digital nodes. It will be ignored for analogue.
+ */
 
 void
 com_iplot(wordlist *wl)
 {
-    /* settrace(wl, VF_PLOT); */
+    if (check_batch("iplot"))
+        return;
+
+    /* Check for an active circuit */
+    if (ft_curckt == (struct circ *) NULL) {
+        fprintf(cp_err, "No circuit loaded. "
+                "Incremental plotting is not possible.\n");
+        return;
+    }
 
     struct dbcomm *d, *td, *currentdb = NULL;
-    char *s;
+    double         window = 0.0;
+    int            event_auto_incr = 0;
+    char          *s;
+    int            initial_steps = IPOINTMIN;
+
+    /* Look for "-w window-size" at the front, indicating a windowed iplot
+     * or "-d steps" to set the initial delay before the window appears.
+     */
+
+    while (wl && wl->wl_word[0] == '-') {
+        if (wl->wl_word[1] == 'w' && !wl->wl_word[2]) {
+            wl = wl->wl_next;
+            if (wl) {
+                char *cp;
+                int   error;
+
+                cp = wl->wl_word;
+                window = INPevaluate(&cp, &error, 0);
+                if (error || window <= 0) {
+                    fprintf(cp_err,
+                            "Incremental plot width must be positive.\n");
+                    return;
+                }
+            }
+        } else if (wl->wl_word[1] == 'd' && !wl->wl_word[2]) {
+            wl = wl->wl_next;
+            if (wl)
+                initial_steps = atoi(wl->wl_word);
+#ifdef XSPICE
+        } else if (wl->wl_word[1] == 'o' && !wl->wl_word[2]) {
+            /* Automatically offset traces for event nodes. */
+
+            event_auto_incr = 1;
+#endif
+        } else {
+            break;
+        }
+        wl = wl->wl_next;
+    }
 
     /* We use a modified ad-hoc algorithm here where db_also denotes
        vectors on the same command line and db_next denotes
        separate iplot commands. */
+
     while (wl) {
         s = cp_unquote(wl->wl_word);
-        d = alloc(struct dbcomm);
+        d = TMALLOC(struct dbcomm, 1);
         d->db_analysis = NULL;
         d->db_number = debugnumber++;
+        d->db_iteration = event_auto_incr ? DB_AUTO_OFFSET : DB_NORMAL;
+        d->db_op = initial_steps;       // Field re-use
+        d->db_value1 = window;          // Field re-use
+
         if (eq(s, "all")) {
             d->db_type = DB_IPLOTALL;
         } else {
@@ -190,8 +302,14 @@ com_iplot(wordlist *wl)
             d->db_nodename1 = copy(s);
         }
         tfree(s);/*DG: avoid memory leak */
-        d->db_also = currentdb;
-        currentdb = d;
+
+        /* Chain in expected order. */
+
+        if (currentdb)
+            td->db_also = d;
+        else
+            currentdb = d;
+        td = d;
         wl = wl->wl_next;
     }
 
@@ -274,7 +392,7 @@ com_sttus(wordlist *wl)
             else
                 fprintf(cp_out, "stop");
             printcond(d, cp_out);
-        } else if ((d->db_type == DB_DEADIPLOT)) {
+        } else if (d->db_type == DB_DEADIPLOT) {
             if (isatty(fileno(cp_out))) {
                 fprintf(cp_out, "%-4d exiting iplot %s", d->db_number,
                         d->db_nodename1);
@@ -297,19 +415,26 @@ com_sttus(wordlist *wl)
  */
 
 void
-dbfree(struct dbcomm *db)
+dbfree1(struct dbcomm *d)
 {
-    struct dbcomm *dd, *dn;
+    tfree(d->db_nodename1);
+    if (d->db_type != DB_IPLOT && d->db_type != DB_IPLOTALL &&
+        d->db_type != DB_DEADIPLOT) {
+        tfree(d->db_nodename2);
+    }
+    if (d->db_also)
+        dbfree(d->db_also);
+    tfree(d);
+}
 
-    for (dd = db; dd; dd = dn) {
-        dn = dd->db_next;
-        tfree(dd->db_nodename1);
-        tfree(dd->db_nodename2);
-        if (dd->db_also) {
-            dbfree(dd->db_also);
-            dd->db_also = NULL;
-        }
-        tfree(dd);
+
+void
+dbfree(struct dbcomm *d)
+{
+    while (d) {
+        struct dbcomm *next_d = d->db_next;
+        dbfree1(d);
+        d = next_d;
     }
 }
 
@@ -324,11 +449,10 @@ com_delete(wordlist *wl)
     struct dbcomm *d, *dt;
 
     if (wl && eq(wl->wl_word, "all")) {
-        for (dt = dbs; dt; dt = d) {
-            d = dt->db_next;
-            dbfree(dt);
-        }
-        ft_curckt->ci_dbs = dbs = NULL;
+        dbfree(dbs);
+        dbs = NULL;
+        if (ft_curckt)
+            ft_curckt->ci_dbs = NULL;
         return;
     } else if (!wl) {
         if (!dbs) {
@@ -342,7 +466,7 @@ com_delete(wordlist *wl)
         if (wl->wl_word) {
 #ifdef HAVE_CTYPE_H
             for (s = wl->wl_word, i = 0; *s; s++)
-                if (!isdigit(*s)) {
+                if (!isdigit_c(*s)) {
                     fprintf(cp_err, "Error: %s isn't a number.\n",
                             wl->wl_word);
                     goto bad;
@@ -362,7 +486,7 @@ com_delete(wordlist *wl)
                     dt->db_next = d->db_next;
                 else
                     ft_curckt->ci_dbs = dbs = d->db_next;
-                dbfree(d);
+                dbfree1(d);
                 (void) sprintf(buf, "%d", i);
                 cp_remkword(CT_DBNUMS, buf);
                 break;
@@ -443,16 +567,21 @@ satisfied(struct dbcomm *d, struct plot *plot)
 {
     struct dvec *v1 = NULL, *v2 = NULL;
     double d1, d2;
+    static double laststoptime = 0.;
 
     if (d->db_nodename1) {
         if ((v1 = vec_fromplot(d->db_nodename1, plot)) == NULL) {
             fprintf(cp_err, "Error: %s: no such node\n", d->db_nodename1);
             return (FALSE);
         }
+        if (v1->v_length == 0)
+            return (FALSE);
+
         if (isreal(v1))
             d1 = v1->v_realdata[v1->v_length - 1];
         else
             d1 = realpart((v1->v_compdata[v1->v_length - 1]));
+
     } else {
         d1 = d->db_value1;
     }
@@ -466,13 +595,22 @@ satisfied(struct dbcomm *d, struct plot *plot)
             d2 = v2->v_realdata[v2->v_length - 1];
         else
             d2 = realpart((v2->v_compdata[v2->v_length - 1]));
+    /* option interp: no new time step since last stop */
+    } else if (interpolated && AlmostEqualUlps(d1, laststoptime, 3)){    
+        d2 = 0.;
     } else {
         d2 = d->db_value2;
     }
 
     switch (d->db_op) {
     case DBC_EQU:
-        return (AlmostEqualUlps(d1, d2, 3) ? TRUE : FALSE);
+    {
+        bool hit = AlmostEqualUlps(d1, d2, 3) ? TRUE : FALSE;
+        /* option interp: save the last stop time */
+        if (interpolated && hit)
+            laststoptime = d1;
+        return hit;
+    }
         // return ((d1 == d2) ? TRUE : FALSE);
     case DBC_NEQ:
         return ((d1 != d2) ? TRUE : FALSE);

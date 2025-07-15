@@ -58,6 +58,10 @@ JFETmParam(int param, IFvalue *value, GENmodel *inModels)
             model->JFETgateSatCurrentGiven = TRUE;
             model->JFETgateSatCurrent = value->rValue;
             break;
+        case JFET_MOD_N:
+            model->JFETemissionCoeff = value->rValue;
+            model->JFETemissionCoeffGiven = TRUE;
+            break;
         case JFET_MOD_FC:
             model->JFETdepletionCapCoeffGiven = TRUE;
             model->JFETdepletionCapCoeff = value->rValue;
@@ -72,14 +76,6 @@ JFETmParam(int param, IFvalue *value, GENmodel *inModels)
                 model->JFETtype = PJF;
             }
             break;
-        case JFET_MOD_KF:
-            model->JFETfNcoefGiven = TRUE;
-            model->JFETfNcoef = value->rValue;
-            break;
-        case JFET_MOD_AF:
-            model->JFETfNexpGiven = TRUE;
-            model->JFETfNexp = value->rValue;
-            break;
         /* Modification for Sydney University JFET model */
         case JFET_MOD_B:
             model->JFETbGiven = TRUE;
@@ -90,9 +86,33 @@ JFETmParam(int param, IFvalue *value, GENmodel *inModels)
             model->JFETtcvGiven = TRUE;
             model->JFETtcv = value->rValue;
             break;
+        case JFET_MOD_VTOTC:
+            model->JFETvtotcGiven = TRUE;
+            model->JFETvtotc = value->rValue;
+            break;
+        case JFET_MOD_BETATCE:
+            model->JFETbetatceGiven = TRUE;
+            model->JFETbetatce = value->rValue;
+            break;
         case JFET_MOD_BEX:
             model->JFETbexGiven = TRUE;
             model->JFETbex = value->rValue;
+            break;
+        case JFET_MOD_XTI:
+            model->JFETxtiGiven = TRUE;
+            model->JFETxti = value->rValue;
+            break;
+        case JFET_MOD_EG:
+            model->JFETegGiven = TRUE;
+            model->JFETeg = value->rValue;
+            break;
+        case JFET_MOD_KF:
+            model->JFETfNcoefGiven = TRUE;
+            model->JFETfNcoef = value->rValue;
+            break;
+        case JFET_MOD_AF:
+            model->JFETfNexpGiven = TRUE;
+            model->JFETfNexp = value->rValue;
             break;
         case JFET_MOD_NLEV:
             model->JFETnlevGiven = TRUE;

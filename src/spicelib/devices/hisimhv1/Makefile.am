@@ -8,8 +8,6 @@ libhisimhv1_la_SOURCES = hisimhv.h	\
 			hsmhvask.c 	\
 			hsmhvcvtest.c 	\
 			hsmhvdef.h	\
-			hsmhvdel.c 	\
-			hsmhvdest.c 	\
 			hsmhveval.c	\
 			hsmhveval_qover.h	\
 			hsmhvevalenv.h	\
@@ -21,7 +19,6 @@ libhisimhv1_la_SOURCES = hisimhv.h	\
 			hsmhvld.c 	\
 			hsmhvld_info_eval.h 	\
 			hsmhvmask.c 	\
-			hsmhvmdel.c 	\
 			hsmhvmpar.c 	\
 			hsmhvnoi.c 	\
 			hsmhvpar.c 	\
@@ -31,6 +28,11 @@ libhisimhv1_la_SOURCES = hisimhv.h	\
 			hsmhvtemp.c 	\
 			hsmhvtemp_eval.h \
 			hsmhvtrunc.c
+
+
+if KLU_WANTED
+libhisimhv1_la_SOURCES += hsmhvbindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)

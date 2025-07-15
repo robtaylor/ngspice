@@ -4,21 +4,23 @@ Author:	1987 Kartikeya Mayaram, U. C. Berkeley CAD Group
 Author:	1991 David A. Gates, U. C. Berkeley CAD Group
 **********/
 
+#include "../../maths/misc/norm.h"
+#include "ngspice/bool.h"
+#include "ngspice/cidersupt.h"
+#include "ngspice/cpextern.h"
+#include "ngspice/ifsim.h"
+#include "ngspice/macros.h"
 #include "ngspice/ngspice.h"
-#include "ngspice/numglobs.h"
 #include "ngspice/numenum.h"
+#include "ngspice/numglobs.h"
+#include "ngspice/spmatrix.h"
 #include "ngspice/twodev.h"
 #include "ngspice/twomesh.h"
-#include "ngspice/spmatrix.h"
-#include "ngspice/bool.h"
-#include "ngspice/macros.h"
 #include "twoddefs.h"
 #include "twodext.h"
-#include "ngspice/cidersupt.h"
-#include "../../maths/misc/norm.h"
+#include "ngspice/cktdefs.h"
+#include "ngspice/ftedefs.h"
 
-
-#include "ngspice/ifsim.h"
 extern IFfrontEnd *SPfrontEnd;
 
 
@@ -27,17 +29,17 @@ extern IFfrontEnd *SPfrontEnd;
 
 /* the iteration driving loop and convergence check */
 void
-TWOdcSolve(TWOdevice *pDevice, int iterationLimit, BOOLEAN newSolver, 
-           BOOLEAN tranAnalysis, TWOtranInfo *info)
+TWOdcSolve(TWOdevice *pDevice, int iterationLimit, bool newSolver, 
+           bool tranAnalysis, TWOtranInfo *info)
 {
   TWOnode *pNode;
   TWOelem *pElem;
   int size = pDevice->numEqns;
   int index, eIndex, error;
   int timesConverged = 0;
-  BOOLEAN quitLoop;
-  BOOLEAN debug;
-  BOOLEAN negConc = FALSE;
+  bool quitLoop;
+  bool debug;
+  bool negConc = FALSE;
   double *rhs = pDevice->rhs;
   double *solution = pDevice->dcSolution;
   double *delta = pDevice->dcDeltaSolution;
@@ -93,26 +95,37 @@ TWOdcSolve(TWOdevice *pDevice, int iterationLimit, BOOLEAN newSolver,
 
     /* FACTOR */
     startTime = SPfrontEnd->IFseconds();
-    error = spFactor(pDevice->matrix);
+
+#ifdef KLU
+    error = SMPreorderKLUforCIDER (pDevice->matrix) ;
+#else
+    error = SMPluFacForCIDER (pDevice->matrix) ;
+#endif
+
     factorTime += SPfrontEnd->IFseconds() - startTime;
     if (newSolver) {
-      if (pDevice->iterationNumber == 1) {
-	orderTime = factorTime;
-      } else if (pDevice->iterationNumber == 2) {
-	orderTime -= factorTime - orderTime;
-	factorTime -= orderTime;
-	if (pDevice->poissonOnly) {
-	  pDevice->pStats->orderTime[STAT_SETUP] += orderTime;
-	} else {
-	  pDevice->pStats->orderTime[STAT_DC] += orderTime;
-	}
-	newSolver = FALSE;
-      }
-    }
+        if (pDevice->iterationNumber == 1) {
+            orderTime = factorTime;
+        }
+        else if (pDevice->iterationNumber == 2) {
+            orderTime -= factorTime - orderTime;
+            factorTime -= orderTime;
+            if (pDevice->poissonOnly) {
+                pDevice->pStats->orderTime[STAT_SETUP] += orderTime;
+            }
+            else {
+                pDevice->pStats->orderTime[STAT_DC] += orderTime;
+            }
+            /* After first two iterations, no special handling for a
+             * new solver */
+            newSolver = FALSE;
+        } /* end of case of iteratin 2 */
+    } /* end of special processing for a new solver */
+
     if (foundError(error)) {
       if (error == spSINGULAR) {
 	int badRow, badCol;
-	spWhereSingular(pDevice->matrix, &badRow, &badCol);
+	SMPgetError(pDevice->matrix, &badRow, &badCol);
 	printf("*****  singular at (%d,%d)\n", badRow, badCol);
       }
       pDevice->converged = FALSE;
@@ -122,7 +135,13 @@ TWOdcSolve(TWOdevice *pDevice, int iterationLimit, BOOLEAN newSolver,
 
     /* SOLVE */
     startTime = SPfrontEnd->IFseconds();
-    spSolve(pDevice->matrix, rhs, delta, NULL, NULL);
+
+#ifdef KLU
+    SMPsolveKLUforCIDER (pDevice->matrix, rhs, delta, NULL, NULL) ;
+#else
+    SMPsolveForCIDER (pDevice->matrix, rhs, delta) ;
+#endif
+
     solveTime += SPfrontEnd->IFseconds() - startTime;
 
     /* UPDATE */
@@ -283,12 +302,12 @@ TWOdcSolve(TWOdevice *pDevice, int iterationLimit, BOOLEAN newSolver,
   }
 }
 
-BOOLEAN
+bool
 TWOdeltaConverged(TWOdevice *pDevice)
 {
   /* This function returns a TRUE if converged else a FALSE. */
   int index;
-  BOOLEAN converged = TRUE;
+  bool converged = TRUE;
   double xOld, xNew, tol;
 
   for (index = 1; index <= pDevice->numEqns; index++) {
@@ -303,11 +322,11 @@ TWOdeltaConverged(TWOdevice *pDevice)
   return (converged);
 }
 
-BOOLEAN
+bool
 TWOdeviceConverged(TWOdevice *pDevice)
 {
   int index, eIndex;
-  BOOLEAN converged = TRUE;
+  bool converged = TRUE;
   double *solution = pDevice->dcSolution;
   TWOnode *pNode;
   TWOelem *pElem;
@@ -358,7 +377,13 @@ TWOresetJacobian(TWOdevice *pDevice)
     printf("TWOresetJacobian: unknown carrier type\n");
     exit(-1);
   }
-  error = spFactor(pDevice->matrix);
+
+#ifdef KLU
+  error = SMPreorderKLUforCIDER (pDevice->matrix) ;
+#else
+  error = SMPluFacForCIDER (pDevice->matrix) ;
+#endif
+
   if (foundError(error)) {
     exit(-1);
   }
@@ -430,58 +455,126 @@ TWOstoreNeutralGuess(TWOdevice *pDevice)
 
 /* computing the equilibrium solution; solution of Poisson's eqn */
 /* the solution is used as an initial starting point for bias conditions */
-
-void
-TWOequilSolve(TWOdevice *pDevice)
+int TWOequilSolve(TWOdevice *pDevice)
 {
-  BOOLEAN newSolver = FALSE;
-  int error;
-  int nIndex, eIndex;
-  TWOelem *pElem;
-  TWOnode *pNode;
-  double startTime, setupTime, miscTime;
+    bool newSolver = FALSE;
+    int error;
+    int nIndex, eIndex;
+    TWOelem *pElem;
+    TWOnode *pNode;
+    double startTime, setupTime, miscTime;
 
-  setupTime = miscTime = 0.0;
+    setupTime = miscTime = 0.0;
 
-  /* SETUP */
-  startTime = SPfrontEnd->IFseconds();
-  switch (pDevice->solverType) {
-  case SLV_SMSIG:
-  case SLV_BIAS:
-    /* free up memory allocated for the bias solution */
-    FREE(pDevice->dcSolution);
-    FREE(pDevice->dcDeltaSolution);
-    FREE(pDevice->copiedSolution);
-    FREE(pDevice->rhs);
-    FREE(pDevice->rhsImag);
-    spDestroy(pDevice->matrix);
-  case SLV_NONE:
-    pDevice->poissonOnly = TRUE;
-    pDevice->numEqns = pDevice->dimEquil - 1;
-    XCALLOC(pDevice->dcSolution, double, pDevice->dimEquil);
-    XCALLOC(pDevice->dcDeltaSolution, double, pDevice->dimEquil);
-    XCALLOC(pDevice->copiedSolution, double, pDevice->dimEquil);
-    XCALLOC(pDevice->rhs, double, pDevice->dimEquil);
-    pDevice->matrix = spCreate(pDevice->numEqns, 0, &error);
-    if (error == spNO_MEMORY) {
-      printf("TWOequilSolve: Out of Memory\n");
-      exit(-1);
-    }
-    newSolver = TRUE;
-    spSetReal(pDevice->matrix);
-    TWOQjacBuild(pDevice);
-    pDevice->numOrigEquil = spElementCount(pDevice->matrix);
-    pDevice->numFillEquil = 0;
-  case SLV_EQUIL:
-    pDevice->solverType = SLV_EQUIL;
-    break;
-  default:
-    fprintf(stderr, "Panic: Unknown solver type in equil solution.\n");
-    exit(-1);
-    break;
-  }
-  TWOstoreNeutralGuess(pDevice);
-  setupTime += SPfrontEnd->IFseconds() - startTime;
+    /* SETUP */
+    startTime = SPfrontEnd->IFseconds();
+
+    /* Set up pDevice to compute the equilibrium solution. If the solver
+     * is for bias, the arrays must be freed and allocated to the correct
+     * sizes for an equilibrium solution; if it is a new solver, they are
+     * only allocated; and if already an equilibrium solve, nothing
+     * needs to be done */
+    /* FALLTHROUGH added to suppress GCC warning due to
+     * -Wimplicit-fallthrough flag */
+    switch (pDevice->solverType) {
+        case SLV_SMSIG:
+        case SLV_BIAS:
+            /* Free memory allocated for the bias solution */
+            FREE(pDevice->dcSolution);
+            FREE(pDevice->dcDeltaSolution);
+            FREE(pDevice->copiedSolution);
+            FREE(pDevice->rhs);
+            FREE(pDevice->rhsImag);
+
+#ifdef KLU
+            SMPdestroyKLUforCIDER (pDevice->matrix) ;
+#else
+            SMPdestroy (pDevice->matrix) ;
+#endif
+            if (pDevice->matrix) {
+                FREE(pDevice->matrix);
+            }
+
+            /* FALLTHROUGH */
+        case SLV_NONE: {
+            /* Allocate memory needed for an equilibrium solution */
+            const int n_dim = pDevice->dimEquil;
+            const int n_eqn = n_dim - 1;
+            pDevice->poissonOnly = TRUE;
+            pDevice->numEqns = n_eqn;
+            XCALLOC(pDevice->dcSolution, double, n_dim);
+            XCALLOC(pDevice->dcDeltaSolution, double, n_dim);
+            XCALLOC(pDevice->copiedSolution, double, n_dim);
+            XCALLOC(pDevice->rhs, double, n_dim);
+
+            pDevice->matrix = TMALLOC (SMPmatrix, 1) ;
+
+#ifdef KLU
+            pDevice->matrix->CKTkluMODE = ft_curckt->ci_ckt->CKTkluMODE ;
+            error = SMPnewMatrixKLUforCIDER (pDevice->matrix, pDevice->numEqns, KLUmatrixReal) ;
+#else
+            error = SMPnewMatrixForCIDER (pDevice->matrix, pDevice->numEqns, 0) ;
+#endif
+
+            if (error == spNO_MEMORY) {
+                (void) fprintf(cp_err, "TWOequilSolve: Out of Memory\n");
+                return E_NOMEM;
+            }
+            newSolver = TRUE;
+
+
+#ifdef KLU
+            if (pDevice->matrix->CKTkluMODE) {
+                pDevice->matrix->SMPkluMatrix->KLUmatrixIsComplex = KLUmatrixReal ;
+            } else {
+#endif
+
+                spSetReal (pDevice->matrix->SPmatrix) ;
+
+#ifdef KLU
+            }
+#endif
+
+            TWOQjacBuild(pDevice);
+
+#ifdef KLU
+            if (pDevice->matrix->CKTkluMODE) {
+
+                /* Convert the COO Storage to CSC for KLU and Fill the Binding Table */
+                SMPconvertCOOtoCSCKLUforCIDER (pDevice->matrix) ;
+
+                /* Bind the KLU Pointers */
+                TWOQbindCSC (pDevice) ;
+
+                /* Perform KLU Matrix Analysis */
+                pDevice->matrix->SMPkluMatrix->KLUmatrixSymbolic = klu_analyze ((int)pDevice->matrix->SMPkluMatrix->KLUmatrixN, pDevice->matrix->SMPkluMatrix->KLUmatrixAp,
+                                                                      pDevice->matrix->SMPkluMatrix->KLUmatrixAi, pDevice->matrix->SMPkluMatrix->KLUmatrixCommon) ;
+                if (pDevice->matrix->SMPkluMatrix->KLUmatrixSymbolic == NULL) {
+                    printf ("CIDER: KLU Failed\n") ;
+                    if (pDevice->matrix->SMPkluMatrix->KLUmatrixCommon->status == KLU_EMPTY_MATRIX) {
+                        return E_NOMEM ; // Francesco Lannutti - Fix KLU return values
+                    }
+                }
+                pDevice->numOrigEquil = (int)pDevice->matrix->SMPkluMatrix->KLUmatrixNZ ;
+            } else {
+                pDevice->numOrigEquil = spElementCount (pDevice->matrix->SPmatrix) ;
+            }
+#else
+            pDevice->numOrigEquil = spElementCount (pDevice->matrix->SPmatrix) ;
+#endif
+
+            pDevice->numFillEquil = 0;
+            pDevice->solverType = SLV_EQUIL;
+            break;
+        }
+        case SLV_EQUIL: /* Nothing to do if already equilibrium solver */
+            break;
+        default: /* Invalid data */
+            fprintf(stderr, "Panic: Unknown solver type in equil solution.\n");
+            return E_PANIC;
+    } /* end of switch over solve type */
+    TWOstoreNeutralGuess(pDevice);
+    setupTime += SPfrontEnd->IFseconds() - startTime;
 
   /* SOLVE */
   TWOdcSolve(pDevice, MaxIterations, newSolver, FALSE, NULL);
@@ -489,7 +582,20 @@ TWOequilSolve(TWOdevice *pDevice)
   /* MISCELLANEOUS */
   startTime = SPfrontEnd->IFseconds();
   if (newSolver) {
-    pDevice->numFillEquil = spFillinCount(pDevice->matrix);
+
+#ifdef KLU
+    if (pDevice->matrix->CKTkluMODE) {
+      pDevice->numFillEquil = pDevice->matrix->SMPkluMatrix->KLUmatrixNumeric->lnz + pDevice->matrix->SMPkluMatrix->KLUmatrixNumeric->unz
+                            - (int)pDevice->matrix->SMPkluMatrix->KLUmatrixNZ ;
+    } else {
+#endif
+
+      pDevice->numFillEquil = spFillinCount(pDevice->matrix->SPmatrix);
+
+#ifdef KLU
+    }
+#endif
+
   }
   if (pDevice->converged) {
     TWOQcommonTerms(pDevice);
@@ -510,15 +616,17 @@ TWOequilSolve(TWOdevice *pDevice)
   miscTime += SPfrontEnd->IFseconds() - startTime;
   pDevice->pStats->setupTime[STAT_SETUP] += setupTime;
   pDevice->pStats->miscTime[STAT_SETUP] += miscTime;
+
+  return 0;
 }
 
 /* compute the solution under an applied bias */
 /* the equilibrium solution is taken as an initial guess */
 void
-TWObiasSolve(TWOdevice *pDevice, int iterationLimit, BOOLEAN tranAnalysis, 
+TWObiasSolve(TWOdevice *pDevice, int iterationLimit, bool tranAnalysis, 
              TWOtranInfo *info)
 {
-  BOOLEAN newSolver = FALSE;
+  bool newSolver = FALSE;
   int error;
   int index, eIndex;
   TWOelem *pElem;
@@ -530,15 +638,29 @@ TWObiasSolve(TWOdevice *pDevice, int iterationLimit, BOOLEAN tranAnalysis,
 
   /* SETUP */
   startTime = SPfrontEnd->IFseconds();
-  switch (pDevice->solverType) {
-  case SLV_EQUIL:
-    /* free up the vectors allocated in the equilibrium solution */
-    FREE(pDevice->dcSolution);
-    FREE(pDevice->dcDeltaSolution);
-    FREE(pDevice->copiedSolution);
-    FREE(pDevice->rhs);
-    spDestroy(pDevice->matrix);
+    /* Set up for solving for bias */
+    /* FALLTHROUGH added to suppress GCC warning due to
+     * -Wimplicit-fallthrough flag */
+    switch (pDevice->solverType) {
+    case SLV_EQUIL:
+        /* free up the vectors allocated in the equilibrium solution */
+        FREE(pDevice->dcSolution);
+        FREE(pDevice->dcDeltaSolution);
+        FREE(pDevice->copiedSolution);
+        FREE(pDevice->rhs);
+
+#ifdef KLU
+        SMPdestroyKLUforCIDER (pDevice->matrix) ;
+#else
+        SMPdestroy (pDevice->matrix) ;
+#endif
+        if (pDevice->matrix) {
+            FREE(pDevice->matrix);
+        }
+
+        /* FALLTHROUGH */
   case SLV_NONE:
+    /* Set up for bias */
     pDevice->poissonOnly = FALSE;
     pDevice->numEqns = pDevice->dimBias - 1;
     XCALLOC(pDevice->dcSolution, double, pDevice->dimBias);
@@ -546,7 +668,16 @@ TWObiasSolve(TWOdevice *pDevice, int iterationLimit, BOOLEAN tranAnalysis,
     XCALLOC(pDevice->copiedSolution, double, pDevice->dimBias);
     XCALLOC(pDevice->rhs, double, pDevice->dimBias);
     XCALLOC(pDevice->rhsImag, double, pDevice->dimBias);
-    pDevice->matrix = spCreate(pDevice->numEqns, 1, &error);
+
+    pDevice->matrix = TMALLOC (SMPmatrix, 1) ;
+
+#ifdef KLU
+    pDevice->matrix->CKTkluMODE = ft_curckt->ci_ckt->CKTkluMODE ;
+    error = SMPnewMatrixKLUforCIDER (pDevice->matrix, pDevice->numEqns, KLUMatrixComplex) ;
+#else
+    error = SMPnewMatrixForCIDER (pDevice->matrix, pDevice->numEqns, 1) ;
+#endif
+
     if (error == spNO_MEMORY) {
       printf("TWObiasSolve: Out of Memory\n");
       exit(-1);
@@ -559,13 +690,59 @@ TWObiasSolve(TWOdevice *pDevice, int iterationLimit, BOOLEAN tranAnalysis,
     } else if (OneCarrier == P_TYPE) {
       TWOPjacBuild(pDevice);
     }
-    pDevice->numOrigBias = spElementCount(pDevice->matrix);
+
+#ifdef KLU
+    if (pDevice->matrix->CKTkluMODE) {
+
+      /* Convert the COO Storage to CSC for KLU and Fill the Binding Table */
+      SMPconvertCOOtoCSCKLUforCIDER (pDevice->matrix) ;
+
+      /* Bind the KLU Pointers */
+      if (!OneCarrier) {
+        TWObindCSC (pDevice) ;
+      } else if (OneCarrier == N_TYPE) {
+        TWONbindCSC (pDevice) ;
+      } else if (OneCarrier == P_TYPE) {
+        TWOPbindCSC (pDevice) ;
+      }
+
+      /* Perform KLU Matrix Analysis */
+      pDevice->matrix->SMPkluMatrix->KLUmatrixSymbolic = klu_analyze ((int)pDevice->matrix->SMPkluMatrix->KLUmatrixN, pDevice->matrix->SMPkluMatrix->KLUmatrixAp,
+                                                                      pDevice->matrix->SMPkluMatrix->KLUmatrixAi, pDevice->matrix->SMPkluMatrix->KLUmatrixCommon) ;
+      if (pDevice->matrix->SMPkluMatrix->KLUmatrixSymbolic == NULL) {
+        if (pDevice->matrix->SMPkluMatrix->KLUmatrixCommon->status == KLU_EMPTY_MATRIX) {
+          printf ("CIDER: KLU failed\n") ;
+          return ; // Francesco Lannutti - Fix KLU return values
+        }
+      }
+      pDevice->numOrigBias = (int)pDevice->matrix->SMPkluMatrix->KLUmatrixNZ ;
+    } else {
+      pDevice->numOrigBias = spElementCount(pDevice->matrix->SPmatrix);
+    }
+#else
+    pDevice->numOrigBias = spElementCount (pDevice->matrix->SPmatrix) ;
+#endif
+
     pDevice->numFillBias = 0;
     TWOstoreInitialGuess(pDevice);
+        /* FALLTHROUGH */
   case SLV_SMSIG:
-    spSetReal(pDevice->matrix);
-  case SLV_BIAS:
+
+#ifdef KLU
+    if (pDevice->matrix->CKTkluMODE) {
+        pDevice->matrix->SMPkluMatrix->KLUmatrixIsComplex = KLUmatrixReal ;
+    } else {
+#endif
+
+        spSetReal (pDevice->matrix->SPmatrix) ;
+
+#ifdef KLU
+    }
+#endif
+
     pDevice->solverType = SLV_BIAS;
+    break;
+  case SLV_BIAS:
     break;
   default:
     fprintf(stderr, "Panic: Unknown solver type in bias solution.\n");
@@ -580,7 +757,20 @@ TWObiasSolve(TWOdevice *pDevice, int iterationLimit, BOOLEAN tranAnalysis,
   /* MISCELLANEOUS */
   startTime = SPfrontEnd->IFseconds();
   if (newSolver) {
-    pDevice->numFillBias = spFillinCount(pDevice->matrix);
+
+#ifdef KLU
+    if (pDevice->matrix->CKTkluMODE) {
+      pDevice->numFillBias = pDevice->matrix->SMPkluMatrix->KLUmatrixNumeric->lnz + pDevice->matrix->SMPkluMatrix->KLUmatrixNumeric->unz
+                           - (int)pDevice->matrix->SMPkluMatrix->KLUmatrixNZ ;
+    } else {
+#endif
+
+      pDevice->numFillBias = spFillinCount (pDevice->matrix->SPmatrix) ;
+
+#ifdef KLU
+    }
+#endif
+
   }
   if ((!pDevice->converged) && iterationLimit > 1) {
     printf("TWObiasSolve: No Convergence\n");
@@ -730,11 +920,11 @@ TWOstoreInitialGuess(TWOdevice *pDevice)
  */
 
 void
-oldTWOnewDelta(TWOdevice *pDevice, BOOLEAN tranAnalysis, TWOtranInfo *info)
+oldTWOnewDelta(TWOdevice *pDevice, bool tranAnalysis, TWOtranInfo *info)
 {
   int index;
   double newNorm, fib, lambda, fibn, fibp;
-  BOOLEAN acceptable = FALSE;
+  bool acceptable = FALSE;
   lambda = 1.0;
   fibn = 1.0;
   fibp = 1.0;
@@ -802,12 +992,12 @@ oldTWOnewDelta(TWOdevice *pDevice, BOOLEAN tranAnalysis, TWOtranInfo *info)
 
 
 int
-TWOnewDelta(TWOdevice *pDevice, BOOLEAN tranAnalysis, TWOtranInfo *info)
+TWOnewDelta(TWOdevice *pDevice, bool tranAnalysis, TWOtranInfo *info)
 {
   int index, iterNum = 0;
   double newNorm;
   double fib, lambda, fibn, fibp;
-  BOOLEAN acceptable = FALSE, error = FALSE;
+  bool acceptable = FALSE, error = FALSE;
 
   lambda = 1.0;
   fibn = 1.0;
@@ -1034,7 +1224,7 @@ TWOsaveState(TWOdevice *pDevice)
  * Fermi levels. This should be better since we are looking at potentials in
  * all (psi, phin, phip)
  */
-BOOLEAN
+bool
 TWOpsiDeltaConverged(TWOdevice *pDevice)
 {
   int index, nIndex, eIndex;
@@ -1043,7 +1233,7 @@ TWOpsiDeltaConverged(TWOdevice *pDevice)
   double xOld, xNew, xDelta, tol;
   double psi, newPsi, nConc, pConc, newN, newP;
   double phiN, phiP, newPhiN, newPhiP;
-  BOOLEAN converged = TRUE;
+  bool converged = TRUE;
 
   /* equilibrium solution */
   if (pDevice->poissonOnly) {
@@ -1118,9 +1308,12 @@ TWOnuNorm(TWOdevice *pDevice)
   int index;
 
   /* the LU Decomposed matrix is available. use it to calculate x */
-
-  spSolve(pDevice->matrix, pDevice->rhs, pDevice->rhsImag,
-      NULL, NULL);
+#ifdef KLU
+  printf ("CIDER: KLU to be fixed TWOnuNorm\n") ;
+  SMPsolveKLUforCIDER (pDevice->matrix, pDevice->rhs, pDevice->rhsImag, NULL, NULL) ;
+#else
+  SMPsolveForCIDER (pDevice->matrix, pDevice->rhs, pDevice->rhsImag) ;
+#endif
 
   /* the solution is in the rhsImag vector */
   /* compute L2-norm of the rhsImag vector */
@@ -1138,7 +1331,7 @@ TWOnuNorm(TWOdevice *pDevice)
  * models are being incorporated.
  */
 void
-TWOjacCheck(TWOdevice *pDevice, BOOLEAN tranAnalysis, TWOtranInfo *info)
+TWOjacCheck(TWOdevice *pDevice, bool tranAnalysis, TWOtranInfo *info)
 {
   int index, rIndex;
   double del, diff, tol, *dptr;
@@ -1178,7 +1371,14 @@ TWOjacCheck(TWOdevice *pDevice, BOOLEAN tranAnalysis, TWOtranInfo *info)
       pDevice->dcSolution[index] = pDevice->copiedSolution[index];
       for (rIndex = 1; rIndex <= pDevice->numEqns; rIndex++) {
 	diff = (pDevice->rhsImag[rIndex] - pDevice->rhs[rIndex]) / del;
-	dptr = spFindElement(pDevice->matrix, rIndex, index);
+
+#ifdef KLU
+        printf ("CIDER: KLU to be fixed: spFindElement") ;
+        dptr = NULL ;
+#else
+	dptr = spFindElement(pDevice->matrix->SPmatrix, rIndex, index); // Francesco Lannutti - Fix for KLU
+#endif
+
 	if (dptr != NULL) {
 	  tol = (1e-4 * pDevice->abstol) + (1e-2 * MAX(ABS(diff), ABS(*dptr)));
 	  if ((diff != 0.0) && (ABS(diff - *dptr) > tol)) {

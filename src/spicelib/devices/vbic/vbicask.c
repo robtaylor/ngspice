@@ -22,13 +22,10 @@ Spice3 Implementation: 2003 Dietmar Warning DAnalyse GmbH
 int
 VBICask(CKTcircuit *ckt, GENinstance *instPtr, int which, IFvalue *value, IFvalue *select)
 {
+    NG_IGNORE(select);
     VBICinstance *here = (VBICinstance*)instPtr;
-    int itmp;
-    double vr;
-    double vi;
-    double sr;
-    double si;
-    double vm;
+
+    IFvalue IC, IB;
 
     switch(which) {
         case VBIC_AREA:
@@ -80,9 +77,10 @@ VBICask(CKTcircuit *ckt, GENinstance *instPtr, int which, IFvalue *value, IFvalu
             value->rValue = *(ckt->CKTstate0 + here->VBICvbci);
             return(OK);
         case VBIC_QUEST_CC:
-            value->rValue = *(ckt->CKTstate0 + here->VBICitzf) -
-                            *(ckt->CKTstate0 + here->VBICitzr) -
+            value->rValue = *(ckt->CKTstate0 + here->VBICiciei) -
+                            *(ckt->CKTstate0 + here->VBICiccp) -
                             *(ckt->CKTstate0 + here->VBICibc);
+            value->rValue *= VBICmodPtr(here)->VBICtype;
             return(OK);
         case VBIC_QUEST_CB:
             value->rValue = *(ckt->CKTstate0 + here->VBICibe) +
@@ -90,32 +88,36 @@ VBICask(CKTcircuit *ckt, GENinstance *instPtr, int which, IFvalue *value, IFvalu
                             *(ckt->CKTstate0 + here->VBICibex) +
                             *(ckt->CKTstate0 + here->VBICibep) +
                             *(ckt->CKTstate0 + here->VBICiccp);
+            value->rValue *= VBICmodPtr(here)->VBICtype;
             return(OK);
         case VBIC_QUEST_CE:
             value->rValue = - *(ckt->CKTstate0 + here->VBICibe) -
-                            *(ckt->CKTstate0 + here->VBICibex) -
-                            *(ckt->CKTstate0 + here->VBICitzf) +
-                            *(ckt->CKTstate0 + here->VBICitzr);
+                              *(ckt->CKTstate0 + here->VBICibex) -
+                              *(ckt->CKTstate0 + here->VBICiciei);
+            value->rValue *= VBICmodPtr(here)->VBICtype;
             return(OK);
         case VBIC_QUEST_CS:
             value->rValue = *(ckt->CKTstate0 + here->VBICiccp) -
                             *(ckt->CKTstate0 + here->VBICibcp);
+            value->rValue *= VBICmodPtr(here)->VBICtype;
             return(OK);
         case VBIC_QUEST_POWER:
-            value->rValue = fabs(*(ckt->CKTstate0 + here->VBICitzf) - *(ckt->CKTstate0 + here->VBICitzr)) 
-                            * fabs(*(ckt->CKTstate0 + here->VBICvbei) - *(ckt->CKTstate0 + here->VBICvbci)) +
-                            fabs(*(ckt->CKTstate0 + here->VBICibe) * *(ckt->CKTstate0 + here->VBICvbei)) +
-                            fabs(*(ckt->CKTstate0 + here->VBICibex) * *(ckt->CKTstate0 + here->VBICvbex)) +
-                            fabs(*(ckt->CKTstate0 + here->VBICibc) * *(ckt->CKTstate0 + here->VBICvbci)) +
-                            fabs(*(ckt->CKTstate0 + here->VBICibcp) * *(ckt->CKTstate0 + here->VBICvbcp)) +
-                            fabs(*(ckt->CKTstate0 + here->VBICiccp)) 
-                            * fabs(*(ckt->CKTstate0 + here->VBICvbep) - *(ckt->CKTstate0 + here->VBICvbcp));
+            value->rValue = fabs(here->VBICpower);
+            return(OK);
+        case VBIC_QUEST_BETA:
+            VBICask(ckt, instPtr, VBIC_QUEST_CC, &IC, select);
+            VBICask(ckt, instPtr, VBIC_QUEST_CB, &IB, select);
+            if (IB.rValue != 0.0) {
+                value->rValue = IC.rValue/IB.rValue;
+            } else {
+                value->rValue = 0.0;
+            }
             return(OK);
         case VBIC_QUEST_GM:
-            value->rValue = *(ckt->CKTstate0 + here->VBICitzf_Vbei);
+            value->rValue = *(ckt->CKTstate0 + here->VBICiciei_Vbei);
             return(OK);
         case VBIC_QUEST_GO:
-            value->rValue = *(ckt->CKTstate0 + here->VBICitzf_Vbci);
+            value->rValue = *(ckt->CKTstate0 + here->VBICiciei_Vbci);
             return(OK);
         case VBIC_QUEST_GPI:
             value->rValue = *(ckt->CKTstate0 + here->VBICibe_Vbei);
@@ -149,66 +151,6 @@ VBICask(CKTcircuit *ckt, GENinstance *instPtr, int which, IFvalue *value, IFvalu
             return(OK);
         case VBIC_QUEST_QBC:
             value->rValue = *(ckt->CKTstate0 + here->VBICqbc);
-            return(OK);
-        case VBIC_QUEST_SENS_DC:
-            if(ckt->CKTsenInfo){
-               value->rValue = *(ckt->CKTsenInfo->SEN_Sap[select->iValue + 1]+
-                   here->VBICsenParmNo);
-            }
-            return(OK);
-        case VBIC_QUEST_SENS_REAL:
-            if(ckt->CKTsenInfo){
-               value->rValue = *(ckt->CKTsenInfo->SEN_RHS[select->iValue + 1]+
-                   here->VBICsenParmNo);
-            }
-            return(OK);
-        case VBIC_QUEST_SENS_IMAG:
-            if(ckt->CKTsenInfo){
-               value->rValue = *(ckt->CKTsenInfo->SEN_iRHS[select->iValue + 1]+
-                   here->VBICsenParmNo);
-            }
-            return(OK);
-        case VBIC_QUEST_SENS_MAG:
-            if(ckt->CKTsenInfo){
-               vr = *(ckt->CKTrhsOld + select->iValue + 1); 
-               vi = *(ckt->CKTirhsOld + select->iValue + 1); 
-               vm = sqrt(vr*vr + vi*vi);
-               if(vm == 0){
-                 value->rValue = 0;
-                 return(OK);
-               }
-               sr = *(ckt->CKTsenInfo->SEN_RHS[select->iValue + 1]+
-                    here->VBICsenParmNo);
-               si = *(ckt->CKTsenInfo->SEN_iRHS[select->iValue + 1]+
-                    here->VBICsenParmNo);
-                   value->rValue = (vr * sr + vi * si)/vm;
-            }
-            return(OK);
-        case VBIC_QUEST_SENS_PH:
-            if(ckt->CKTsenInfo){
-               vr = *(ckt->CKTrhsOld + select->iValue + 1); 
-               vi = *(ckt->CKTirhsOld + select->iValue + 1); 
-               vm = vr*vr + vi*vi;
-               if(vm == 0){
-                 value->rValue = 0;
-                 return(OK);
-               }
-               sr = *(ckt->CKTsenInfo->SEN_RHS[select->iValue + 1]+
-                    here->VBICsenParmNo);
-               si = *(ckt->CKTsenInfo->SEN_iRHS[select->iValue + 1]+
-                    here->VBICsenParmNo);
-       
-                   value->rValue =  (vr * si - vi * sr)/vm;
-            }
-            return(OK);
-        case VBIC_QUEST_SENS_CPLX:
-            if(ckt->CKTsenInfo){
-               itmp = select->iValue + 1;
-               value->cValue.real= *(ckt->CKTsenInfo->SEN_RHS[itmp]+
-                   here->VBICsenParmNo);
-               value->cValue.imag= *(ckt->CKTsenInfo->SEN_iRHS[itmp]+
-                   here->VBICsenParmNo);
-            }
             return(OK);
         default:
             return(E_BADPARM);

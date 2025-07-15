@@ -72,11 +72,11 @@ DIOsAcLoad(GENmodel *inModel, CKTcircuit *ckt)
     info = ckt->CKTsenInfo;
     info->SENstatus = PERTURBATION;
     /*  loop through all the models */
-    for( ; model != NULL; model = model->DIOnextModel ) {
+    for( ; model != NULL; model = DIOnextModel(model)) {
 
         /* loop through all the instances of the model */
-        for (here = model->DIOinstances; here != NULL ;
-                here=here->DIOnextInstance) {
+        for (here = DIOinstances(model); here != NULL ;
+                here=DIOnextInstance(here)) {
 
             /* save the unperturbed values in the state vector */
             for(i=0; i <= 4; i++) {
@@ -110,7 +110,7 @@ DIOsAcLoad(GENmodel *inModel, CKTcircuit *ckt)
             geq0 = *(here->DIOsenGeq);
             xceq0 = *(here->DIOsenCeq) * ckt->CKTomega;
             A0 = here->DIOarea;
-            gspr0=here->DIOtConductance*A0;
+            gspr0=here->DIOtConductance;
             cpos0 = gspr0 * vspr;
             icpos0 = gspr0 * ivspr;
             cposprm0 = geq0 * vd - xceq0 * ivd - cpos0;
@@ -172,7 +172,7 @@ pertvd:     /* Perturbation of Diode Voltage */
                 *(here->DIOsenCeq + 2)= *(ckt->CKTstate0 + here->DIOcapCurrent);
                 *(ckt->CKTstate0 + here->DIOvoltage) = A0;
             }
-            gspr=here->DIOtConductance*here->DIOarea; 
+            gspr=here->DIOtConductance; 
             geq = *(here->DIOsenGeq + 2);
             xceq = *(here->DIOsenCeq + 2) * ckt->CKTomega;
 

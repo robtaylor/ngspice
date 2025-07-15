@@ -4,7 +4,7 @@ Author: 1987 Wayne A. Christopher, U. C. Berkeley CAD Group
 **********/
 
 /*
- * All the functions used in the parse tree.  These functions return HUGE
+ * All the functions used in the B-source parse tree.  These functions return HUGE
  * if their argument is out of range.
  */
 
@@ -13,10 +13,9 @@ Author: 1987 Wayne A. Christopher, U. C. Berkeley CAD Group
 #include "ngspice/fteext.h"
 #include "ngspice/ifsim.h"
 #include "ngspice/inpptree.h"
+#include "ngspice/cktdefs.h"
 #include "inpxx.h"
-
-/* XXX These should be in math.h */
-
+#include "ngspice/compatmode.h"
 
 double PTfudge_factor;
 
@@ -25,7 +24,7 @@ double PTfudge_factor;
 double
 PTabs(double arg)
 {
-    return arg >= 0.0 ? arg : -arg;
+    return fabs(arg);
 }
 
 double
@@ -69,19 +68,71 @@ PTdivide(double arg1, double arg2)
 double
 PTpower(double arg1, double arg2)
 {
-    if (arg1 < 0.0) {
-        if (fabs(arg2 - ((int) arg2)) / (arg2 + 0.001) < 0.000001) {
-            arg2 = (int) arg2;
-        } else {
-            arg1 = -arg1;
+    double res;
+    if (newcompat.lt) {
+        if (arg1 == 0)
+            res = 0;
+        else if(arg1 > 0)
+            res = pow(arg1, arg2);
+        else {
+            /* If arg2 is quasi an integer, round it to have pow not fail
+               when arg1 is negative. Takes into account the double 
+               representation which sometimes differs in the last digit(s). */
+            if (AlmostEqualUlps(nearbyint(arg2), arg2, 10))
+                res = pow(arg1, round(arg2));
+            else
+                /* As per LTSPICE specification for ** */
+                res = 0;
         }
     }
-    return (pow(arg1, arg2));
+    else
+        res = pow(fabs(arg1), arg2);
+    return res;
 }
+
+double
+PTpowerH(double arg1, double arg2)
+{
+    double res;
+
+    if (newcompat.hs) {
+        if (arg1 < 0)
+            res = pow(arg1, round(arg2));
+        else if (arg1 == 0){
+            res = 0;
+        }
+        else
+        {
+            res = pow(arg1, arg2);
+        }
+    }
+    else if (newcompat.lt) {
+        if (arg1 >= 0)
+            res = pow(arg1, arg2);
+        else {
+            /* If arg2 is quasi an integer, round it to have pow not fail
+               when arg1 is negative. Takes into account the double
+               representation which sometimes differs in the last digit(s). */
+            if (AlmostEqualUlps(nearbyint(arg2), arg2, 10))
+                res = pow(arg1, round(arg2));
+            else
+                /* As per LTSPICE specification for ** */
+                res = 0;
+        }
+    }
+    else
+        res = pow(fabs(arg1), arg2);
+    return res;
+}
+
 
 double
 PTpwr(double arg1, double arg2)
 {
+    /* if PSPICE device is evaluated */
+    if (arg1 == 0.0 && arg2 < 0.0 && newcompat.ps)
+        arg1 += PTfudge_factor;
+
     if (arg1 < 0.0)
         return (-pow(-arg1, arg2));
     else
@@ -217,17 +268,30 @@ PTcosh(double arg)
     return (cosh(arg));
 }
 
+/* Limit the exp: If arg > EXPARGMAX (arbitrarily selected to 14), continue with linear output,
+   if compatmode PSPICE is selected.
+   If arg exceeds 227.9559242, output its exp value 1e99. */
 double
 PTexp(double arg)
 {
-    return (exp(arg));
+    if (newcompat.ps && arg > EXPARGMAX)
+        return EXPMAX * (arg - EXPARGMAX + 1.);
+    else if (arg > 227.9559242)
+        return 1e99;
+    else
+        return (exp(arg));
 }
 
+/* If arg < , returning HUGE will lead to an error message.
+   If arg == 0, don't bail out, but return an arbitrarily very negative value (-1e99).
+   Arg 0 may happen, when starting iteration for op or dc simulation. */
 double
 PTlog(double arg)
 {
     if (arg < 0.0)
         return (HUGE);
+    if (arg == 0)
+        return -1e99;
     return (log(arg));
 }
 
@@ -236,6 +300,8 @@ PTlog10(double arg)
 {
     if (arg < 0.0)
         return (HUGE);
+    if (arg == 0)
+        return -1e99;
     return (log10(arg));
 }
 
@@ -287,14 +353,27 @@ PTpwl(double arg, void *data)
   int k0 = 0;
   int k1 = thing->n/2 - 1;
 
-  while(k1-k0 > 1) {
-    int k = (k0+k1)/2;
-    if(thing->vals[2*k] > arg)
-      k1 = k;
-    else
-      k0 = k;
+  /* monotonically increasing abscissa */
+  if (thing->vals[0] < thing->vals[2]) {
+      while (k1 - k0 > 1) {
+          int k = (k0 + k1) / 2;
+          if (thing->vals[2 * k] > arg)
+              k1 = k;
+          else
+              k0 = k;
+      }
   }
-
+  /* monotonically decreasing abscissa */
+  else {
+      while (k1 - k0 > 1) {
+          int k = (k0 + k1) / 2;
+          if (thing->vals[2 * k] < arg)
+              k1 = k;
+          else
+              k0 = k;
+      }
+  }
+  /* interpolate the ordinate */
   y = thing->vals[2*k0+1] +
     (thing->vals[2*k1+1] - thing->vals[2*k0+1]) *
     (arg - thing->vals[2*k0]) / (thing->vals[2*k1] - thing->vals[2*k0]);
@@ -347,4 +426,56 @@ PTnint(double arg1)
      *   rely on default rounding mode of IEEE 754 to do so
      */
     return nearbyint(arg1);
+}
+
+
+/* Calculate the derivative during a transient simulation.
+   If time == 0, return 0.
+   If not transient sim, return 0.
+   The derivative is then (y2-y1)/(t2-t1).
+   */
+double
+PTddt(double arg, void* data)
+{
+    struct ddtdata { int n; double* vals; } *thing = (struct ddtdata*)data;
+    double y, time;
+
+    CKTcircuit* ckt = ft_curckt->ci_ckt;
+
+    time = ckt->CKTtime;
+
+    if (time == 0) {
+        thing->vals[3] = arg;
+        return 0;
+    }
+
+    if (!(ckt->CKTmode & MODETRAN))
+        return 0;
+
+    if (time > thing->vals[0]) {
+        thing->vals[4] = thing->vals[2];
+        thing->vals[5] = thing->vals[3];
+        thing->vals[2] = thing->vals[0];
+        thing->vals[3] = thing->vals[1];
+        thing->vals[0] = time;
+        thing->vals[1] = arg;
+
+/*      // Some less effective smoothing option
+        if (thing->vals[2] > 0) {
+            thing->vals[6] = 0.5 * ((arg - thing->vals[3]) / (time - thing->vals[2]) + thing->vals[6]);
+        }
+*/
+        if (thing->n > 1) {
+            thing->vals[6] = (thing->vals[1] - thing->vals[3]) / (thing->vals[2] - thing->vals[4]);
+        }
+        else {
+            thing->vals[6] = 0;
+            thing->vals[3] = arg;
+        }
+        thing->n += 1;
+    }
+
+    y = thing->vals[6];
+
+    return y;
 }

@@ -7,12 +7,13 @@
 #define ngspice_CKTDEFS_H
 
 #include "ngspice/typedefs.h"
-
+/* ensure config is always included to avoid missmatching type definitions*/
+#include "ngspice/config.h"
 
 /* gtri - evt - wbk - 5/20/91 - add event-driven and enhancements data */
 #ifdef XSPICE
-#include "ngspice/evt.h"
-#include "ngspice/enh.h"
+#include "ngspice/evttypes.h"
+#include "ngspice/enhtypes.h"
 #endif
 /* gtri - evt - wbk - 5/20/91 - add event-driven and enhancements data */
 
@@ -32,6 +33,9 @@
 #include "ngspice/noisedef.h"
 #include "ngspice/hash.h"
 
+#ifdef RFSPICE
+#include "../maths/dense/dense.h"
+#endif
 
 
 struct CKTnode {
@@ -53,10 +57,11 @@ struct CKTnode {
 };
 
 /* defines for node parameters */
-#define PARM_NS        1
-#define PARM_IC        2
-#define PARM_NODETYPE  3
-
+enum {
+    PARM_NS = 1,
+    PARM_IC,
+    PARM_NODETYPE,
+};
 
 struct CKTcircuit {
 
@@ -76,7 +81,7 @@ struct CKTcircuit {
 
 
     STATistics *CKTstat;        /* The STATistics structure */
-    double *(CKTstates[8]);     /* Used as memory of past steps ??? */
+    double *CKTstates[8];       /* Used as memory of past steps ??? */
 
     /* Some shortcut for CKTstates */
 #define CKTstate0 CKTstates[0]
@@ -87,11 +92,11 @@ struct CKTcircuit {
 #define CKTstate5 CKTstates[5]
 #define CKTstate6 CKTstates[6]
 #define CKTstate7 CKTstates[7]
-    double CKTtime;             /* ??? */
-    double CKTdelta;            /* ??? */
-    double CKTdeltaOld[7];      /* Memory for ??? */
-    double CKTtemp;             /* Actual temperature of CKT */
-    double CKTnomTemp;          /* Reference temperature 27 C ? */
+    double CKTtime;             /* Current transient simulation time */
+    double CKTdelta;            /* next time step in transient simulation */
+    double CKTdeltaOld[7];      /* Memory for the 7 most recent CKTdelta */
+    double CKTtemp;             /* Actual temperature of CKT, initialzed to 300.15 K in cktinit.c*/
+    double CKTnomTemp;          /* Reference temperature 300.15 K set in cktinit.c */
     double CKTvt;               /* Thernmal voltage at CKTtemp */
     double CKTag[7];            /* the gear variable coefficient matrix */
 #ifdef PREDICTOR
@@ -101,6 +106,8 @@ struct CKTcircuit {
     int CKTorder;               /* the integration method order */
     int CKTmaxOrder;            /* maximum integration method order */
     int CKTintegrateMethod;     /* the integration method to be used */
+    double CKTxmu;              /* for trapezoidal method */
+    int CKTindverbosity;        /* control check of inductive couplings */
 
 /* known integration methods */
 #define TRAPEZOIDAL 1
@@ -150,6 +157,7 @@ struct CKTcircuit {
 
     CKTnode *CKTnodes;          /* ??? */
     CKTnode *CKTlastNode;       /* ??? */
+    CKTnode *prev_CKTlastNode;  /* just before model setup */
 
     /* This define should be somewhere else ??? */
 #define NODENAME(ckt,nodenum) CKTnodName(ckt,nodenum)
@@ -165,6 +173,9 @@ struct CKTcircuit {
 #define MODETRAN           0x1
 #define MODEAC             0x2
 
+/* for noise analysis */
+#define MODEACNOISE        0x8
+
 /* old 'modedc' parameters */
 #define MODEDC            0x70
 #define MODEDCOP          0x10
@@ -179,6 +190,11 @@ struct CKTcircuit {
 #define MODEINITSMSIG    0x800
 #define MODEINITTRAN    0x1000
 #define MODEINITPRED    0x2000
+
+#ifdef RFSPICE
+#define MODESP          0x4000
+#define MODESPNOISE     0x8000
+#endif
 
 /* old 'nosolv' paramater */
 #define MODEUIC 0x10000l
@@ -206,27 +222,29 @@ struct CKTcircuit {
     double CKTlteReltol;
     double CKTlteAbstol;
 #endif /* NEWTRUNC */
-    double CKTgmin;             /* Parallel Conductance --- */
-    double CKTgshunt;
-    double CKTdelmin;           /* ??? */
-    double CKTtrtol;            /* ??? */
-    double CKTfinalTime;        /* ??? */
-    double CKTstep;             /* ??? */
-    double CKTmaxStep;          /* ??? */
-    double CKTinitTime;         /* ??? */
-    double CKTomega;            /* ??? */
-    double CKTsrcFact;          /* ??? */
-    double CKTdiagGmin;         /* ??? */
-    int CKTnumSrcSteps;         /* ??? */
-    int CKTnumGminSteps;        /* ??? */
-    double CKTgminFactor;
-    int CKTnoncon;              /* ??? */
-    double CKTdefaultMosM;
+    double CKTgmin;             /* .options GMIN */
+    double CKTgshunt;           /* .options RSHUNT */
+    double CKTcshunt;           /* .options CSHUNT */
+    double CKTdelmin;           /* minimum time step for tran analysis */
+    double CKTtrtol;            /* .options TRTOL */
+    double CKTfinalTime;        /* TSTOP */
+    double CKTstep;             /* TSTEP */
+    double CKTmaxStep;          /* TMAX */
+    double CKTinitTime;         /* TSTART */
+    double CKTomega;            /* actual angular frequency for ac analysis */
+    double CKTsrcFact;          /* source stepping scaling factor */
+    double CKTdiagGmin;         /* actual value during gmin stepping */
+    int CKTnumSrcSteps;         /* .options SRCSTEPS */
+    int CKTnumGminSteps;        /* .options GMINSTEPS */
+    double CKTgminFactor;       /* gmin stepping scaling factor */
+    int CKTnoncon;              /* used by devices (and few other places)
+                                   to announce non-convergence */
+    double CKTdefaultMosM;      /* Default MOS multiplier parameter m */
     double CKTdefaultMosL;      /* Default Channel Lenght of MOS devices */
     double CKTdefaultMosW;      /* Default Channel Width of MOS devics */
     double CKTdefaultMosAD;     /* Default Drain Area of MOS */
     double CKTdefaultMosAS;     /* Default Source Area of MOS */
-    unsigned int CKThadNodeset:1; /* ??? */
+    unsigned int CKThadNodeset:1; /* flag to show that nodes have been set up */
     unsigned int CKTfixLimit:1; /* flag to indicate that the limiting
                                    of MOSFETs should be done as in
                                    SPICE2 */
@@ -265,7 +283,22 @@ struct CKTcircuit {
     Enh_Ckt_Data_t *enh;        /* data used by general enhancements */
 #endif
 /* gtri - evt - wbk - 5/20/91 - add event-driven and enhancements data */
-
+#ifdef RFSPICE
+    int  CKTactivePort;/* Identify active port during S-Param analysis*/
+    int  CKTportCount; /* Number of RF ports */
+    int           CKTVSRCid;    /* Place holder for VSRC Devices id*/
+    GENinstance** CKTrfPorts;   /* List of all RF ports (HB & SP) */
+    CMat* CKTAmat;
+    CMat* CKTBmat;
+    CMat* CKTSmat;
+    CMat* CKTYmat;
+    CMat* CKTZmat;
+    // Data for RF Noise Calculations
+    double* CKTportY;
+    CMat* CKTNoiseCYmat;
+    int CKTnoiseSourceCount;
+    CMat* CKTadjointRHS;       // Matrix where Znj are stored. Znj = impedance from j-th noise source to n-th port
+#endif
 #ifdef WITH_PSS
 /* SP: Periodic Steady State Analysis - 100609 */
     double CKTstabTime;		/* PSS stab time */
@@ -286,8 +319,17 @@ struct CKTcircuit {
                            a safe operating area (SOA) check is executed */
     int CKTsoaMaxWarns; /* specifies the maximum number of SOA warnings */
 
+    double CKTepsmin; /* minimum argument value for some log functions, e.g. diode saturation current*/
+
     NGHASHPTR DEVnameHash;
     NGHASHPTR MODnameHash;
+
+    GENinstance *noise_input;   /* identify the input vsrc/isrc during noise analysis */
+
+#ifdef KLU
+    unsigned int CKTkluMODE:1;
+    double CKTkluMemGrowFactor ;
+#endif
 };
 
 
@@ -343,6 +385,9 @@ extern int CKTmodAsk(CKTcircuit *, GENmodel *, int , IFvalue *, IFvalue *);
 extern int CKTmodCrt(CKTcircuit *, int , GENmodel **, IFuid);
 extern int CKTmodParam(CKTcircuit *, GENmodel *, int , IFvalue *, IFvalue *);
 extern int CKTnames(CKTcircuit *, int *, IFuid **);
+#ifdef RFSPICE
+extern int CKTSPnames(CKTcircuit*, int*, IFuid**);
+#endif
 extern int CKTdnames(CKTcircuit *);
 extern int CKTnewAnal(CKTcircuit *, int , IFuid , JOB **, TSKtask *);
 extern int CKTnewEq(CKTcircuit *, CKTnode **, IFuid);
@@ -392,6 +437,8 @@ extern int PZpost(CKTcircuit *);
 extern int PZaskQuest(CKTcircuit *, JOB *, int , IFvalue *);
 extern int PZsetParm(CKTcircuit *, JOB *, int , IFvalue *);
 
+extern int OPtran(CKTcircuit *, int);
+
 #ifdef WANT_SENSE2
 extern int SENaskQuest(CKTcircuit *, JOB *, int , IFvalue *);
 extern void SENdestroy(SENstruct *);
@@ -408,14 +455,28 @@ extern int TRANsetParm(CKTcircuit *, JOB *, int , IFvalue *);
 extern int TRANinit(CKTcircuit *, JOB *);
 
 #ifdef WITH_PSS
-/* SP: Steady State Analysis */
+/* Steady State Analysis */
 extern int PSSaskQuest(CKTcircuit *, JOB *, int , IFvalue *);
 extern int PSSsetParm(CKTcircuit *, JOB *, int , IFvalue *);
 extern int PSSinit(CKTcircuit *, JOB *);
 extern int DCpss(CKTcircuit *, int);
-/* SP */
 #endif
 
+#ifdef RFSPICE
+extern int SPan(CKTcircuit*, int);
+extern int SPaskQuest(CKTcircuit*, JOB*, int, IFvalue*);
+extern int SPsetParm(CKTcircuit*, JOB*, int, IFvalue*);
+extern int CKTspDump(CKTcircuit*, double, runDesc*, int);
+extern int CKTspLoad(CKTcircuit*);
+extern int CKTmatrixIndex(CKTcircuit*, int, int);
+extern int CKTspCalcPowerWave(CKTcircuit* ckt);
+extern int CKTspCalcSMatrix(CKTcircuit* ckt);
+#endif
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 extern int NaskQuest(CKTcircuit *, JOB *, int, IFvalue *);
 extern int NsetParm(CKTcircuit *, JOB *, int, IFvalue *);
 extern int NIacIter(CKTcircuit *);
@@ -425,6 +486,7 @@ extern void NIdestroy(CKTcircuit *);
 extern int NIinit(CKTcircuit  *);
 extern int NIintegrate(CKTcircuit *, double *, double *, double , int);
 extern int NIiter(CKTcircuit * , int);
+extern void NIresetwarnmsg(void);
 extern int NIpzMuller(PZtrial **, PZtrial *);
 extern int NIpzComplex(PZtrial **, PZtrial *);
 extern int NIpzSym(PZtrial **, PZtrial *);
@@ -433,12 +495,21 @@ extern int NIreinit(CKTcircuit *);
 extern int NIsenReinit(CKTcircuit *);
 extern int NIdIter (CKTcircuit *);
 extern void NInzIter(CKTcircuit *, int, int);
+#ifdef RFSPICE
+extern int NIspPreload(CKTcircuit*);
+extern int NIspSolve(CKTcircuit*);
+#endif
+#ifdef __cplusplus
+}
+#endif
 
 #ifdef PREDICTOR
 extern int NIpred(CKTcircuit *ckt);
 #endif
 
 extern IFfrontEnd *SPfrontEnd;
-extern bool expr_w_temper;
+
+struct circ;
+extern void inp_evaluate_temper(struct circ *ckt);
 
 #endif

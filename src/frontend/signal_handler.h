@@ -6,14 +6,17 @@
 #ifndef ngspice_SIGNAL_HANDLER_H
 #define ngspice_SIGNAL_HANDLER_H
 
-RETSIGTYPE ft_sigintr(void);
-RETSIGTYPE sigfloat(int sig, int code);
-RETSIGTYPE sigstop(void);
-RETSIGTYPE sigcont(void);
-RETSIGTYPE sigill(void);
-RETSIGTYPE sigbus(void);
-RETSIGTYPE sigsegv(void);
-RETSIGTYPE sig_sys(void);
+void ft_sigintr(void);
+void sigfloat(int code);
+void sigttio(void);
+void sigstop(void);
+void sigcont(void);
+void sigill(void);
+void sigbus(void);
+void sigsegv(void);
+void sigsegvsh(void);
+void sig_sys(void);
+void test_background(void);
 
 extern JMP_BUF jbuf;
 

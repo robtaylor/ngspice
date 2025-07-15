@@ -38,9 +38,7 @@
 #include <stdio.h>
 
 #undef  ABORT
-#undef  MALLOC
 #undef  FREE
-#undef  REALLOC
 
 
 
@@ -54,8 +52,7 @@
 
 /* Begin macros. */
 
-/* Boolean data type */
-#define  BOOLEAN        int
+/* Boolean data type by stdbool.h */
 #define  NO             0
 #define  YES            1
 
@@ -80,7 +77,12 @@
 #define  SQR(a)             ((a)*(a))
 
 /* Macro procedure that swaps two entities. */
-#define  SWAP(type, a, b)   {type swapx; swapx = a; a = b; b = swapx;}
+#define SWAP(type, a, b)                        \
+    do {                                        \
+        type SWAP_macro_local = a;              \
+        a = b;                                  \
+        b = SWAP_macro_local;                   \
+    } while(0)
 
 
 
@@ -363,8 +365,8 @@ typedef  struct
 /* Allocation */
 
 extern void * tmalloc(size_t);
-extern void   txfree(void *);
-extern void * trealloc(void *, size_t);
+extern void   txfree(const void *);
+extern void * trealloc(const void *, size_t);
 
 #define SP_MALLOC(type,number)  (type *) tmalloc((size_t)(number) * sizeof(type))
 #define SP_REALLOC(ptr,type,number) \

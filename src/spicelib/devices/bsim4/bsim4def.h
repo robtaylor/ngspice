@@ -1,24 +1,30 @@
-/**** BSIM4.8.0 Released by Navid Paydavosi 11/01/2013 ****/
+/* ******************************************************************************
+   *  BSIM4 4.8.2 released by Chetan Kumar Dabhi 01/01/2020                     *
+   *  BSIM4 Model Equations                                                     *
+   ******************************************************************************
 
-/**********
-Copyright 2006 Regents of the University of California.  All rights reserved.
-File: bsim4def.h
-Author: 2000 Weidong Liu.
-Authors: 2001- Xuemei Xi, Mohan Dunga, Ali Niknejad, Chenming Hu.
-Authors: 2006- Mohan Dunga, Ali Niknejad, Chenming Hu
-Authors: 2007- Mohan Dunga, Wenwei Yang, Ali Niknejad, Chenming Hu
-Authors: 2008- Wenwei Yang, Ali Niknejad, Chenming Hu
-Modified by Xuemei Xi, 11/15/2002.
-Modified by Xuemei Xi, 05/09/2003.
-Modified by Xuemei Xi, 03/04/2004.
-Modified by Xuemei Xi, Mohan Dunga, 09/24/2004.
-Modified by Xuemei Xi, 07/29/2005.
-Modified by Mohan Dunga, 12/13/2006
-Modified by Mohan Dunga, Wenwei Yang, 05/18/2007.
-Modified by Wenwei Yang, 07/31/2008.
-Modified by Tanvir Morshed, Darsen Lu 03/27/2011
-Modified by Pankaj Kumar Thakur, 07/23/2012
-**********/
+   ******************************************************************************
+   *  Copyright (c) 2020 University of California                               *
+   *                                                                            *
+   *  Project Director: Prof. Chenming Hu.                                      *
+   *  Current developers: Chetan Kumar Dabhi   (Ph.D. student, IIT Kanpur)      *
+   *                      Prof. Yogesh Chauhan (IIT Kanpur)                     *
+   *                      Dr. Pragya Kushwaha  (Postdoc, UC Berkeley)           *
+   *                      Dr. Avirup Dasgupta  (Postdoc, UC Berkeley)           *
+   *                      Ming-Yen Kao         (Ph.D. student, UC Berkeley)     *
+   *  Authors: Gary W. Ng, Weidong Liu, Xuemei Xi, Mohan Dunga, Wenwei Yang     *
+   *           Ali Niknejad, Chetan Kumar Dabhi, Yogesh Singh Chauhan,          *
+   *           Sayeef Salahuddin, Chenming Hu                                   * 
+   ******************************************************************************/
+
+/*
+Licensed under Educational Community License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License. You may obtain a copy of the license at
+http://opensource.org/licenses/ECL-2.0
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT 
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations
+under the License.
+*/
 
 #ifndef BSIM4
 #define BSIM4
@@ -31,14 +37,18 @@ Modified by Pankaj Kumar Thakur, 07/23/2012
 
 typedef struct sBSIM4instance
 {
-    struct sBSIM4model *BSIM4modPtr;
-    struct sBSIM4instance *BSIM4nextInstance;
-    IFuid BSIM4name;
-    int BSIM4states;     /* index into state table for this device */
-    int BSIM4dNode;
-    int BSIM4gNodeExt;
-    int BSIM4sNode;
-    int BSIM4bNode;
+
+    struct GENinstance gen;
+
+#define BSIM4modPtr(inst) ((struct sBSIM4model *)((inst)->gen.GENmodPtr))
+#define BSIM4nextInstance(inst) ((struct sBSIM4instance *)((inst)->gen.GENnextInstance))
+#define BSIM4name gen.GENname
+#define BSIM4states gen.GENstate
+
+    const int BSIM4dNode;
+    const int BSIM4gNodeExt;
+    const int BSIM4sNode;
+    const int BSIM4bNode;
     int BSIM4dNodePrime;
     int BSIM4gNodePrime;
     int BSIM4gNodeMid;
@@ -109,6 +119,8 @@ typedef struct sBSIM4instance
     double BSIM4rbpd;
 
     double BSIM4delvto;
+    double BSIM4mulu0;
+    int BSIM4wnflag;
     double BSIM4xgw;
     double BSIM4ngcon;
 
@@ -295,6 +307,8 @@ typedef struct sBSIM4instance
     unsigned BSIM4rbpdGiven   :1;
     unsigned BSIM4rbpsGiven   :1;
     unsigned BSIM4delvtoGiven   :1;
+    unsigned BSIM4mulu0Given   :1;
+    unsigned BSIM4wnflagGiven   :1;
     unsigned BSIM4xgwGiven   :1;
     unsigned BSIM4ngconGiven   :1;
     unsigned BSIM4icVDSGiven :1;
@@ -572,6 +586,79 @@ typedef struct sBSIM4instance
         double **BSIM4nVar;
 #endif /* NONOISE */
 
+#ifdef KLU
+    BindElement *BSIM4DPbpBinding ;
+    BindElement *BSIM4GPbpBinding ;
+    BindElement *BSIM4SPbpBinding ;
+    BindElement *BSIM4BPdpBinding ;
+    BindElement *BSIM4BPgpBinding ;
+    BindElement *BSIM4BPspBinding ;
+    BindElement *BSIM4BPbpBinding ;
+    BindElement *BSIM4DdBinding ;
+    BindElement *BSIM4GPgpBinding ;
+    BindElement *BSIM4SsBinding ;
+    BindElement *BSIM4DPdpBinding ;
+    BindElement *BSIM4SPspBinding ;
+    BindElement *BSIM4DdpBinding ;
+    BindElement *BSIM4GPdpBinding ;
+    BindElement *BSIM4GPspBinding ;
+    BindElement *BSIM4SspBinding ;
+    BindElement *BSIM4DPspBinding ;
+    BindElement *BSIM4DPdBinding ;
+    BindElement *BSIM4DPgpBinding ;
+    BindElement *BSIM4SPgpBinding ;
+    BindElement *BSIM4SPsBinding ;
+    BindElement *BSIM4SPdpBinding ;
+    BindElement *BSIM4QqBinding ;
+    BindElement *BSIM4QbpBinding ;
+    BindElement *BSIM4QdpBinding ;
+    BindElement *BSIM4QspBinding ;
+    BindElement *BSIM4QgpBinding ;
+    BindElement *BSIM4DPqBinding ;
+    BindElement *BSIM4SPqBinding ;
+    BindElement *BSIM4GPqBinding ;
+    BindElement *BSIM4GEgeBinding ;
+    BindElement *BSIM4GEgpBinding ;
+    BindElement *BSIM4GPgeBinding ;
+    BindElement *BSIM4GEdpBinding ;
+    BindElement *BSIM4GEspBinding ;
+    BindElement *BSIM4GEbpBinding ;
+    BindElement *BSIM4GMdpBinding ;
+    BindElement *BSIM4GMgpBinding ;
+    BindElement *BSIM4GMgmBinding ;
+    BindElement *BSIM4GMgeBinding ;
+    BindElement *BSIM4GMspBinding ;
+    BindElement *BSIM4GMbpBinding ;
+    BindElement *BSIM4DPgmBinding ;
+    BindElement *BSIM4GPgmBinding ;
+    BindElement *BSIM4GEgmBinding ;
+    BindElement *BSIM4SPgmBinding ;
+    BindElement *BSIM4BPgmBinding ;
+    BindElement *BSIM4DPdbBinding ;
+    BindElement *BSIM4SPsbBinding ;
+    BindElement *BSIM4DBdpBinding ;
+    BindElement *BSIM4DBdbBinding ;
+    BindElement *BSIM4DBbpBinding ;
+    BindElement *BSIM4DBbBinding ;
+    BindElement *BSIM4BPdbBinding ;
+    BindElement *BSIM4BPbBinding ;
+    BindElement *BSIM4BPsbBinding ;
+    BindElement *BSIM4SBspBinding ;
+    BindElement *BSIM4SBbpBinding ;
+    BindElement *BSIM4SBbBinding ;
+    BindElement *BSIM4SBsbBinding ;
+    BindElement *BSIM4BdbBinding ;
+    BindElement *BSIM4BbpBinding ;
+    BindElement *BSIM4BsbBinding ;
+    BindElement *BSIM4BbBinding ;
+    BindElement *BSIM4DgpBinding ;
+    BindElement *BSIM4DspBinding ;
+    BindElement *BSIM4DbpBinding ;
+    BindElement *BSIM4SdpBinding ;
+    BindElement *BSIM4SgpBinding ;
+    BindElement *BSIM4SbpBinding ;
+#endif
+
 } BSIM4instance ;
 
 struct bsim4SizeDependParam
@@ -817,12 +904,13 @@ struct bsim4SizeDependParam
 
 typedef struct sBSIM4model
 {
-    int BSIM4modType;
-    struct sBSIM4model *BSIM4nextModel;
-    BSIM4instance *BSIM4instances;
-    IFuid BSIM4modName;
 
-    /* --- end of generic struct GENmodel --- */
+    struct GENmodel gen;
+
+#define BSIM4modType gen.GENmodType
+#define BSIM4nextModel(inst) ((struct sBSIM4model *)((inst)->gen.GENnextModel))
+#define BSIM4instances(inst) ((BSIM4instance *)((inst)->gen.GENinstances))
+#define BSIM4modName gen.GENmodName
 
     int BSIM4type;
 
@@ -1779,7 +1867,13 @@ typedef struct sBSIM4model
     double BSIM4vdsMax;
     double BSIM4vbsMax;
     double BSIM4vbdMax;
-
+    double BSIM4vgsrMax;
+    double BSIM4vgdrMax;
+    double BSIM4vgbrMax;
+    double BSIM4vbsrMax;
+    double BSIM4vbdrMax;
+    double BSIM4gidlclamp;
+    double BSIM4idovvdsc;
     struct bsim4SizeDependParam *pSizeDependParamKnot;
 
 #ifdef USE_OMP
@@ -2642,6 +2736,11 @@ typedef struct sBSIM4model
     unsigned  BSIM4vdsMaxGiven  :1;
     unsigned  BSIM4vbsMaxGiven  :1;
     unsigned  BSIM4vbdMaxGiven  :1;
+    unsigned  BSIM4vgsrMaxGiven  :1;
+    unsigned  BSIM4vgdrMaxGiven  :1;
+    unsigned  BSIM4vgbrMaxGiven  :1;
+    unsigned  BSIM4vbsrMaxGiven  :1;
+    unsigned  BSIM4vbdrMaxGiven  :1;
 
     unsigned  BSIM4LintGiven   :1;
     unsigned  BSIM4LlGiven   :1;
@@ -2706,7 +2805,8 @@ typedef struct sBSIM4model
     unsigned  BSIM4pkvth0weGiven   :1;
     unsigned  BSIM4pk2weGiven   :1;
     unsigned  BSIM4pku0weGiven   :1;
-
+    unsigned  BSIM4gidlclampGiven   :1;
+    unsigned  BSIM4idovvdscGiven   :1;
 
 } BSIM4model;
 
@@ -2755,6 +2855,8 @@ typedef struct sBSIM4model
 #define BSIM4_SCC                 36
 #define BSIM4_SC                  37
 #define BSIM4_M                   38
+#define BSIM4_MULU0               39
+#define BSIM4_WNFLAG              40
 
 /* Global parameters */
 #define BSIM4_MOD_TEMPEOT         65
@@ -3757,13 +3859,30 @@ typedef struct sBSIM4model
 /* tnoiMod=2 (v4.7) */
 #define BSIM4_MOD_TNOIC             1272
 #define BSIM4_MOD_RNOIC             1273
+/* smoothing for gidl clamp (C.K.Dabhi) */
+#define BSIM4_MOD_GIDLCLAMP         1274
+/* Tuning for noise parameter BSIM4IdovVds (C.K.Dabhi) - request cadence */
+#define BSIM4_MOD_IDOVVDSC          1275
 
-#define BSIM4_MOD_VGS_MAX            1301
-#define BSIM4_MOD_VGD_MAX            1302
-#define BSIM4_MOD_VGB_MAX            1303
-#define BSIM4_MOD_VDS_MAX            1304
-#define BSIM4_MOD_VBS_MAX            1305
-#define BSIM4_MOD_VBD_MAX            1306
+#define BSIM4_MOD_VGS_MAX           1301
+#define BSIM4_MOD_VGD_MAX           1302
+#define BSIM4_MOD_VGB_MAX           1303
+#define BSIM4_MOD_VDS_MAX           1304
+#define BSIM4_MOD_VBS_MAX           1305
+#define BSIM4_MOD_VBD_MAX           1306
+#define BSIM4_MOD_VGSR_MAX          1307
+#define BSIM4_MOD_VGDR_MAX          1308
+#define BSIM4_MOD_VGBR_MAX          1309
+#define BSIM4_MOD_VBSR_MAX          1310
+#define BSIM4_MOD_VBDR_MAX          1311
+
+#define BSIM4_VGSTEFF               1400
+#define BSIM4_VDSEFF                1401
+#define BSIM4_CGSO                  1402
+#define BSIM4_CGDO                  1403
+#define BSIM4_CGBO                  1404
+#define BSIM4_WEFF                  1405
+#define BSIM4_LEFF                  1406
 
 #include "bsim4ext.h"
 

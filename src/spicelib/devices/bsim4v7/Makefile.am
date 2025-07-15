@@ -8,8 +8,6 @@ libbsim4v7_la_SOURCES =	\
 	b4v7ask.c		\
 	b4v7check.c	\
 	b4v7cvtest.c	\
-	b4v7del.c		\
-	b4v7dest.c	\
 	b4v7geo.c		\
 	b4v7getic.c	\
 	b4v7ld.c		\
@@ -30,6 +28,9 @@ libbsim4v7_la_SOURCES =	\
 	bsim4v7itf.h
 
 
+if KLU_WANTED
+libbsim4v7_la_SOURCES += b4v7bindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)

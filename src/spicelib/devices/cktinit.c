@@ -15,6 +15,8 @@ Modifed: 2000 AlansFixes
 #include "dev.h"
 
 #ifdef XSPICE
+#include "ngspice/evt.h"
+#include "ngspice/enh.h"
 /* gtri - add - wbk - 11/26/90 - add include for MIF global data */
 #include "ngspice/mif.h"
 /* gtri - end - wbk - 11/26/90 */
@@ -27,16 +29,13 @@ CKTinit(CKTcircuit **ckt)		/* new circuit to create */
     CKTcircuit *sckt = TMALLOC(CKTcircuit, 1);
     *ckt = sckt;
     if (sckt == NULL)
-	return(E_NOMEM);
-/* gtri - begin - dynamically allocate the array of model lists */
-/* CKThead used to be statically sized in CKTdefs.h, but has been changed */
-/* to a ** pointer */
+        return(E_NOMEM);
+
+    /* dynamically allocate the array of model lists */
     sckt->CKThead = TMALLOC(GENmodel *, DEVmaxnum);
-    if(sckt->CKThead == NULL) return(E_NOMEM);
-/* gtri - end   - dynamically allocate the array of model lists */
+    if(sckt->CKThead == NULL)
+        return(E_NOMEM);
 
-
-	
     for (i = 0; i < DEVmaxnum; i++)
         sckt->CKThead[i] = NULL;
 
@@ -63,6 +62,8 @@ CKTinit(CKTcircuit **ckt)		/* new circuit to create */
     sckt->CKTintegrateMethod = TRAPEZOIDAL;
     sckt->CKTorder = 1;
     sckt->CKTmaxOrder = 2;
+    sckt->CKTindverbosity = 2;
+    sckt->CKTxmu = 0.5;
     sckt->CKTpivotAbsTol = 1e-13;
     sckt->CKTpivotRelTol = 1e-3;
     sckt->CKTtemp = 300.15;
@@ -81,17 +82,19 @@ CKTinit(CKTcircuit **ckt)		/* new circuit to create */
     sckt->CKTstat->STATdevNum = TMALLOC(STATdevList, DEVmaxnum);
     if(sckt->CKTstat->STATdevNum == NULL)
         return(E_NOMEM);
+    /* Per-device timings */
+    sckt->CKTstat->devTimes = TMALLOC(double, DEVmaxnum+1);
+    sckt->CKTstat->devCounts = TMALLOC(size_t, DEVmaxnum+1);
     sckt->CKTtroubleNode = 0;
     sckt->CKTtroubleElt = NULL;
     sckt->CKTtimePoints = NULL;
-    if (sckt->CKTstat == NULL)
-	return E_NOMEM;
     sckt->CKTnodeDamping = 0;
     sckt->CKTabsDv = 0.5;
     sckt->CKTrelDv = 2.0;
     sckt->CKTvarHertz = 0;
-    sckt->DEVnameHash = nghash_init_pointer(100);
-    sckt->MODnameHash = nghash_init_pointer(100);
+    sckt->DEVnameHash = nghash_init(100);
+    sckt->MODnameHash = nghash_init(100);
+    sckt->CKTepsmin = 1e-28;
 
 #ifdef XSPICE
 /* gtri - begin - wbk - allocate/initialize substructs */
@@ -131,5 +134,17 @@ CKTinit(CKTcircuit **ckt)		/* new circuit to create */
     g_mif_info.auto_partial.local = MIF_FALSE;
 /* gtri - end - wbk - 01/12/91 */
 #endif
+
+#ifdef RFSPICE
+    sckt->CKTportCount = 0;
+    sckt->CKTactivePort = 0;
+    sckt->CKTVSRCid = -1;
+    sckt->CKTrfPorts = NULL;
+    sckt->CKTSmat = sckt->CKTAmat = sckt->CKTBmat = sckt->CKTYmat = sckt->CKTZmat = NULL;
+    sckt->CKTNoiseCYmat = NULL;
+    sckt->CKTadjointRHS = NULL;
+    sckt->CKTnoiseSourceCount = 0;
+#endif
+
     return OK;
 }

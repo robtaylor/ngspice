@@ -8,14 +8,12 @@ libnumd_la_SOURCES =	\
 	numdask.c	\
 	numddefs.h	\
 	numddel.c	\
-	numddest.c	\
 	numddump.c	\
 	numdext.h	\
 	numdinit.c	\
 	numdinit.h	\
 	numditf.h	\
 	numdload.c	\
-	numdmdel.c	\
 	numdmpar.c	\
 	numdparm.c	\
 	numdpzld.c	\
@@ -23,6 +21,10 @@ libnumd_la_SOURCES =	\
 	numdtemp.c	\
 	numdtrun.c
 
+
+if KLU_WANTED
+libnumd_la_SOURCES += numdbindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)

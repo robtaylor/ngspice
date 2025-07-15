@@ -1,18 +1,30 @@
-/**** BSIM4.8.0 Released by Navid Paydavosi 11/01/2013 ****/
+/* ******************************************************************************
+   *  BSIM4 4.8.2 released by Chetan Kumar Dabhi 01/01/2020                     *
+   *  BSIM4 Model Equations                                                     *
+   ******************************************************************************
 
-/**********
- * Copyright 2006 Regents of the University of California. All rights reserved.
- * File: b4ask.c of BSIM4.8.0.
- * Author: 2000 Weidong Liu
- * Authors: 2001- Xuemei Xi, Mohan Dunga, Ali Niknejad, Chenming Hu.
- * Authors: 2006- Mohan Dunga, Ali Niknejad, Chenming Hu
- * Authors: 2007- Mohan Dunga, Wenwei Yang, Ali Niknejad, Chenming Hu
- * Project Director: Prof. Chenming Hu.
- * Modified by Xuemei Xi, 04/06/2001.
- * Modified by Xuemei Xi, 10/05/2001.
- * Modified by Xuemei Xi, 05/09/2003.
- * Modified by Xuemei Xi, Mohan Dunga, 07/29/2005.
- **********/
+   ******************************************************************************
+   *  Copyright (c) 2020 University of California                               *
+   *                                                                            *
+   *  Project Director: Prof. Chenming Hu.                                      *
+   *  Current developers: Chetan Kumar Dabhi   (Ph.D. student, IIT Kanpur)      *
+   *                      Prof. Yogesh Chauhan (IIT Kanpur)                     *
+   *                      Dr. Pragya Kushwaha  (Postdoc, UC Berkeley)           *
+   *                      Dr. Avirup Dasgupta  (Postdoc, UC Berkeley)           *
+   *                      Ming-Yen Kao         (Ph.D. student, UC Berkeley)     *
+   *  Authors: Gary W. Ng, Weidong Liu, Xuemei Xi, Mohan Dunga, Wenwei Yang     *
+   *           Ali Niknejad, Chetan Kumar Dabhi, Yogesh Singh Chauhan,          *
+   *           Sayeef Salahuddin, Chenming Hu                                   * 
+   ******************************************************************************/
+
+/*
+Licensed under Educational Community License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License. You may obtain a copy of the license at
+http://opensource.org/licenses/ECL-2.0
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT 
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations
+under the License.
+*/
 
 #include "ngspice/ngspice.h"
 #include "ngspice/ifsim.h"
@@ -110,6 +122,12 @@ BSIM4instance *here = (BSIM4instance*)inst;
             return(OK);
         case BSIM4_DELVTO:
             value->rValue = here->BSIM4delvto;
+            return(OK);
+        case BSIM4_MULU0:
+            value->rValue = here->BSIM4mulu0;
+            return(OK);
+        case BSIM4_WNFLAG:
+            value->iValue = here->BSIM4wnflag;
             return(OK);
         case BSIM4_XGW:
             value->rValue = here->BSIM4xgw;
@@ -396,6 +414,30 @@ BSIM4instance *here = (BSIM4instance*)inst;
             return(OK);
         case BSIM4_QBD:
             value->rValue = *(ckt->CKTstate0 + here->BSIM4qbd); 
+            return(OK);
+        case BSIM4_VGSTEFF:
+            value->rValue = here->BSIM4Vgsteff;
+            return(OK);
+        case BSIM4_VDSEFF:
+            value->rValue = here->BSIM4Vdseff;
+            return(OK);
+        case BSIM4_CGSO:
+            value->rValue = here->BSIM4cgso;
+            value->rValue *= here->BSIM4m;
+            return(OK);
+        case BSIM4_CGDO:
+            value->rValue = here->BSIM4cgdo;
+            value->rValue *= here->BSIM4m;
+            return(OK);
+        case BSIM4_CGBO:
+            value->rValue = here->pParam->BSIM4cgbo;
+            value->rValue *= here->BSIM4m;
+            return(OK);
+        case BSIM4_WEFF:
+            value->rValue = here->pParam->BSIM4weff;
+            return(OK);
+        case BSIM4_LEFF:
+            value->rValue = here->pParam->BSIM4leff;
             return(OK);
         default:
             return(E_BADPARM);

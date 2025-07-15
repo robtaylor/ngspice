@@ -52,7 +52,12 @@ NUMDproject(ONEdevice *pDevice, double delV)
     pDevice->rhs[pNode->pEqn] = -pEdge->dJpDpsiP1;
   }
   incVpn = pDevice->dcDeltaSolution;
-  spSolve(pDevice->matrix, pDevice->rhs, incVpn, NULL, NULL);
+
+#ifdef KLU
+  SMPsolveKLUforCIDER (pDevice->matrix, pDevice->rhs, incVpn, NULL, NULL) ;
+#else
+  SMPsolveForCIDER (pDevice->matrix, pDevice->rhs, incVpn) ;
+#endif
 
   for (index = 1; index < pDevice->numNodes; index++) {
     pElem = pDevice->elemArray[index];
@@ -128,7 +133,12 @@ NBJTproject(ONEdevice *pDevice, double delVce, double delVbe,
       pDevice->rhs[pNode->pEqn] = -pEdge->dJpDpsiP1;
     }
     incVce = pDevice->dcDeltaSolution;
-    spSolve(pDevice->matrix, pDevice->rhs, incVce, NULL, NULL);
+
+#ifdef KLU
+    SMPsolveKLUforCIDER (pDevice->matrix, pDevice->rhs, incVce, NULL, NULL) ;
+#else
+    SMPsolveForCIDER (pDevice->matrix, pDevice->rhs, incVce) ;
+#endif
 
     for (index = 1; index < pDevice->numNodes; index++) {
       pElem = pDevice->elemArray[index];
@@ -179,7 +189,12 @@ NBJTproject(ONEdevice *pDevice, double delVce, double delVbe,
     }
 
     incVbe = pDevice->copiedSolution;
-    spSolve(pDevice->matrix, pDevice->rhs, incVbe, NULL, NULL);
+
+#ifdef KLU
+    SMPsolveKLUforCIDER (pDevice->matrix, pDevice->rhs, incVbe, NULL, NULL) ;
+#else
+    SMPsolveForCIDER (pDevice->matrix, pDevice->rhs, incVbe) ;
+#endif
 
     for (index = 1; index < pDevice->numNodes; index++) {
       pElem = pDevice->elemArray[index];
@@ -220,7 +235,7 @@ NBJTproject(ONEdevice *pDevice, double delVce, double delVbe,
 /* functions to update device states for full-LU algorithm */
 
 void 
-NUMDupdate(ONEdevice *pDevice, double delV, BOOLEAN updateBoundary)
+NUMDupdate(ONEdevice *pDevice, double delV, bool updateBoundary)
 {
   ONEelem *pElem = pDevice->elemArray[pDevice->numNodes - 1];
   ONEnode *pNode;
@@ -254,7 +269,7 @@ NUMDupdate(ONEdevice *pDevice, double delV, BOOLEAN updateBoundary)
 
 void 
 NBJTupdate(ONEdevice *pDevice, double delVce, double delVbe, 
-           double vbe, BOOLEAN updateBoundary)
+           double vbe, bool updateBoundary)
 {
   ONEelem *pLastElem = pDevice->elemArray[pDevice->numNodes - 1];
   ONEelem *pBaseElem = pDevice->elemArray[pDevice->baseIndex - 1];

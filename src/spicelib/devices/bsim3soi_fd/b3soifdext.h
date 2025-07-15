@@ -8,12 +8,9 @@ File: b3soifdext.h
 extern int B3SOIFDacLoad(GENmodel *,CKTcircuit*);
 extern int B3SOIFDask(CKTcircuit *,GENinstance*,int,IFvalue*,IFvalue*);
 extern int B3SOIFDconvTest(GENmodel *,CKTcircuit*);
-extern int B3SOIFDdelete(GENmodel*,IFuid,GENinstance**);
-extern void B3SOIFDdestroy(GENmodel**);
 extern int B3SOIFDgetic(GENmodel*,CKTcircuit*);
 extern int B3SOIFDload(GENmodel*,CKTcircuit*);
 extern int B3SOIFDmAsk(CKTcircuit*,GENmodel *,int, IFvalue*);
-extern int B3SOIFDmDelete(GENmodel**,IFuid,GENmodel*);
 extern int B3SOIFDmParam(int,IFvalue*,GENmodel*);
 extern void B3SOIFDmosCap(CKTcircuit*, double, double, double, double,
         double, double, double, double, double, double, double,
@@ -29,3 +26,8 @@ extern int B3SOIFDtrunc(GENmodel*,CKTcircuit*,double*);
 extern int B3SOIFDnoise(int,int,GENmodel*,CKTcircuit*,Ndata*,double*);
 extern int B3SOIFDunsetup(GENmodel*,CKTcircuit*);
 
+#ifdef KLU
+extern int B3SOIFDbindCSC (GENmodel*, CKTcircuit*) ;
+extern int B3SOIFDbindCSCComplex (GENmodel*, CKTcircuit*) ;
+extern int B3SOIFDbindCSCComplexToReal (GENmodel*, CKTcircuit*) ;
+#endif

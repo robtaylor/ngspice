@@ -54,6 +54,7 @@ CDHW*/
 #include "ngspice/inpdefs.h"
 #include "ngspice/iferrmsg.h"
 #include "ngspice/ifsim.h"
+#include "ngspice/hash.h"
 
 #include "circuits.h"
 #include "spiceif.h"
@@ -61,6 +62,8 @@ CDHW*/
 
 
 #ifdef XSPICE
+#include "ngspice/evt.h"
+#include "ngspice/enh.h"
 /* gtri - add - wbk - 11/9/90 - include MIF function prototypes */
 #include "ngspice/mifproto.h"
 /* gtri - end - wbk - 11/9/90 */
@@ -73,8 +76,11 @@ CDHW*/
 #endif
 
 extern INPmodel *modtab;
+extern NGHASHPTR modtabhash;
+extern bool ft_batchmode;
 
-static struct variable *parmtovar(IFvalue *pv, IFparm *opt);
+static struct variable *parmtovar(IFvalue *pv, IFparm *opt,
+                                  int use_description);
 static IFparm *parmlookup(IFdevice *dev, GENinstance **inptr, char *param,
                            int do_model, int inout);
 static IFvalue *doask(CKTcircuit *ckt, int typecode, GENinstance *dev, GENmodel *mod,
@@ -86,20 +92,19 @@ static int finddev(CKTcircuit *ckt, char *name, GENinstance **devptr, GENmodel *
 /* espice fix integration */
 static int finddev_special(CKTcircuit *ckt, char *name, GENinstance **devptr, GENmodel **modptr, int *device_or_model);
 
-
 /* Input a single deck, and return a pointer to the circuit. */
 
 CKTcircuit *
-if_inpdeck(struct line *deck, INPtables **tab)
+if_inpdeck(struct card *deck, INPtables **tab)
 {
     CKTcircuit *ckt;
     int err, i;
-    struct line *ll;
+    struct card *ll;
     IFuid taskUid;
     IFuid optUid;
     int which = -1;
 
-    for (i = 0, ll = deck; ll; ll = ll->li_next)
+    for (i = 0, ll = deck; ll; ll = ll->nextcard)
         i++;
     *tab = INPtabInit(i);
     ft_curckt->ci_symtab = *tab;
@@ -156,18 +161,30 @@ if_inpdeck(struct line *deck, INPtables **tab)
 
     ft_curckt->ci_curTask = ft_curckt->ci_defTask;
 
-    /* reset the model table, will be filled in anew in INPpas1() */
+    /* Parse the .model lines. Enter the model into the global model table modtab. */
     modtab = NULL;
-    INPpas1(ckt, (card *) deck->li_next, *tab);
+    modtabhash = NULL;
+    /* Parse .model lines, put them into 'tab' */
+    INPpas1(ckt, deck->nextcard, *tab);
     /* store the new model table in the current circuit */
     ft_curckt->ci_modtab = modtab;
-    INPpas2(ckt, (card *) deck->li_next, *tab, ft_curckt->ci_defTask);
+    ft_curckt->ci_modtabhash = modtabhash;
 
-    /* INPpas2 has been modified to ignore .NODESET and .IC
-     * cards. These are left till INPpas3 so that we can check for
-     * nodeset/ic of non-existant nodes.  */
+    /* Scan through the instance lines and parse the circuit. */
+    INPpas2(ckt, deck->nextcard, *tab, ft_curckt->ci_defTask);
+#ifdef XSPICE
+    if (!Evtcheck_nodes(ckt, *tab)) {
+        ft_sperror(E_PRIVATE, "Evtcheck_nodes");
+        return NULL;
+    }
+#endif
 
-    INPpas3(ckt, (card *) deck->li_next,
+    /* If option cshunt is given, add capacitors to each voltage node */
+    INPpas4(ckt, *tab);
+
+    /* Fill in .NODESET and .IC data.
+     * nodeset/ic of non-existent nodes is rejected.  */
+    INPpas3(ckt, deck->nextcard,
             *tab, ft_curckt->ci_defTask, ft_sim->nodeParms,
             ft_sim->numNodeParms);
 
@@ -195,7 +212,7 @@ int
 if_run(CKTcircuit *ckt, char *what, wordlist *args, INPtables *tab)
 {
     int err;
-    struct line deck;
+    struct card deck;
     char buf[BSIZE_SP];
     int which = -1;
     IFuid specUid, optUid;
@@ -215,19 +232,25 @@ if_run(CKTcircuit *ckt, char *what, wordlist *args, INPtables *tab)
         eq(what, "tf") ||
         eq(what, "noise")
 #ifdef WITH_PSS
-        /* SP: Steady State Analysis */
+        /* Steady State Analysis */
         || eq(what, "pss")
-        /* SP */
+#endif
+#ifdef RFSPICE
+        || eq(what, "sp")
+#ifdef WITH_HB
+        || eq(what, "hb")
+#endif
 #endif
         )
     {
         s = wl_flatten(args); /* va: tfree char's tmalloc'ed in wl_flatten */
         (void) sprintf(buf, ".%s", s);
         tfree(s);
-        deck.li_next = deck.li_actual = NULL;
-        deck.li_error = NULL;
-        deck.li_linenum = 0;
-        deck.li_line = buf;
+        deck.nextcard = deck.actualLine = NULL;
+        deck.error = NULL;
+        deck.linenum = 0;
+        deck.compmod = 0;
+        deck.line = buf;
 
         /*CDHW Delete any previous special task CDHW*/
 
@@ -298,10 +321,10 @@ if_run(CKTcircuit *ckt, char *what, wordlist *args, INPtables *tab)
 
         /*CDHW ci_curTask and ci_specTask point to the interactive task AAA CDHW*/
 
-        INPpas2(ckt, (card *) &deck, tab, ft_curckt->ci_specTask);
+        INPpas2(ckt, &deck, tab, ft_curckt->ci_specTask);
 
-        if (deck.li_error) {
-            fprintf(cp_err, "Warning: %s\n", deck.li_error);
+        if (deck.error) {
+            fprintf(cp_err, "Error: %sin   %s\n\n", deck.error, deck.line);
             return 2;
         }
     }
@@ -315,6 +338,13 @@ if_run(CKTcircuit *ckt, char *what, wordlist *args, INPtables *tab)
     if (eq(what, "run")) {
         ft_curckt->ci_curTask = ft_curckt->ci_defTask;
         ft_curckt->ci_curOpt = ft_curckt->ci_defOpt;
+        if (ft_curckt->ci_curTask->jobs == NULL) {
+            /* nothing to 'run' */
+            if (!ft_batchmode) { /* FIXME: This is a hack to re-enable 'make check' */
+                fprintf(stderr, "Warning: No job (tran, ac, op etc.) defined:\n");
+                return (3);
+            }
+        }
     }
 
     /* -- Find out what we are supposed to do.              */
@@ -333,6 +363,12 @@ if_run(CKTcircuit *ckt, char *what, wordlist *args, INPtables *tab)
         /* SP: Steady State Analysis */
         (eq(what, "pss")) ||
         /* SP */
+#endif
+#ifdef RFSPICE
+        (eq(what, "sp")) ||
+#ifdef WITH_HB
+        (eq(what, "hb")) ||
+#endif
 #endif
         (eq(what, "run")))
     {
@@ -391,7 +427,7 @@ if_option(CKTcircuit *ckt, char *name, enum cp_types type, void *value)
 {
     IFvalue pval;
     int err;
-    char **vv;
+    char **vv, *sfree = NULL;
     int which = -1;
     IFparm *if_parm;
 
@@ -403,6 +439,9 @@ if_option(CKTcircuit *ckt, char *name, enum cp_types type, void *value)
         return 0;
     } else if (eq(name, "noinit")) {
         ft_noinitprint = TRUE;
+        return 0;
+    } else if (eq(name, "norefvalue")) {
+        ft_norefprint = TRUE;
         return 0;
     } else if (eq(name, "list")) {
         ft_listprint = TRUE;
@@ -464,7 +503,7 @@ if_option(CKTcircuit *ckt, char *name, enum cp_types type, void *value)
         break;
     case IF_STRING:
         if (type == CP_STRING)
-            pval.sValue = copy((char*) value);
+            sfree = pval.sValue = copy((char*) value);
         else
             goto badtype;
         break;
@@ -500,6 +539,7 @@ if_option(CKTcircuit *ckt, char *name, enum cp_types type, void *value)
                                         if_parm->id, &pval,
                                         NULL)) != OK)
         ft_sperror(err, "setAnalysisParm(options) ci_curOpt");
+    tfree(sfree);
     return 1;
 #endif
 
@@ -651,19 +691,12 @@ spif_getparam_special(CKTcircuit *ckt, char **name, char *param, int ind, int do
                     continue;
                 pv = doask(ckt, typecode, dev, mod, opt, ind);
                 if (pv) {
-                    tv = parmtovar(pv, opt);
-
-                    /* With the following we pack the name and the acronym of the parameter */
-                    {
-                        char auxiliar[70], *aux_pointer;
-                        sprintf(auxiliar, "%s [%s]", tv->va_name, device->instanceParms[i].keyword);
-                        aux_pointer = tv->va_name;
-                        free(aux_pointer);
-                        tv->va_name = copy(auxiliar);
+                    tv = parmtovar(pv, opt, 0);
+                    if (tv) {
+                        if (vv)
+                            tv->va_next = vv;
+                        vv = tv;
                     }
-                    if (vv)
-                        tv->va_next = vv;
-                    vv = tv;
                 } else {
                     fprintf(cp_err,
                             "Internal Error: no parameter '%s' on device '%s'\n",
@@ -690,29 +723,12 @@ spif_getparam_special(CKTcircuit *ckt, char **name, char *param, int ind, int do
                     continue;
                 pv = doask(ckt, typecode, dev, mod, opt, ind);
                 if (pv) {
-                    tv = parmtovar(pv, opt);
-                    /* Inside parmtovar:
-                     * 1. tv->va_name = copy(opt->description);
-                     * 2. Copy the type of variable of IFparm into a variable (thus parm-to-var)
-                     * vv->va_type = opt->dataType
-                     * The long description of the parameter:
-                     * IFparm MOS_SGTmPTable[] = { // model parameters //
-                     * OP("type",   MOS_SGT_MOD_TYPE,  IF_STRING, "N-channel or P-channel MOS")
-                     * goes into tv->va_name to put braces around the parameter of the model
-                     * tv->va_name += device->modelParms[i].keyword;
-                     */
-                    {
-                        char auxiliar[70], *aux_pointer;
-                        sprintf(auxiliar, "%s [%s]", tv->va_name, device->modelParms[i].keyword);
-                        aux_pointer = tv->va_name;
-                        free(aux_pointer);
-                        tv->va_name = copy(auxiliar);
-                        /* strcpy(aux_pointer, auxiliar); */
+                    tv = parmtovar(pv, opt, 0);
+                    if (tv) {
+                        if (vv)
+                            tv->va_next = vv;
+                        vv = tv;
                     }
-                    /* tv->va_string = device->modelParms[i].keyword;   Put the name of the variable */
-                    if (vv)
-                        tv->va_next = vv;
-                    vv = tv;
                 } else {
                     fprintf(cp_err,
                             "Internal Error: no parameter '%s' on device '%s'\n",
@@ -736,7 +752,7 @@ spif_getparam_special(CKTcircuit *ckt, char **name, char *param, int ind, int do
         }
         pv = doask(ckt, typecode, dev, mod, opt, ind);
         if (pv)
-            vv = parmtovar(pv, opt);
+            vv = parmtovar(pv, opt, 0);
         return (vv);
     } else {
         return (if_getstat(ckt, *name));
@@ -782,10 +798,12 @@ spif_getparam(CKTcircuit *ckt, char **name, char *param, int ind, int do_model)
                 continue;
             pv = doask(ckt, typecode, dev, mod, opt, ind);
             if (pv) {
-                tv = parmtovar(pv, opt);
-                if (vv)
-                    tv->va_next = vv;
-                vv = tv;
+                tv = parmtovar(pv, opt, 0);
+                if (tv) {
+                    if (vv)
+                        tv->va_next = vv;
+                    vv = tv;
+                }
             } else {
                 fprintf(cp_err,
                         "Internal Error: no parameter '%s' on device '%s'\n",
@@ -811,7 +829,7 @@ spif_getparam(CKTcircuit *ckt, char **name, char *param, int ind, int do_model)
         }
         pv = doask(ckt, typecode, dev, mod, opt, ind);
         if (pv)
-            vv = parmtovar(pv, opt);
+            vv = parmtovar(pv, opt, 0);
         return (vv);
     } else {
         return (if_getstat(ckt, *name));
@@ -901,7 +919,7 @@ if_setparam_model(CKTcircuit *ckt, char **name, char *val)
                 INPgetMod(ckt, mods->GENmodName, &inpmod, ft_curckt->ci_symtab);
                 if (curMod != nghash_delete(ckt->MODnameHash, curMod->GENmodName))
                     fprintf(stderr, "ERROR, ouch nasal daemons ...\n");
-                FREE(mods);
+                GENmodelFree(mods);
 
                 inpmod->INPmodfast = NULL;
                 break;
@@ -959,73 +977,92 @@ if_setparam(CKTcircuit *ckt, char **name, char *param, struct dvec *val, int do_
     }
 }
 
+/* Make a linked list where the first node is a CP_LIST variable
+ * pointing to the different values of the vector variables.
+ *
+ *
+ * In the case of Vin_sin 1 0 sin (0 2 2000)
+ * and of print @vin_sin[sin]
+ *
+ * vv->va_V.vV_list->va_V.vV_real = 2000
+ * vv->va_V.vV_list->va_next->va_V.vV_real = 2
+ * vv->va_V.vV_list->va_next->va_next->va_V.vV_real = 0
+ * So the list is starting from behind, but no problem
+ * This works fine
+ */
 
 static struct variable *
-parmtovar(IFvalue *pv, IFparm *opt)
+parmtolist(IFvalue *pv, IFparm *opt, char *name)
 {
-    struct variable *vv = alloc(struct variable);
-    struct variable *nv;
-    int i = 0;
+    struct variable *list = NULL;
+    int              i;
+
+    for (i = pv->v.numValue; --i >= 0;) {
+        switch (opt->dataType & (IF_VARTYPES & ~IF_VECTOR)) {
+        case IF_INTEGER:
+            list = var_alloc_num(NULL, pv->v.vec.iVec[i], list);
+            break;
+        case IF_REAL:
+        case IF_COMPLEX:
+            list = var_alloc_real(NULL, pv->v.vec.rVec[i], list);
+            break;
+        case IF_STRING:
+            list = var_alloc_string(NULL, copy(pv->v.vec.sVec[i]), list);
+            break;
+        case IF_FLAG:
+            list = var_alloc_bool(NULL, pv->v.vec.iVec[i] ? TRUE : FALSE,
+                                  list);
+            break;
+        default:
+            fprintf(cp_err,
+                    "parmtolist: Internal Error: bad PARM type "
+                    "%#x for %s (%s).\n",
+                    opt->dataType, opt->keyword, opt->description);
+            if (name)
+                free(name);
+            break;
+        }
+    }
+
+    if (i || pv->v.numValue == 0)
+        list = var_alloc_vlist(name, list, NULL);
+    if (pv->v.vec.iVec) {       // All the union members are pointers
+        free(pv->v.vec.iVec);
+        pv->v.vec.iVec = NULL;
+    }
+    return list;
+}
+
+static struct variable *
+parmtovar(IFvalue *pv, IFparm *opt, int use_description)
+{
+    char *name;
+
+    name = use_description ? opt->description : opt->keyword;
+    if (name)
+        name = copy(name);
+    if (opt->dataType & IF_VECTOR)
+        return parmtolist(pv, opt, name);
 
     switch (opt->dataType & IF_VARTYPES) {
     case IF_INTEGER:
-        vv->va_type = CP_NUM;
-        vv->va_num = pv->iValue;
-        break;
+        return var_alloc_num(name, pv->iValue, NULL);
     case IF_REAL:
     case IF_COMPLEX:
-        vv->va_type = CP_REAL;
-        vv->va_real = pv->rValue;
-        break;
+        return var_alloc_real(name, pv->rValue, NULL);
     case IF_STRING:
-        vv->va_type = CP_STRING;
-        vv->va_string = pv->sValue;
-        break;
+        return var_alloc_string(name, copy(pv->sValue), NULL);
     case IF_FLAG:
-        vv->va_type = CP_BOOL;
-        vv->va_bool = pv->iValue ? TRUE : FALSE;
-        break;
-    case IF_REALVEC:
-        vv->va_type = CP_LIST;
-        for (i = 0; i < pv->v.numValue; i++) {
-            nv = alloc(struct variable);
-            nv->va_next = vv->va_vlist;
-            vv->va_vlist = nv;
-            nv->va_type = CP_REAL;
-            /* Change this so that the values are printed in order and
-             * not in inverted order as happens in the conversion process.
-             * Originally was  nv->va_real = pv->v.vec.rVec[i];
-             */
-            nv->va_real = pv->v.vec.rVec[pv->v.numValue-i-1];
-        }
-        /* It is a linked list where the first node is a variable
-         * pointing to the different values of the variables.
-         *
-         * To access the values of the real variable vector must be
-         * vv->va_V.vV_real = valor node ppal that is of no use.
-         *
-         * In the case of Vin_sin 1 0 sin (0 2 2000)
-         * and of print @vin_sin[sin]
-         *
-         * vv->va_V.vV_list->va_V.vV_real = 2000
-         * vv->va_V.vV_list->va_next->va_V.vV_real = 2
-         * vv->va_V.vV_list->va_next->va_next->va_V.vV_real = 0
-         * So the list is starting from behind, but no problem
-         * This works fine
-         */
-
-        break;
+        return var_alloc_bool(name, pv->iValue ? TRUE : FALSE,
+                              NULL);
     default:
         fprintf(cp_err,
-                "parmtovar: Internal Error: bad PARM type %d.\n",
-                opt->dataType);
+                "parmtovar: Internal Error: bad PARM type %#x for %s (%s).\n",
+                opt->dataType, opt->keyword, opt->description);
+        if (name)
+            free(name);
         return (NULL);
     }
-
-    /* It's not clear whether we want the keyword or the desc here... */
-    vv->va_name = copy(opt->description);
-    vv->va_next = NULL;
-    return (vv);
 }
 
 
@@ -1054,8 +1091,8 @@ parmlookup(IFdevice *dev, GENinstance **inptr, char *param, int do_model, int in
                       ((dev->instanceParms[i].dataType & IF_ASK) && inout == 0)) &&
                      cieq(dev->instanceParms[i].keyword, param))
             {
-                if (dev->instanceParms[i].dataType & IF_REDUNDANT)
-                    i -= 1;
+                while ((dev->instanceParms[i].dataType & IF_REDUNDANT) && (i > 0))
+                    i--;
                 return (&dev->instanceParms[i]);
             }
         }
@@ -1068,8 +1105,8 @@ parmlookup(IFdevice *dev, GENinstance **inptr, char *param, int do_model, int in
                  ((dev->modelParms[i].dataType & IF_ASK) && inout == 0)) &&
                 eq(dev->modelParms[i].keyword, param))
             {
-                if (dev->modelParms[i].dataType & IF_REDUNDANT)
-                    i -= 1;
+                while ((dev->modelParms[i].dataType & IF_REDUNDANT) && (i > 0))
+                    i--;
                 return (&dev->modelParms[i]);
             }
 
@@ -1133,7 +1170,7 @@ doset(CKTcircuit *ckt, int typecode, GENinstance *dev, GENmodel *mod, IFparm *op
         switch (opt->dataType & (IF_VARTYPES & ~IF_VECTOR)) {
         case IF_FLAG:
         case IF_INTEGER:
-            iptr = nval.v.vec.iVec = NEWN(int, n);
+            iptr = nval.v.vec.iVec = TMALLOC(int, n);
 
             for (i = 0; i < n; i++)
                 *iptr++ = (int)floor(*dptr++ + 0.5);
@@ -1307,7 +1344,7 @@ if_getstat(CKTcircuit *ckt, char *name)
             return (NULL);
         }
 
-        return (parmtovar(&parm, if_parm));
+        return (parmtovar(&parm, if_parm, 1));
 
     } else {
 
@@ -1325,11 +1362,14 @@ if_getstat(CKTcircuit *ckt, char *name)
                                           if_parm->id, &parm,
                                           NULL) == -1)
             {
-                fprintf(cp_err, "if_getstat: Internal Error: can't get %s\n", name);
-                return (NULL);
+                fprintf(cp_err,
+                        "if_getstat: Internal Error: can't get a name for "
+                        "analysis parameter %d\n",
+                        if_parm->id);
+                continue;
             }
 
-            *v = parmtovar(&parm, if_parm);
+            *v = parmtovar(&parm, if_parm, 1);
             v = &((*v)->va_next);
         }
 
@@ -1407,7 +1447,11 @@ void com_snload(wordlist *wl)
         return;
     }
 
-    fread(&tmpI, sizeof(int), 1, file);
+    if (fread(&tmpI, sizeof(int), 1, file) != 1) {
+        (void) fprintf(cp_err, "Unable to read spice version from snapshot.\n");
+        fclose(file);
+        return;
+    }
     if (tmpI != sizeof(CKTcircuit)) {
         fprintf(cp_err, "loaded num: %d, expected num: %ld\n", tmpI, (long)sizeof(CKTcircuit));
         fprintf(cp_err, "Error: snapshot saved with different version of spice\n");
@@ -1417,7 +1461,11 @@ void com_snload(wordlist *wl)
 
     my_ckt = TMALLOC(CKTcircuit, 1);
 
-    fread(my_ckt, sizeof(CKTcircuit), 1, file);
+    if (fread(my_ckt, sizeof(CKTcircuit), 1, file) != 1) {
+        (void) fprintf(cp_err, "Unable to read spice circuit from snapshot.\n");
+        fclose(file);
+        return;
+    }
 
 #define _t(name) ckt->name = my_ckt->name
 #define _ta(name, size)                                                 \
@@ -1434,6 +1482,9 @@ void com_snload(wordlist *wl)
     _t(CKTorder);
     _t(CKTmaxOrder);
     _t(CKTintegrateMethod);
+    _t(CKTxmu);
+    _t(CKTindverbosity);
+    _t(CKTepsmin);
 
     _t(CKTniState);
 
@@ -1460,6 +1511,7 @@ void com_snload(wordlist *wl)
 
     _t(CKTgmin);
     _t(CKTgshunt);
+    _t(CKTcshunt);
     _t(CKTdelmin);
     _t(CKTtrtol);
     _t(CKTfinalTime);
@@ -1502,17 +1554,24 @@ void com_snload(wordlist *wl)
 #define _foo(name, type, _size)                                         \
     do {                                                                \
         int __i;                                                        \
-        fread(&__i, sizeof(int), 1, file);                              \
-        if (__i) {                                                      \
-            if (name)                                                   \
-                tfree(name);                                            \
-            name = (type *)tmalloc((size_t) __i);                       \
-            fread(name, 1, (size_t) __i, file);                         \
-        } else {                                                        \
+        if (fread(&__i, sizeof(int), 1, file) == 1 && __i > 0) {        \
+            if (name) {                                                 \
+                txfree(name);                                           \
+            }                                                           \
+            name = (type *) tmalloc((size_t) __i);                      \
+            if (fread(name, 1, (size_t) __i, file) != (size_t) __i) {   \
+                (void) fprintf(cp_err,                                  \
+                        "Unable to read vector " #name "\n");           \
+                break;                                                  \
+            }                                                           \
+        }                                                               \
+        else {                                                          \
             fprintf(cp_err, "size for vector " #name " is 0\n");        \
         }                                                               \
-        if ((_size) != -1 && __i != (_size) * (int)sizeof(type)) {      \
-            fprintf(cp_err, "expected %ld, but got %d for "#name"\n", (_size)*(long)sizeof(type), __i); \
+        if ((_size) != -1 && __i !=                                     \
+                (int) (_size) * (int) sizeof(type)) {                   \
+            fprintf(cp_err, "expected %ld, but got %d for "#name"\n",   \
+                    (_size)*(long)sizeof(type), __i);                   \
         }                                                               \
     } while(0)
 
@@ -1608,10 +1667,12 @@ void com_snsave(wordlist *wl)
     TSKtask *task;
 
     if (!ft_curckt) {
-        fprintf(cp_err, "Error: there is no circuit loaded.\n");
+        fprintf(cp_err, "Warning: there is no circuit loaded.\n");
+        fprintf(cp_err, "    Command 'snsave' is ignored.\n");
         return;
     } else if (!ft_curckt->ci_ckt) { /* Set noparse? */
-        fprintf(cp_err, "Error: circuit not parsed.\n");
+        fprintf(cp_err, "Warning: circuit not parsed.\n");
+        fprintf(cp_err, "    Command 'snsave' is ignored.\n");
         return;
     }
 
@@ -1630,7 +1691,7 @@ void com_snsave(wordlist *wl)
     task = ft_curckt->ci_curTask;
 
     if (task->jobs->JOBtype != 4) {
-        fprintf(cp_err, "Only saving of tran analysis is implemented\n");
+        fprintf(cp_err, "Warning: Only saving of tran analysis is implemented\n");
         return;
     }
 

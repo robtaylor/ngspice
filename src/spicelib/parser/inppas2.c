@@ -16,6 +16,9 @@ Author: 1985 Thomas L. Quarles
 /* gtri - end - wbk - 11/9/90 */
 #endif
 
+// Ugly way to pass line info (number and source file) to lower-level error handlers.
+int Current_parse_line;
+char* Sourcefile;
 
 /* uncomment to trace in this file */
 /*#define TRACE*/
@@ -23,10 +26,10 @@ Author: 1985 Thomas L. Quarles
 /* pass 2 - Scan through the lines.  ".model" cards have processed in
  *  pass1 and are ignored here.  */
 
-void INPpas2(CKTcircuit *ckt, card * data, INPtables * tab, TSKtask *task)
+void INPpas2(CKTcircuit *ckt, struct card *data, INPtables * tab, TSKtask *task)
 {
 
-    card *current;
+    struct card *current;
     char c;
     char *groundname = "0";
     char *gname;
@@ -39,10 +42,6 @@ void INPpas2(CKTcircuit *ckt, card * data, INPtables * tab, TSKtask *task)
 #ifdef TRACE
     /* SDB debug statement */
     printf("Entered INPpas2 . . . .\n");
-#endif
-
-#ifdef XSPICE
-    if (!ckt->CKTadevFlag) ckt->CKTadevFlag = 0;
 #endif
 
     error = INPgetTok(&groundname, &gname, 1);
@@ -81,15 +80,18 @@ void INPpas2(CKTcircuit *ckt, card * data, INPtables * tab, TSKtask *task)
 #endif
 
 #ifdef HAS_PROGREP
-   if (linecount > 0) {     
-        SetAnalyse( "Circuit2", (int) (1000.*actcount/linecount));
+   if (linecount > 0) {
+        SetAnalyse( "Parse", (int) (1000.*actcount/linecount));
         actcount++;
    }
 #endif
 
+    Current_parse_line = current->linenum_orig;
+    Sourcefile = current->linesource;
+
 	c = *(current->line);
-	if(islower(c))
-	    c = (char) toupper(c);
+	if(islower_c(c))
+	    c = toupper_c(c);
 
 	switch (c) {
 
@@ -169,7 +171,7 @@ void INPpas2(CKTcircuit *ckt, card * data, INPtables * tab, TSKtask *task)
 	       [IC=<val>,<val>,<val>] */
 	    INP2M(ckt, tab, current);
 	    break;
-#ifdef  NDEV   
+#ifdef  OSDI
 	case 'N':
 	    /* Nname [<node>...]  [<mname>] */
 	    INP2N(ckt, tab, current);

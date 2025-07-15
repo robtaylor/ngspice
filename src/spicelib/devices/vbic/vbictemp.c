@@ -17,7 +17,7 @@ Spice3 Implementation: 2003 Dietmar Warning DAnalyse GmbH
 
 /* ARGSUSED */
 
-int iret, vbic_4T_it_cf_t(double *, double *, double *);
+int iret, vbic_4T_et_cf_t(double *, double *, double *);
 
 int
 VBICtemp(GENmodel *inModel, CKTcircuit *ckt)
@@ -30,166 +30,22 @@ VBICtemp(GENmodel *inModel, CKTcircuit *ckt)
     double vt;
 
     /*  loop through all the bipolar models */
-    for( ; model != NULL; model = model->VBICnextModel ) {
-
-        if(!model->VBICtnomGiven) model->VBICtnom = ckt->CKTnomTemp - CONSTCtoK;
-
-        if(model->VBICextCollResistGiven && model->VBICextCollResist != 0.0) {
-          model->VBICcollectorConduct = 1.0 / model->VBICextCollResist;
-        } else {
-          model->VBICcollectorConduct = 0.0;
-        }
-        if(model->VBICextBaseResistGiven && model->VBICextBaseResist != 0.0) {
-          model->VBICbaseConduct = 1.0 / model->VBICextBaseResist;
-        } else {
-          model->VBICbaseConduct = 0.0;
-        }
-        if(model->VBICemitterResistGiven && model->VBICemitterResist != 0.0) {
-          model->VBICemitterConduct = 1.0 / model->VBICemitterResist;
-        } else {
-          model->VBICemitterConduct = 0.0;
-        }
-        if(model->VBICsubstrateResistGiven && model->VBICsubstrateResist != 0.0) {
-          model->VBICsubstrateConduct = 1.0 / model->VBICsubstrateResist;
-        } else {
-          model->VBICsubstrateConduct = 0.0;
-        }
-
-        if(model->VBICtempExpRBGiven && !model->VBICtempExpRBIGiven) {
-          model->VBICtempExpRBI = model->VBICtempExpRB;
-        }
-        if(model->VBICtempExpRBGiven && !model->VBICtempExpRBXGiven) {
-          model->VBICtempExpRBX = model->VBICtempExpRB;
-        }
-        if(model->VBICtempExpRCGiven && !model->VBICtempExpRCIGiven) {
-          model->VBICtempExpRCI = model->VBICtempExpRC;
-        }
-        if(model->VBICtempExpRCGiven && !model->VBICtempExpRCXGiven) {
-          model->VBICtempExpRCX = model->VBICtempExpRC;
-        }
+    for( ; model != NULL; model = VBICnextModel(model)) {
 
         /* loop through all the instances of the model */
-        for (here = model->VBICinstances; here != NULL ;
-                here=here->VBICnextInstance) {
+        for (here = VBICinstances(model); here != NULL ;
+                here=VBICnextInstance(here)) {
 
             if(!here->VBICtempGiven) here->VBICtemp = ckt->CKTtemp;
 
             if(here->VBICdtempGiven) here->VBICtemp = here->VBICtemp + here->VBICdtemp;
 
             TAMB = here->VBICtemp - CONSTCtoK;
-            
-            pnom[0] = model->VBICtnom;
-            pnom[1] = model->VBICextCollResist;
-            pnom[2] = model->VBICintCollResist;
-            pnom[3] = model->VBICepiSatVoltage;
-            pnom[4] = model->VBICepiDoping;
-            pnom[5] = model->VBIChighCurFac;
-            pnom[6] = model->VBICextBaseResist;
-            pnom[7] = model->VBICintBaseResist;
-            pnom[8] = model->VBICemitterResist;
-            pnom[9] = model->VBICsubstrateResist;
-            pnom[10] = model->VBICparBaseResist;
-            pnom[11] = model->VBICsatCur;
-            pnom[12] = model->VBICemissionCoeffF;
-            pnom[13] = model->VBICemissionCoeffR;
-            pnom[14] = model->VBICdeplCapLimitF;
-            pnom[15] = model->VBICextOverlapCapBE;
-            pnom[16] = model->VBICdepletionCapBE;
-            pnom[17] = model->VBICpotentialBE;
-            pnom[18] = model->VBICjunctionExpBE;
-            pnom[19] = model->VBICsmoothCapBE;
-            pnom[20] = model->VBICextOverlapCapBC;
-            pnom[21] = model->VBICdepletionCapBC;
-            pnom[22] = model->VBICepiCharge;
-            pnom[23] = model->VBICextCapBC;
-            pnom[24] = model->VBICpotentialBC;
-            pnom[25] = model->VBICjunctionExpBC;
-            pnom[26] = model->VBICsmoothCapBC;
-            pnom[27] = model->VBICextCapSC;
-            pnom[28] = model->VBICpotentialSC;
-            pnom[29] = model->VBICjunctionExpSC;
-            pnom[30] = model->VBICsmoothCapSC;
-            pnom[31] = model->VBICidealSatCurBE;
-            pnom[32] = model->VBICportionIBEI;
-            pnom[33] = model->VBICidealEmissCoeffBE;
-            pnom[34] = model->VBICnidealSatCurBE;
-            pnom[35] = model->VBICnidealEmissCoeffBE;
-            pnom[36] = model->VBICidealSatCurBC;
-            pnom[37] = model->VBICidealEmissCoeffBC;
-            pnom[38] = model->VBICnidealSatCurBC;
-            pnom[39] = model->VBICnidealEmissCoeffBC;
-            pnom[40] = model->VBICavalanchePar1BC;
-            pnom[41] = model->VBICavalanchePar2BC;
-            pnom[42] = model->VBICparasitSatCur;
-            pnom[43] = model->VBICportionICCP;
-            pnom[44] = model->VBICparasitFwdEmissCoeff;
-            pnom[45] = model->VBICidealParasitSatCurBE;
-            pnom[46] = model->VBICnidealParasitSatCurBE;
-            pnom[47] = model->VBICidealParasitSatCurBC;
-            pnom[48] = model->VBICidealParasitEmissCoeffBC;
-            pnom[49] = model->VBICnidealParasitSatCurBC;
-            pnom[50] = model->VBICnidealParasitEmissCoeffBC;
-            pnom[51] = model->VBICearlyVoltF;
-            pnom[52] = model->VBICearlyVoltR;
-            pnom[53] = model->VBICrollOffF;
-            pnom[54] = model->VBICrollOffR;
-            pnom[55] = model->VBICparRollOff;
-            pnom[56] = model->VBICtransitTimeF;
-            pnom[57] = model->VBICvarTransitTimeF;
-            pnom[58] = model->VBICtransitTimeBiasCoeffF;
-            pnom[59] = model->VBICtransitTimeFVBC;
-            pnom[60] = model->VBICtransitTimeHighCurrentF;
-            pnom[61] = model->VBICtransitTimeR;
-            pnom[62] = model->VBICdelayTimeF;
-            pnom[63] = model->VBICfNcoef;
-            pnom[64] = model->VBICfNexpA;
-            pnom[65] = model->VBICfNexpB;
-            pnom[66] = model->VBICtempExpRE;
-            pnom[67] = model->VBICtempExpRBI;
-            pnom[68] = model->VBICtempExpRCI;
-            pnom[69] = model->VBICtempExpRS;
-            pnom[70] = model->VBICtempExpVO;
-            pnom[71] = model->VBICactivEnergyEA;
-            pnom[72] = model->VBICactivEnergyEAIE;
-            pnom[73] = model->VBICactivEnergyEAIC;
-            pnom[74] = model->VBICactivEnergyEAIS;
-            pnom[75] = model->VBICactivEnergyEANE;
-            pnom[76] = model->VBICactivEnergyEANC;
-            pnom[77] = model->VBICactivEnergyEANS;
-            pnom[78] = model->VBICtempExpIS;
-            pnom[79] = model->VBICtempExpII;
-            pnom[80] = model->VBICtempExpIN;
-            pnom[81] = model->VBICtempExpNF;
-            pnom[82] = model->VBICtempExpAVC;
-            pnom[83] = model->VBICthermalResist;
-            pnom[84] = model->VBICthermalCapacitance;
-            pnom[85] = model->VBICpunchThroughVoltageBC;
-            pnom[86] = model->VBICdeplCapCoeff1;
-            pnom[87] = model->VBICfixedCapacitanceCS;
-            pnom[88] = model->VBICsgpQBselector;
-            pnom[89] = model->VBIChighCurrentBetaRolloff;
-            pnom[90] = model->VBICtempExpIKF;
-            pnom[91] = model->VBICtempExpRCX;
-            pnom[92] = model->VBICtempExpRBX;
-            pnom[93] = model->VBICtempExpRBP;
-            pnom[94] = model->VBICsepISRR;
-            pnom[95] = model->VBICtempExpXISR;
-            pnom[96] = model->VBICdear;
-            pnom[97] = model->VBICeap;
-            pnom[98] = model->VBICvbbe;
-            pnom[99] = model->VBICnbbe;
-            pnom[100] = model->VBICibbe;
-            pnom[101] = model->VBICtvbbe1;
-            pnom[102] = model->VBICtvbbe2;
-            pnom[103] = model->VBICtnbbe;
-            pnom[104] = model->VBICebbe;
-            pnom[105] = model->VBIClocTempDiff;
-            pnom[106] = model->VBICrevVersion;
-            pnom[107] = model->VBICrefVersion;
-            
-            iret = vbic_4T_it_cf_t(p,pnom,&TAMB);
-            
-            here->VBICttnom = p[0];
+
+            memcpy (&pnom, &model->VBICtnom, sizeof(pnom));
+
+            iret = vbic_4T_et_cf_t(p,pnom,&TAMB);
+
             here->VBICtextCollResist = p[1];
             here->VBICtintCollResist = p[2];
             here->VBICtepiSatVoltage = p[3];
@@ -232,7 +88,7 @@ VBICtemp(GENmodel *inModel, CKTcircuit *ckt)
     return(OK);
 }
 
-int vbic_4T_it_cf_t(double *p, double *pnom, double *TAMB)
+int vbic_4T_et_cf_t(double *p, double *pnom, double *TAMB)
 {
         double Tini, Tdev, Vtv, rT, dT, xvar1;
         double xvar2, xvar3, xvar4, xvar5, xvar6, psiio;

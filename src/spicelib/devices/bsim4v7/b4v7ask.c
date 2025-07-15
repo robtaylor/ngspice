@@ -111,6 +111,12 @@ BSIM4v7instance *here = (BSIM4v7instance*)inst;
         case BSIM4v7_DELVTO:
             value->rValue = here->BSIM4v7delvto;
             return(OK);
+        case BSIM4v7_MULU0:
+            value->rValue = here->BSIM4v7mulu0;
+            return(OK);
+        case BSIM4v7_WNFLAG:
+            value->iValue = here->BSIM4v7wnflag;
+            return(OK);
         case BSIM4v7_XGW:
             value->rValue = here->BSIM4v7xgw;
             return(OK);
@@ -396,6 +402,30 @@ BSIM4v7instance *here = (BSIM4v7instance*)inst;
             return(OK);
         case BSIM4v7_QBD:
             value->rValue = *(ckt->CKTstate0 + here->BSIM4v7qbd); 
+            return(OK);
+        case BSIM4v7_VGSTEFF:
+            value->rValue = here->BSIM4v7Vgsteff;
+            return(OK);
+        case BSIM4v7_VDSEFF:
+            value->rValue = here->BSIM4v7Vdseff;
+            return(OK);
+        case BSIM4v7_CGSO:
+            value->rValue = here->BSIM4v7cgso;
+            value->rValue *= here->BSIM4v7m;
+            return(OK);
+        case BSIM4v7_CGDO:
+            value->rValue = here->BSIM4v7cgdo;
+            value->rValue *= here->BSIM4v7m;
+            return(OK);
+        case BSIM4v7_CGBO:
+            value->rValue = here->pParam->BSIM4v7cgbo;
+            value->rValue *= here->BSIM4v7m;
+            return(OK);
+        case BSIM4v7_WEFF:
+            value->rValue = here->pParam->BSIM4v7weff;
+            return(OK);
+        case BSIM4v7_LEFF:
+            value->rValue = here->pParam->BSIM4v7leff;
             return(OK);
         default:
             return(E_BADPARM);

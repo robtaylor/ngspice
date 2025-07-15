@@ -21,15 +21,21 @@ Modified by Paolo Nenzi 2002
 
 typedef struct sB3SOIDDinstance
 {
-    struct sB3SOIDDmodel *B3SOIDDmodPtr;
-    struct sB3SOIDDinstance *B3SOIDDnextInstance;
-    IFuid B3SOIDDname;
-    int B3SOIDDstates;     /* index into state table for this device */
 
-    int B3SOIDDdNode;
-    int B3SOIDDgNode;
-    int B3SOIDDsNode;
-    int B3SOIDDeNode;
+    struct GENinstance gen;
+
+#define B3SOIDDmodPtr(inst) ((struct sB3SOIDDmodel *)((inst)->gen.GENmodPtr))
+#define B3SOIDDnextInstance(inst) ((struct sB3SOIDDinstance *)((inst)->gen.GENnextInstance))
+#define B3SOIDDname gen.GENname
+#define B3SOIDDstates gen.GENstate
+
+    const int B3SOIDDdNode;
+    const int B3SOIDDgNode;
+    const int B3SOIDDsNode;
+    const int B3SOIDDeNode;
+    const int B3SOIDDbNodeExt;
+    const int B3SOIDDtempNodeExt;
+    const int B3SOIDDpNodeExt;
     int B3SOIDDbNode;
     int B3SOIDDtempNode;
     int B3SOIDDpNode;  
@@ -414,6 +420,102 @@ typedef struct sB3SOIDDinstance
         double **B3SOIDDnVar;
 #endif /* NONOISE */
 
+#ifdef KLU
+    BindElement *B3SOIDDTemptempBinding ;
+    BindElement *B3SOIDDTempdpBinding ;
+    BindElement *B3SOIDDTempspBinding ;
+    BindElement *B3SOIDDTempgBinding ;
+    BindElement *B3SOIDDTempbBinding ;
+    BindElement *B3SOIDDTempeBinding ;
+    BindElement *B3SOIDDGtempBinding ;
+    BindElement *B3SOIDDDPtempBinding ;
+    BindElement *B3SOIDDSPtempBinding ;
+    BindElement *B3SOIDDEtempBinding ;
+    BindElement *B3SOIDDBtempBinding ;
+    BindElement *B3SOIDDPtempBinding ;
+    BindElement *B3SOIDDBpBinding ;
+    BindElement *B3SOIDDPbBinding ;
+    BindElement *B3SOIDDPpBinding ;
+    BindElement *B3SOIDDPgBinding ;
+    BindElement *B3SOIDDPdpBinding ;
+    BindElement *B3SOIDDPspBinding ;
+    BindElement *B3SOIDDPeBinding ;
+    BindElement *B3SOIDDEgBinding ;
+    BindElement *B3SOIDDEdpBinding ;
+    BindElement *B3SOIDDEspBinding ;
+    BindElement *B3SOIDDGeBinding ;
+    BindElement *B3SOIDDDPeBinding ;
+    BindElement *B3SOIDDSPeBinding ;
+    BindElement *B3SOIDDEbBinding ;
+    BindElement *B3SOIDDGbBinding ;
+    BindElement *B3SOIDDDPbBinding ;
+    BindElement *B3SOIDDSPbBinding ;
+    BindElement *B3SOIDDBeBinding ;
+    BindElement *B3SOIDDBgBinding ;
+    BindElement *B3SOIDDBdpBinding ;
+    BindElement *B3SOIDDBspBinding ;
+    BindElement *B3SOIDDBbBinding ;
+    BindElement *B3SOIDDEeBinding ;
+    BindElement *B3SOIDDGgBinding ;
+    BindElement *B3SOIDDGdpBinding ;
+    BindElement *B3SOIDDGspBinding ;
+    BindElement *B3SOIDDDPgBinding ;
+    BindElement *B3SOIDDDPdpBinding ;
+    BindElement *B3SOIDDDPspBinding ;
+    BindElement *B3SOIDDDPdBinding ;
+    BindElement *B3SOIDDSPgBinding ;
+    BindElement *B3SOIDDSPdpBinding ;
+    BindElement *B3SOIDDSPspBinding ;
+    BindElement *B3SOIDDSPsBinding ;
+    BindElement *B3SOIDDDdBinding ;
+    BindElement *B3SOIDDDdpBinding ;
+    BindElement *B3SOIDDSsBinding ;
+    BindElement *B3SOIDDSspBinding ;
+    BindElement *B3SOIDDVbsBinding ;
+    BindElement *B3SOIDDIdsBinding ;
+    BindElement *B3SOIDDIcBinding ;
+    BindElement *B3SOIDDIbsBinding ;
+    BindElement *B3SOIDDIbdBinding ;
+    BindElement *B3SOIDDIiiBinding ;
+    BindElement *B3SOIDDIgidlBinding ;
+    BindElement *B3SOIDDItunBinding ;
+    BindElement *B3SOIDDIbpBinding ;
+    BindElement *B3SOIDDAbeffBinding ;
+    BindElement *B3SOIDDVbs0effBinding ;
+    BindElement *B3SOIDDVbseffBinding ;
+    BindElement *B3SOIDDXcBinding ;
+    BindElement *B3SOIDDCbbBinding ;
+    BindElement *B3SOIDDCbdBinding ;
+    BindElement *B3SOIDDCbgBinding ;
+    BindElement *B3SOIDDqbBinding ;
+    BindElement *B3SOIDDQbfBinding ;
+    BindElement *B3SOIDDQjsBinding ;
+    BindElement *B3SOIDDQjdBinding ;
+    BindElement *B3SOIDDGmBinding ;
+    BindElement *B3SOIDDGmbsBinding ;
+    BindElement *B3SOIDDGdsBinding ;
+    BindElement *B3SOIDDGmeBinding ;
+    BindElement *B3SOIDDVbs0teffBinding ;
+    BindElement *B3SOIDDVthBinding ;
+    BindElement *B3SOIDDVgsteffBinding ;
+    BindElement *B3SOIDDXcsatBinding ;
+    BindElement *B3SOIDDVcscvBinding ;
+    BindElement *B3SOIDDVdscvBinding ;
+    BindElement *B3SOIDDCbeBinding ;
+    BindElement *B3SOIDDDum1Binding ;
+    BindElement *B3SOIDDDum2Binding ;
+    BindElement *B3SOIDDDum3Binding ;
+    BindElement *B3SOIDDDum4Binding ;
+    BindElement *B3SOIDDDum5Binding ;
+    BindElement *B3SOIDDQaccBinding ;
+    BindElement *B3SOIDDQsub0Binding ;
+    BindElement *B3SOIDDQsubs1Binding ;
+    BindElement *B3SOIDDQsubs2Binding ;
+    BindElement *B3SOIDDqeBinding ;
+    BindElement *B3SOIDDqdBinding ;
+    BindElement *B3SOIDDqgBinding ;
+#endif
+
 } B3SOIDDinstance ;
 
 struct b3soiddSizeDependParam
@@ -594,12 +696,13 @@ struct b3soiddSizeDependParam
 
 typedef struct sB3SOIDDmodel 
 {
-    int B3SOIDDmodType;
-    struct sB3SOIDDmodel *B3SOIDDnextModel;
-    B3SOIDDinstance *B3SOIDDinstances;
-    IFuid B3SOIDDmodName; 
 
-    /* --- end of generic struct GENmodel --- */
+    struct GENmodel gen;
+
+#define B3SOIDDmodType gen.GENmodType
+#define B3SOIDDnextModel(inst) ((struct sB3SOIDDmodel *)((inst)->gen.GENnextModel))
+#define B3SOIDDinstances(inst) ((B3SOIDDinstance *)((inst)->gen.GENinstances))
+#define B3SOIDDmodName gen.GENmodName
 
     int B3SOIDDtype;
 

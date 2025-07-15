@@ -1,8 +1,10 @@
 /*.......1.........2.........3.........4.........5.........6.........7.........8
 ================================================================================
-Copyright 1991
-Georgia Tech Research Corporation, Atlanta, Ga. 30332
-All Rights Reserved
+Public Domain
+
+Georgia Tech Research Corporation
+Atlanta, Georgia 30332
+
 
 AUTHORS                      
 
@@ -46,15 +48,30 @@ Vector:              no                          no
 Vector_Bounds:       -                           -
 Null_Allowed:       yes                         yes    
 
+PARAMETER_TABLE:
+
+Parameter_Name:     input_load			family
+Description:        "input load value (F)"	"Logic family for bridging"
+Data_Type:          real                        string
+Default_Value:      1.0e-12                     -
+Limits:             -                           -
+Vector:             no                          no
+Vector_Bounds:      -                           -
+Null_Allowed:       yes                         yes
 
 PARAMETER_TABLE:
 
-Parameter_Name:     input_load
-Description:        "input load value (F)" 
-Data_Type:          real                          
-Default_Value:      1.0e-12                    
-Limits:             -                                 
-Vector:              no                         
-Vector_Bounds:       -                         
-Null_Allowed:       yes                            
+Parameter_Name:     inertial_delay
+Description:        "swallow short pulses"
+Data_Type:          boolean
+Default_Value:      false
+Limits:             -
+Vector:             no
+Vector_Bounds:      -
+Null_Allowed:       yes
 
+STATIC_VAR_TABLE:
+
+Static_Var_Name:    is_inertial
+Data_Type:	    boolean
+Description:        "using inertial delay"

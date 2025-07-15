@@ -1,9 +1,9 @@
 /**********
-Copyright 1992 Regents of the University of California.  All rights
+Copyright 2021 The ngspice team  All rights
 reserved.
-Author: 1992 Charles Hough
+Author: 2021 Holger Vogt
+3-clause BSD license
 **********/
-
 
 #include "ngspice/ngspice.h"
 #include "cpldefs.h"
@@ -12,30 +12,13 @@ Author: 1992 Charles Hough
 
 
 int
-CPLmDelete(GENmodel **inModel, IFuid modname, GENmodel *kill)
+CPLmDelete(GENmodel *gen_model)
 {
-    CPLmodel **model = (CPLmodel **)inModel;
-    CPLmodel *modfast = (CPLmodel *)kill;
-    CPLinstance *here;
-    CPLinstance *prev = NULL;
-    CPLmodel **oldmod;
-    oldmod = model;
+    CPLmodel *model = (CPLmodel *)gen_model;
 
-    for( ; *model ; model = &((*model)->CPLnextModel)) {
-        if( (*model)->CPLmodName == modname || 
-                (modfast && *model == modfast) ) goto delgot;
-        oldmod = model;
-    }
-    return(E_NOMOD);
-
-delgot:
-    *oldmod = (*model)->CPLnextModel; /* cut deleted device out of list */
-    for(here = (*model)->CPLinstances ; here ; here = here->CPLnextInstance) {
-        if(prev) FREE(prev);
-        prev = here;
-    }
-    if(prev) FREE(prev);
-    FREE(*model);
-    return(OK);
-
+    FREE(model->Rm);
+    FREE(model->Lm);
+    FREE(model->Gm);
+    FREE(model->Cm);
+    return OK;
 }

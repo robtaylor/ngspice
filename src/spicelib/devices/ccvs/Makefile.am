@@ -6,15 +6,12 @@ libccvs_la_SOURCES =	\
 	ccvs.c		\
 	ccvsask.c	\
 	ccvsdefs.h	\
-	ccvsdel.c	\
-	ccvsdest.c	\
 	ccvsext.h	\
 	ccvsfbr.c	\
 	ccvsinit.c	\
 	ccvsinit.h	\
 	ccvsitf.h	\
 	ccvsload.c	\
-	ccvsmdel.c	\
 	ccvspar.c	\
 	ccvspzld.c	\
 	ccvssacl.c	\
@@ -24,6 +21,9 @@ libccvs_la_SOURCES =	\
 	ccvssset.c
 
 
+if KLU_WANTED
+libccvs_la_SOURCES += ccvsbindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)

@@ -29,11 +29,11 @@ CAPtemp(GENmodel *inModel, CKTcircuit *ckt)
     double tc1, tc2;
 
     /*  loop through all the capacitor models */
-    for( ; model != NULL; model = model->CAPnextModel ) {
+    for( ; model != NULL; model = CAPnextModel(model)) {
 
         /* loop through all the instances of the model */
-        for (here = model->CAPinstances; here != NULL ;
-                here=here->CAPnextInstance) {
+        for (here = CAPinstances(model); here != NULL ;
+                here=CAPnextInstance(here)) {
 
             /* Default Value Processing for Capacitor Instance */
             if(!here->CAPtempGiven) {
@@ -41,9 +41,14 @@ CAPtemp(GENmodel *inModel, CKTcircuit *ckt)
                 if(!here->CAPdtempGiven)   here->CAPdtemp  = 0.0;
             } else { /* CAPtempGiven */
                 here->CAPdtemp = 0.0;
-                if (here->CAPdtempGiven)
-                    printf("%s: Instance temperature specified, dtemp ignored\n",
+                if (here->CAPdtempGiven &&
+                    ckt->CKTcurJob && ckt->CKTcurJob->JOBtype != 9) {
+                    /* Keep quiet in sensistivity analysis. */
+
+                    printf("%s: Instance temperature specified, "
+                           "dtemp ignored\n",
                            here->CAPname);
+                }
             }
 
             if (!here->CAPwidthGiven) {
@@ -52,7 +57,7 @@ CAPtemp(GENmodel *inModel, CKTcircuit *ckt)
             if (!here->CAPscaleGiven) here->CAPscale = 1.0;
             if (!here->CAPmGiven)     here->CAPm     = 1.0;
 
-            if (!here->CAPcapGiven)  { /* No instance capacitance given */
+            if (!here->CAPcapGiven) { /* No instance capacitance given */
                 if (!model->CAPmCapGiven) { /* No model capacitange given */
                     here->CAPcapac =
                         model->CAPcj *
@@ -60,11 +65,14 @@ CAPtemp(GENmodel *inModel, CKTcircuit *ckt)
                         (here->CAPlength - model->CAPshort) +
                         model->CAPcjsw * 2 * (
                             (here->CAPlength - model->CAPshort) +
-                            (here->CAPwidth - model->CAPnarrow) );
-                } else {
+                            (here->CAPwidth - model->CAPnarrow));
+                }
+                else {
                     here->CAPcapac = model->CAPmCap;
                 }
             }
+            else
+                here->CAPcapac = here->CAPcapacinst; /* reset capacitance to instance value */
 
             difference = (here->CAPtemp + here->CAPdtemp) - model->CAPtnom;
 

@@ -129,6 +129,7 @@ void INPptPrint(char *str, IFparseTree * ptree);
 #define PTF_CEIL	34
 #define PTF_FLOOR	35
 #define PTF_NINT	36
+#define PTF_DDT	37
 
 /* The following things are used by the parser -- these are the token types the
  * lexer returns.
@@ -165,6 +166,10 @@ typedef struct PTelement {
 } PTelement ;
 
 #define PT_STACKSIZE 200
+
+/* limits for exp function */
+#define EXPARGMAX 14.
+#define EXPMAX 1202604.284
 
 /* And in IFeval.c */
 

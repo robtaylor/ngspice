@@ -45,11 +45,11 @@ DIOdSetup(DIOmodel *model, CKTcircuit *ckt)
 	double cjunc1SW,cjunc2SW,cjunc3SW;
 
 	/*  loop through all the diode models */
-	for( ; model != NULL; model = model->DIOnextModel ) {
+	for( ; model != NULL; model = DIOnextModel(model)) {
 
 		/* loop through all the instances of the model */
-		for (here = model->DIOinstances; here != NULL ;
-                here=here->DIOnextInstance) {
+		for (here = DIOinstances(model); here != NULL ;
+		     here=DIOnextInstance(here)) {
 
                       /*
                 *  this routine loads diodes for dc and transient analyses.
@@ -60,7 +60,7 @@ DIOdSetup(DIOmodel *model, CKTcircuit *ckt)
 		*           This is an old analysis anyway....
 		*/
 
-                        csat=(here->DIOtSatCur*here->DIOarea+here->DIOtSatSWCur*here->DIOpj)*here->DIOm;
+            csat=here->DIOtSatCur+here->DIOtSatSWCur; // area and multiplier are already counted in tSatCur and tSatSWCur
 			vt = CONSTKoverQ * here->DIOtemp;
 			vte=model->DIOemissionCoeff * vt;
 	    		vd = *(ckt->CKTrhsOld + (here->DIOposPrimeNode)) -
@@ -100,13 +100,12 @@ DIOdSetup(DIOmodel *model, CKTcircuit *ckt)
 				/* why using csat instead of breakdowncurrent? */
 				evrev=exp(-(here->DIOtBrkdwnV+vd)/vt);
 				cd = -csat*evrev;
-                                gd = csat*evrev/vte;
+				gd = csat*evrev/vt;
 				/*
                       * cd = -csat*(evrev-1+here->DIOtBrkdwnV/vt);
                       */
 				/* should there be a minus here above? 
 		      */
-				gd=csat*evrev/vt;
 				g2 = -gd/2/vt;
 				g3 = -g2/3/vt;
 				cdiff3 = cdiff2 = 0;
@@ -114,7 +113,7 @@ DIOdSetup(DIOmodel *model, CKTcircuit *ckt)
 			/*
 			                 *   junction charge storage elements
 			                 */
-                        czero=here->DIOtJctCap*here->DIOarea*here->DIOm;
+            czero=here->DIOtJctCap; // area and multiplier are already counted in DIOtJctCap
 			if (czero != 0.0) {
 			  if (vd < here->DIOtDepCap){
 			  	arg=1-vd/model->DIOjunctionPot;
@@ -144,7 +143,7 @@ DIOdSetup(DIOmodel *model, CKTcircuit *ckt)
 			{
 			  cjunc1 = cjunc2 = cjunc3 = 0.0;
 			}
-                        czeroSW=+here->DIOtJctSWCap*here->DIOpj*here->DIOm;
+            czeroSW=+here->DIOtJctSWCap; // pj and multiplier are already counted in DIOtJctSWCap
 			if (czeroSW != 0.0) {
 			  if (vd < here->DIOtDepCap){
 			  	arg=1-vd/model->DIOjunctionSWPot;

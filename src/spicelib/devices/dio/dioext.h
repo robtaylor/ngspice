@@ -7,12 +7,9 @@ Modified: 2000 AlansFixes
 extern int DIOacLoad(GENmodel*,CKTcircuit*);
 extern int DIOask(CKTcircuit*,GENinstance*,int,IFvalue*,IFvalue*);
 extern int DIOconvTest(GENmodel *,CKTcircuit*);
-extern int DIOdelete(GENmodel*,IFuid,GENinstance**);
-extern void DIOdestroy(GENmodel**);
 extern int DIOgetic(GENmodel*,CKTcircuit*);
 extern int DIOload(GENmodel*,CKTcircuit*);
 extern int DIOmAsk(CKTcircuit*,GENmodel*,int,IFvalue*);
-extern int DIOmDelete(GENmodel**,IFuid,GENmodel*);
 extern int DIOmParam(int,IFvalue*,GENmodel*);
 extern int DIOparam(int,IFvalue*,GENinstance*,IFvalue*);
 extern int DIOpzLoad(GENmodel*,CKTcircuit*,SPcomplex*);
@@ -30,3 +27,8 @@ extern int DIOnoise(int,int,GENmodel*,CKTcircuit*,Ndata*,double*);
 extern int DIOdSetup(DIOmodel*,CKTcircuit*);
 extern int DIOsoaCheck(CKTcircuit *, GENmodel *);
 
+#ifdef KLU
+extern int DIObindCSC (GENmodel*, CKTcircuit*) ;
+extern int DIObindCSCComplex (GENmodel*, CKTcircuit*) ;
+extern int DIObindCSCComplexToReal (GENmodel*, CKTcircuit*) ;
+#endif

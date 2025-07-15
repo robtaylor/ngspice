@@ -37,6 +37,7 @@ NUMDdump(GENmodel *inModel, CKTcircuit *ckt)
   char *prefix;
   int *state_num;
   int anyOutput = 0;
+  bool writeAscii = TRUE;
 
   if (ckt->CKTmode & MODEDCOP) {
     prefix = "OP";
@@ -55,10 +56,10 @@ NUMDdump(GENmodel *inModel, CKTcircuit *ckt)
     return;
   }
 
-  for (; model != NULL; model = model->NUMDnextModel) {
+  for (; model != NULL; model = NUMDnextModel(model)) {
     output = model->NUMDoutputs;
-    for (inst = model->NUMDinstances; inst != NULL;
-	inst = inst->NUMDnextInstance) {
+    for (inst = NUMDinstances(model); inst != NULL;
+         inst = NUMDnextInstance(inst)) {
 
       if (inst->NUMDprintGiven) {
 	if ((ckt->CKTmode & MODETRAN) &&
@@ -68,12 +69,16 @@ NUMDdump(GENmodel *inModel, CKTcircuit *ckt)
 	anyOutput = 1;
 	sprintf(fileName, "%s%s.%d.%s", output->OUTProotFile, prefix,
 	    *state_num, inst->NUMDname);
-	if ((fpState = fopen(fileName, "wb")) == NULL) {
+
+	writeAscii = compareFiletypeVar("ascii");
+
+	fpState = fopen(fileName, (writeAscii ? "w" : "wb"));
+	if (!fpState) {
 	  perror(fileName);
 	} else {
 	  NUMDputHeader(fpState, ckt, inst);
 	  ONEprnSolution(fpState, inst->NUMDpDevice,
-	      model->NUMDoutputs);
+	      model->NUMDoutputs, writeAscii, "numd");
 	  fclose(fpState);
 	  LOGmakeEntry(fileName, description);
 	}
@@ -142,10 +147,10 @@ NUMDacct(GENmodel *inModel, CKTcircuit *ckt, FILE *file)
 
   NG_IGNORE(ckt);
 
-  for (; model != NULL; model = model->NUMDnextModel) {
+  for (; model != NULL; model = NUMDnextModel(model)) {
     output = model->NUMDoutputs;
-    for (inst = model->NUMDinstances; inst != NULL;
-	inst = inst->NUMDnextInstance) {
+    for (inst = NUMDinstances(model); inst != NULL;
+         inst = NUMDnextInstance(inst)) {
 
       if (output->OUTPstats) {
 	ONEmemStats(file, inst->NUMDpDevice);

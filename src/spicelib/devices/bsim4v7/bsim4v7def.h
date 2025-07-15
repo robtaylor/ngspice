@@ -30,14 +30,18 @@ Modified by Wenwei Yang, 07/31/2008.
 
 typedef struct sBSIM4v7instance
 {
-    struct sBSIM4v7model *BSIM4v7modPtr;
-    struct sBSIM4v7instance *BSIM4v7nextInstance;
-    IFuid BSIM4v7name;
-    int BSIM4v7states;     /* index into state table for this device */
-    int BSIM4v7dNode;
-    int BSIM4v7gNodeExt;
-    int BSIM4v7sNode;
-    int BSIM4v7bNode;
+
+    struct GENinstance gen;
+
+#define BSIM4v7modPtr(inst) ((struct sBSIM4v7model *)((inst)->gen.GENmodPtr))
+#define BSIM4v7nextInstance(inst) ((struct sBSIM4v7instance *)((inst)->gen.GENnextInstance))
+#define BSIM4v7name gen.GENname
+#define BSIM4v7states gen.GENstate
+
+    const int BSIM4v7dNode;
+    const int BSIM4v7gNodeExt;
+    const int BSIM4v7sNode;
+    const int BSIM4v7bNode;
     int BSIM4v7dNodePrime;
     int BSIM4v7gNodePrime;
     int BSIM4v7gNodeMid;
@@ -108,6 +112,8 @@ typedef struct sBSIM4v7instance
     double BSIM4v7rbpd;
 
     double BSIM4v7delvto;
+    double BSIM4v7mulu0;
+    int BSIM4v7wnflag;
     double BSIM4v7xgw;
     double BSIM4v7ngcon;
 
@@ -292,6 +298,8 @@ typedef struct sBSIM4v7instance
     unsigned BSIM4v7rbpdGiven   :1;
     unsigned BSIM4v7rbpsGiven   :1;
     unsigned BSIM4v7delvtoGiven   :1;
+    unsigned BSIM4v7mulu0Given   :1;
+    unsigned BSIM4v7wnflagGiven   :1;
     unsigned BSIM4v7xgwGiven   :1;
     unsigned BSIM4v7ngconGiven   :1;
     unsigned BSIM4v7icVDSGiven :1;
@@ -569,6 +577,79 @@ typedef struct sBSIM4v7instance
         double **BSIM4v7nVar;
 #endif /* NONOISE */
 
+#ifdef KLU
+    BindElement *BSIM4v7DPbpBinding ;
+    BindElement *BSIM4v7GPbpBinding ;
+    BindElement *BSIM4v7SPbpBinding ;
+    BindElement *BSIM4v7BPdpBinding ;
+    BindElement *BSIM4v7BPgpBinding ;
+    BindElement *BSIM4v7BPspBinding ;
+    BindElement *BSIM4v7BPbpBinding ;
+    BindElement *BSIM4v7DdBinding ;
+    BindElement *BSIM4v7GPgpBinding ;
+    BindElement *BSIM4v7SsBinding ;
+    BindElement *BSIM4v7DPdpBinding ;
+    BindElement *BSIM4v7SPspBinding ;
+    BindElement *BSIM4v7DdpBinding ;
+    BindElement *BSIM4v7GPdpBinding ;
+    BindElement *BSIM4v7GPspBinding ;
+    BindElement *BSIM4v7SspBinding ;
+    BindElement *BSIM4v7DPspBinding ;
+    BindElement *BSIM4v7DPdBinding ;
+    BindElement *BSIM4v7DPgpBinding ;
+    BindElement *BSIM4v7SPgpBinding ;
+    BindElement *BSIM4v7SPsBinding ;
+    BindElement *BSIM4v7SPdpBinding ;
+    BindElement *BSIM4v7QqBinding ;
+    BindElement *BSIM4v7QbpBinding ;
+    BindElement *BSIM4v7QdpBinding ;
+    BindElement *BSIM4v7QspBinding ;
+    BindElement *BSIM4v7QgpBinding ;
+    BindElement *BSIM4v7DPqBinding ;
+    BindElement *BSIM4v7SPqBinding ;
+    BindElement *BSIM4v7GPqBinding ;
+    BindElement *BSIM4v7GEgeBinding ;
+    BindElement *BSIM4v7GEgpBinding ;
+    BindElement *BSIM4v7GPgeBinding ;
+    BindElement *BSIM4v7GEdpBinding ;
+    BindElement *BSIM4v7GEspBinding ;
+    BindElement *BSIM4v7GEbpBinding ;
+    BindElement *BSIM4v7GMdpBinding ;
+    BindElement *BSIM4v7GMgpBinding ;
+    BindElement *BSIM4v7GMgmBinding ;
+    BindElement *BSIM4v7GMgeBinding ;
+    BindElement *BSIM4v7GMspBinding ;
+    BindElement *BSIM4v7GMbpBinding ;
+    BindElement *BSIM4v7DPgmBinding ;
+    BindElement *BSIM4v7GPgmBinding ;
+    BindElement *BSIM4v7GEgmBinding ;
+    BindElement *BSIM4v7SPgmBinding ;
+    BindElement *BSIM4v7BPgmBinding ;
+    BindElement *BSIM4v7DPdbBinding ;
+    BindElement *BSIM4v7SPsbBinding ;
+    BindElement *BSIM4v7DBdpBinding ;
+    BindElement *BSIM4v7DBdbBinding ;
+    BindElement *BSIM4v7DBbpBinding ;
+    BindElement *BSIM4v7DBbBinding ;
+    BindElement *BSIM4v7BPdbBinding ;
+    BindElement *BSIM4v7BPbBinding ;
+    BindElement *BSIM4v7BPsbBinding ;
+    BindElement *BSIM4v7SBspBinding ;
+    BindElement *BSIM4v7SBbpBinding ;
+    BindElement *BSIM4v7SBbBinding ;
+    BindElement *BSIM4v7SBsbBinding ;
+    BindElement *BSIM4v7BdbBinding ;
+    BindElement *BSIM4v7BbpBinding ;
+    BindElement *BSIM4v7BsbBinding ;
+    BindElement *BSIM4v7BbBinding ;
+    BindElement *BSIM4v7DgpBinding ;
+    BindElement *BSIM4v7DspBinding ;
+    BindElement *BSIM4v7DbpBinding ;
+    BindElement *BSIM4v7SdpBinding ;
+    BindElement *BSIM4v7SgpBinding ;
+    BindElement *BSIM4v7SbpBinding ;
+#endif
+
 } BSIM4v7instance ;
 
 struct bsim4SizeDependParam
@@ -811,12 +892,13 @@ struct bsim4SizeDependParam
 
 typedef struct sBSIM4v7model
 {
-    int BSIM4v7modType;
-    struct sBSIM4v7model *BSIM4v7nextModel;
-    BSIM4v7instance *BSIM4v7instances;
-    IFuid BSIM4v7modName;
 
-    /* --- end of generic struct GENmodel --- */
+    struct GENmodel gen;
+
+#define BSIM4v7modType gen.GENmodType
+#define BSIM4v7nextModel(inst) ((struct sBSIM4v7model *)((inst)->gen.GENnextModel))
+#define BSIM4v7instances(inst) ((BSIM4v7instance *)((inst)->gen.GENinstances))
+#define BSIM4v7modName gen.GENmodName
 
     int BSIM4v7type;
 
@@ -1773,6 +1855,11 @@ typedef struct sBSIM4v7model
     double BSIM4v7vdsMax;
     double BSIM4v7vbsMax;
     double BSIM4v7vbdMax;
+    double BSIM4v7vgsrMax;
+    double BSIM4v7vgdrMax;
+    double BSIM4v7vgbrMax;
+    double BSIM4v7vbsrMax;
+    double BSIM4v7vbdrMax;
 
     struct bsim4SizeDependParam *pSizeDependParamKnot;
 
@@ -2636,6 +2723,11 @@ typedef struct sBSIM4v7model
     unsigned  BSIM4v7vdsMaxGiven  :1;
     unsigned  BSIM4v7vbsMaxGiven  :1;
     unsigned  BSIM4v7vbdMaxGiven  :1;
+    unsigned  BSIM4v7vgsrMaxGiven  :1;
+    unsigned  BSIM4v7vgdrMaxGiven  :1;
+    unsigned  BSIM4v7vgbrMaxGiven  :1;
+    unsigned  BSIM4v7vbsrMaxGiven  :1;
+    unsigned  BSIM4v7vbdrMaxGiven  :1;
 
     unsigned  BSIM4v7LintGiven   :1;
     unsigned  BSIM4v7LlGiven   :1;
@@ -2749,6 +2841,8 @@ typedef struct sBSIM4v7model
 #define BSIM4v7_SCC                 36
 #define BSIM4v7_SC                  37
 #define BSIM4v7_M                   38
+#define BSIM4v7_MULU0               39
+#define BSIM4v7_WNFLAG              40
 
 /* Global parameters */
 #define BSIM4v7_MOD_TEMPEOT         65
@@ -3752,12 +3846,26 @@ typedef struct sBSIM4v7model
 #define BSIM4v7_MOD_TNOIC             1272
 #define BSIM4v7_MOD_RNOIC             1273
 
-#define BSIM4v7_MOD_VGS_MAX            1301
-#define BSIM4v7_MOD_VGD_MAX            1302
-#define BSIM4v7_MOD_VGB_MAX            1303
-#define BSIM4v7_MOD_VDS_MAX            1304
-#define BSIM4v7_MOD_VBS_MAX            1305
-#define BSIM4v7_MOD_VBD_MAX            1306
+#define BSIM4v7_MOD_VGS_MAX           1301
+#define BSIM4v7_MOD_VGD_MAX           1302
+#define BSIM4v7_MOD_VGB_MAX           1303
+#define BSIM4v7_MOD_VDS_MAX           1304
+#define BSIM4v7_MOD_VBS_MAX           1305
+#define BSIM4v7_MOD_VBD_MAX           1306
+#define BSIM4v7_MOD_VGSR_MAX          1307
+#define BSIM4v7_MOD_VGDR_MAX          1308
+#define BSIM4v7_MOD_VGBR_MAX          1309
+#define BSIM4v7_MOD_VBSR_MAX          1310
+#define BSIM4v7_MOD_VBDR_MAX          1311
+
+#define BSIM4v7_VGSTEFF                 1400
+#define BSIM4v7_VDSEFF                  1401
+#define BSIM4v7_CGSO                    1402
+#define BSIM4v7_CGDO                    1403
+#define BSIM4v7_CGBO                    1404
+#define BSIM4v7_WEFF                    1405
+#define BSIM4v7_LEFF                    1406
+
 
 #include "bsim4v7ext.h"
 

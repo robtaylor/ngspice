@@ -3,7 +3,8 @@ Base on jfettemp.c
 Copyright 1990 Regents of the University of California.  All rights reserved.
 Author: 1985 Thomas L. Quarles
 
-Modified to add PS model and new parameter definitions ( Anthony E. Parker )
+Modified to add PS model and new parameter definitions ( Anthony E. Parker ).
+See https://ngspice.sourceforge.io/external-documents/models/psfet.pdf
    Copyright 1994  Macquarie University, Sydney Australia.
    10 Feb 1994: Call to PSinstanceinit() added
                 Change gatePotential to phi and used rs and rd for 
@@ -40,7 +41,7 @@ JFET2temp(GENmodel *inModel, CKTcircuit *ckt)
     double cjfact,cjfact1;
 
     /*  loop through all the diode models */
-    for( ; model != NULL; model = model->JFET2nextModel ) {
+    for( ; model != NULL; model = JFET2nextModel(model)) {
 
         if(!(model->JFET2tnomGiven)) {
             model->JFET2tnom = ckt->CKTnomTemp;
@@ -78,8 +79,8 @@ JFET2temp(GENmodel *inModel, CKTcircuit *ckt)
         model->JFET2f3 = 1 - model->JFET2fc * (1 + .5);
 
         /* loop through all the instances of the model */
-        for (here = model->JFET2instances; here != NULL ;
-                here=here->JFET2nextInstance) {
+        for (here = JFET2instances(model); here != NULL ;
+                here=JFET2nextInstance(here)) {
 
             if(!(here->JFET2dtempGiven)) {
                 here->JFET2dtemp = 0.0;

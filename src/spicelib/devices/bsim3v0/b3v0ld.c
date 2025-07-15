@@ -119,9 +119,9 @@ struct bsim3v0SizeDependParam *pParam;
 int ByPass, Check, ChargeComputationNeeded = 0, error;
 double m = 1.0;
 
-for (; model != NULL; model = model->BSIM3v0nextModel)
-{    for (here = model->BSIM3v0instances; here != NULL; 
-          here = here->BSIM3v0nextInstance)
+for (; model != NULL; model = BSIM3v0nextModel(model))
+{    for (here = BSIM3v0instances(model); here != NULL; 
+          here = BSIM3v0nextInstance(here))
      {
           Check = 1;
           ByPass = 0;
@@ -1847,10 +1847,12 @@ line900:
 	   if (model->BSIM3v0type > 0)
 	   {   ceqbs += (here->BSIM3v0cbs - (here->BSIM3v0gbs - ckt->CKTgmin) * vbs);
                ceqbd += (here->BSIM3v0cbd - (here->BSIM3v0gbd - ckt->CKTgmin) * vbd);
+               /*
                ceqqg = ceqqg;
                ceqqb = ceqqb;
                ceqqd = ceqqd;
                cqcheq = cqcheq;
+               */
 	   }
 	   else
 	   {   ceqbs = -ceqbs - (here->BSIM3v0cbs - (here->BSIM3v0gbs

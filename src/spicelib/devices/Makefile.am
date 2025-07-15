@@ -27,8 +27,10 @@ SUBDIRS = \
 	isrc	\
 	hfet1	\
 	hfet2	\
+	hicum2	\
 	hisim2	\
 	hisimhv1	\
+	hisimhv2	\
 	jfet	\
 	jfet2	\
 	ltra	\
@@ -48,8 +50,8 @@ SUBDIRS = \
 	vbic	\
 	vccs	\
 	vcvs	\
-	vsrc	\
-	@VLADEVDIR@
+	vdmos	\
+	vsrc	
 
 if NDEV_WANTED
 SUBDIRS += ndev
@@ -60,7 +62,6 @@ SUBDIRS += nbjt nbjt2 numd  numd2 numos
 endif
 
 DIST_SUBDIRS = \
-	@VLADEVDIR@ \
 	asrc	\
 	bjt	\
 	bsim1	\
@@ -87,8 +88,10 @@ DIST_SUBDIRS = \
 	isrc	\
 	hfet1	\
 	hfet2	\
+	hicum2	\
 	hisim2	\
 	hisimhv1	\
+	hisimhv2	\
 	jfet	\
 	jfet2	\
 	ltra	\
@@ -109,6 +112,7 @@ DIST_SUBDIRS = \
 	vbic	\
 	vccs	\
 	vcvs	\
+	vdmos	\
 	vsrc	\
 	nbjt	\
 	nbjt2	\
@@ -132,8 +136,6 @@ libdev_la_SOURCES =	\
 	cktinit.c	\
 	cktsoachk.c	\
 	limit.c
-
-EXTRA_DIST = @NOTVLADEVDIR@
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include -I$(top_srcdir)/src/spicelib/devices
 AM_CFLAGS = $(STATIC)

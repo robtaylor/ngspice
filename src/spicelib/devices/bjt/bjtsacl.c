@@ -92,11 +92,11 @@ BJTsAcLoad(GENmodel *inModel, CKTcircuit *ckt)
     info->SENstatus = PERTURBATION;
 
     /*  loop through all the models */
-    for( ; model != NULL; model = model->BJTnextModel ) {
+    for( ; model != NULL; model = BJTnextModel(model)) {
 
         /* loop through all the instances of the model */
-        for (here = model->BJTinstances; here != NULL ;
-                here=here->BJTnextInstance) {
+        for (here = BJTinstances(model); here != NULL ;
+                here=BJTnextInstance(here)) {
 
 
             /* save the unperturbed values in the state vector */
@@ -168,8 +168,8 @@ BJTsAcLoad(GENmodel *inModel, CKTcircuit *ckt)
                 *(here->BJTsenCsub)= *(ckt->CKTstate0 + here->BJTcqsub);
                 *(here->BJTsenCmcb)= *(ckt->CKTstate0 + here->BJTcexbc);
             }
-            gcpr = here->BJTtcollectorConduct * A0;
-            gepr = here->BJTtemitterConduct * A0;
+            gcpr = here->BJTtcollectorConduct;
+            gepr = here->BJTtemitterConduct;
             gpi= *(here->BJTsenGpi);
             gmu= *(here->BJTsenGmu);
             gm= *(here->BJTsenGm);
@@ -465,8 +465,8 @@ pertvcs:    /* Perturbation of vcs */
             goto next2;
 
 load:
-            gcpr=here->BJTtcollectorConduct * here->BJTarea;
-            gepr=here->BJTtemitterConduct * here->BJTarea;
+            gcpr=here->BJTtcollectorConduct;
+            gepr=here->BJTtemitterConduct;
             gpi= *(here->BJTsenGpi + flag+1);
             gmu= *(here->BJTsenGmu + flag+1);
             gm= *(here->BJTsenGm + flag+1);

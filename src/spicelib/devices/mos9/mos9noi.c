@@ -30,7 +30,6 @@ MOS9noise (int mode, int operation, GENmodel *genmodel, CKTcircuit *ckt,
     MOS9model *firstModel = (MOS9model *) genmodel;
     MOS9model *model;
     MOS9instance *inst;
-    char name[N_MXVLNTH];
     double tempOnoise;
     double tempInoise;
     double noizDens[MOS9NSRCS];
@@ -47,8 +46,8 @@ MOS9noise (int mode, int operation, GENmodel *genmodel, CKTcircuit *ckt,
 	""                  /* total transistor noise */
     };
 
-    for (model=firstModel; model != NULL; model=model->MOS9nextModel) {
-	for (inst=model->MOS9instances; inst != NULL; inst=inst->MOS9nextInstance) {
+    for (model=firstModel; model != NULL; model=MOS9nextModel(model)) {
+	for (inst=MOS9instances(model); inst != NULL; inst=MOS9nextInstance(inst)) {
 
 	    switch (operation) {
 
@@ -62,45 +61,14 @@ MOS9noise (int mode, int operation, GENmodel *genmodel, CKTcircuit *ckt,
 
 		    case N_DENS:
 			for (i=0; i < MOS9NSRCS; i++) {
-			    (void)sprintf(name,"onoise_%s%s",inst->MOS9name,MOS9nNames[i]);
-
-
-data->namelist = TREALLOC(IFuid, data->namelist, data->numPlots + 1);
-if (!data->namelist) return(E_NOMEM);
-		SPfrontEnd->IFnewUid (ckt,
-			&(data->namelist[data->numPlots++]),
-			NULL, name, UID_OTHER, NULL);
-				/* we've added one more plot */
-
-
+			    NOISE_ADD_OUTVAR(ckt, data, "onoise_%s%s", inst->MOS9name, MOS9nNames[i]);
 			}
 			break;
 
 		    case INT_NOIZ:
 			for (i=0; i < MOS9NSRCS; i++) {
-			    (void)sprintf(name,"onoise_total_%s%s",inst->MOS9name,MOS9nNames[i]);
-
-
-data->namelist = TREALLOC(IFuid, data->namelist, data->numPlots + 1);
-if (!data->namelist) return(E_NOMEM);
-		SPfrontEnd->IFnewUid (ckt,
-			&(data->namelist[data->numPlots++]),
-			NULL, name, UID_OTHER, NULL);
-				/* we've added one more plot */
-
-
-			    (void)sprintf(name,"inoise_total_%s%s",inst->MOS9name,MOS9nNames[i]);
-
-
-data->namelist = TREALLOC(IFuid, data->namelist, data->numPlots + 1);
-if (!data->namelist) return(E_NOMEM);
-		SPfrontEnd->IFnewUid (ckt,
-			&(data->namelist[data->numPlots++]),
-			NULL, name, UID_OTHER, NULL);
-				/* we've added one more plot */
-
-
-
+			    NOISE_ADD_OUTVAR(ckt, data, "onoise_total_%s%s", inst->MOS9name, MOS9nNames[i]);
+			    NOISE_ADD_OUTVAR(ckt, data, "inoise_total_%s%s", inst->MOS9name, MOS9nNames[i]);
 			}
 			break;
 		    }
@@ -126,12 +94,11 @@ if (!data->namelist) return(E_NOMEM);
 		    NevalSrc(&noizDens[MOS9FLNOIZ], NULL, ckt,
 				 N_GAIN,inst->MOS9dNodePrime, inst->MOS9sNodePrime,
 				 (double)0.0);
-		    noizDens[MOS9FLNOIZ] *= model->MOS9fNcoef * 
+		    noizDens[MOS9FLNOIZ] *= inst->MOS9m * model->MOS9fNcoef * 
 				 exp(model->MOS9fNexp *
-				 log(MAX(fabs(inst->MOS9cd),N_MINLOG))) /
+				 log(MAX(fabs(inst->MOS9cd / inst->MOS9m),N_MINLOG))) /
 				 (data->freq *
 				 (inst->MOS9w - 2*model->MOS9widthNarrow) *
-                                 inst->MOS9m *
 				 (inst->MOS9l - 2*model->MOS9latDiff) *
 				 model->MOS9oxideCapFactor * model->MOS9oxideCapFactor);
 		    lnNdens[MOS9FLNOIZ] = 

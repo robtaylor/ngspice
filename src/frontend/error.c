@@ -15,20 +15,23 @@ Author: 1985 Wayne A. Christopher, U. C. Berkeley CAD Group
 
 #ifdef HAS_WINGUI
 void winmessage(char *new_msg);
+extern void  UpdateMainText(void);
 #elif defined SHARED_MODULE
-extern void shared_exit(int status);
+extern ATTRIBUTE_NORETURN void shared_exit(int status);
 #endif
 
 /* global error message buffer */
 char ErrorMessage[1024];
 
 
-void
+ATTRIBUTE_NORETURN void
 controlled_exit(int status)
 {
 #ifdef HAS_WINGUI
-    if (status)
+    if (status) {
+        UpdateMainText(); /* get any remaining error messages into main text window */
         winmessage("Fatal error in NGSPICE");
+    }
     exit(status);
 #elif defined SHARED_MODULE
     /* do not exit, if shared ngspice, but call back */
@@ -53,15 +56,15 @@ fperror(char *mess, int code)
 void
 ft_sperror(int code, char *mess)
 {
-    fprintf(cp_err, "%s: %s\n", mess, if_errstring(code));
+    char *errstring = if_errstring(code);
+    fprintf(cp_err, "%s: %s\n", mess, errstring);
+    tfree(errstring);
 }
 
 
 void
 fatal(void)
 {
-    cp_ccon(FALSE);
-
 #if defined(FTEDEBUG) && defined(SIGQUIT)
     (void) signal(SIGQUIT, SIG_DFL);
     (void) kill(getpid(), SIGQUIT);

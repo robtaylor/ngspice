@@ -6,6 +6,7 @@
 #ifndef ngspice_DLLITF_H
 #define ngspice_DLLITF_H
 
+#include "ngspice/config.h"
 #include "ngspice/mifproto.h"
 #include "ngspice/cmproto.h"
 
@@ -15,7 +16,7 @@
 
 struct coreInfo_t {
 	/* MIF stuff */
-	void      ((*dllitf_MIF_INP2A)(CKTcircuit *, INPtables *, card *));
+	void      ((*dllitf_MIF_INP2A)(CKTcircuit *, INPtables *, struct card *));
 	char *    ((*dllitf_MIFgetMod)(CKTcircuit *, char *, INPmodel  **, INPtables *));
 	IFvalue * ((*dllitf_MIFgetValue)(CKTcircuit *, char **, int, INPtables *, char **));
 	int		  ((*dllitf_MIFsetup)(SMPmatrix *, GENmodel *, CKTcircuit *, int *));
@@ -26,9 +27,9 @@ struct coreInfo_t {
 	int       ((*dllitf_MIFmAsk)(CKTcircuit *, GENmodel *, int, IFvalue *));
 	int       ((*dllitf_MIFtrunc)(GENmodel *, CKTcircuit *, double *));
 	int       ((*dllitf_MIFconvTest)(GENmodel *, CKTcircuit *));
-	int       ((*dllitf_MIFdelete)(GENmodel *, IFuid, GENinstance  **));
-	int       ((*dllitf_MIFmDelete)(GENmodel **, IFuid, GENmodel *));
-	void      ((*dllitf_MIFdestroy)(GENmodel **));
+	int       ((*dllitf_MIFdelete)(GENinstance *));
+	int       ((*dllitf_MIFmDelete)(GENmodel *));
+	void      ((*dllitf_MIFdestroy)(void));
 	char *    ((*dllitf_MIFgettok)(char **));
 	char *    ((*dllitf_MIFget_token)(char **, Mif_Token_Type_t *));
 	Mif_Cntl_Src_Type_t ((*dllitf_MIFget_cntl_src_type)(Mif_Port_Type_t, Mif_Port_Type_t));
@@ -58,23 +59,38 @@ struct coreInfo_t {
 	int       ((*dllitf_cm_message_send)(char *));
 	double    ((*dllitf_cm_netlist_get_c)(void));
 	double    ((*dllitf_cm_netlist_get_l)(void));
+        void      ((*dllitf_cm_irreversible)(unsigned int));
+    const char *  ((*dllitf_cm_get_node_name)(const char *, unsigned int));
+    bool          ((*dllitf_cm_probe_node)(unsigned int, unsigned int,
+                                           void *));
+        bool      ((*dllitf_cm_schedule_output)(unsigned int, unsigned int,
+                                                double, void *));
+        bool      ((*dllitf_cm_getvar)(char *, enum cp_types, void *, size_t));
 	Complex_t ((*dllitf_cm_complex_set)(double, double));
 	Complex_t ((*dllitf_cm_complex_add)(Complex_t, Complex_t));
 	Complex_t ((*dllitf_cm_complex_subtract)(Complex_t, Complex_t));
 	Complex_t ((*dllitf_cm_complex_multiply)(Complex_t, Complex_t));
 	Complex_t ((*dllitf_cm_complex_divide)(Complex_t, Complex_t));
 	char *    ((*dllitf_cm_get_path)(void));
+	CKTcircuit *((*dllitf_cm_get_circuit)(void));
 	FILE *    ((*dllitf_cm_stream_out)(void));
 	FILE *    ((*dllitf_cm_stream_in)(void));
 	FILE *    ((*dllitf_cm_stream_err)(void));
   /*Other stuff*/
 	void *    ((*dllitf_malloc_pj)(size_t));
 	void *    ((*dllitf_calloc_pj)(size_t, size_t));
-	void *    ((*dllitf_realloc_pj)(void *, size_t));
-	void      ((*dllitf_free_pj)(void *));
+	void *    ((*dllitf_realloc_pj)(const void *, size_t));
+	void      ((*dllitf_free_pj)(const void *));
 	void *    ((*dllitf_tmalloc)(size_t));
-	void *    ((*dllitf_trealloc)(void *, size_t));
-	void      ((*dllitf_txfree)(void *));
+	void *    ((*dllitf_trealloc)(const void *, size_t));
+	void      ((*dllitf_txfree)(const void *));
+	void      ((*dllitf_cexit)(const int));
+
+#ifdef KLU
+        int ((*dllitf_MIFbindCSC) (GENmodel *, CKTcircuit *)) ;
+        int ((*dllitf_MIFbindCSCComplex) (GENmodel *, CKTcircuit *)) ;
+        int ((*dllitf_MIFbindCSCComplexToReal) (GENmodel *, CKTcircuit *)) ;
+#endif
 };
 
 #endif

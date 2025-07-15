@@ -8,12 +8,9 @@ Modified: 2000 AlansFixes
 extern int B1acLoad(GENmodel *,CKTcircuit*);
 extern int B1ask(CKTcircuit *,GENinstance*,int,IFvalue*,IFvalue*);
 extern int B1convTest(GENmodel *,CKTcircuit*);
-extern int B1delete(GENmodel*,IFuid,GENinstance**);
-extern void B1destroy(GENmodel**);
 extern int B1getic(GENmodel*,CKTcircuit*);
 extern int B1load(GENmodel*,CKTcircuit*);
 extern int B1mAsk(CKTcircuit*,GENmodel *,int, IFvalue*);
-extern int B1mDelete(GENmodel**,IFuid,GENmodel*);
 extern int B1mParam(int,IFvalue*,GENmodel*);
 extern void B1mosCap(CKTcircuit*, double, double, double, double*,
 	double, double, double, double, double, double,
@@ -29,3 +26,9 @@ extern int B1temp(GENmodel*,CKTcircuit*);
 extern int B1trunc(GENmodel*,CKTcircuit*,double*);
 extern int B1disto(int,GENmodel*,CKTcircuit*);
 extern int B1dSetup(GENmodel*, register CKTcircuit*);
+
+#ifdef KLU
+extern int B1bindCSC (GENmodel*, CKTcircuit*) ;
+extern int B1bindCSCComplex (GENmodel*, CKTcircuit*) ;
+extern int B1bindCSCComplexToReal (GENmodel*, CKTcircuit*) ;
+#endif

@@ -10,6 +10,10 @@ Author: 1985 Thomas L. Quarles
 #include "ngspice/sperror.h"
 #include "ngspice/suffix.h"
 
+#define PI 3.141592654
+
+static double Lundin(double l, double csec);
+
 int
 INDsetup(SMPmatrix *matrix, GENmodel *inModel, CKTcircuit *ckt, int *states)
    /* load the inductor structure with those pointers needed later 
@@ -22,16 +26,16 @@ INDsetup(SMPmatrix *matrix, GENmodel *inModel, CKTcircuit *ckt, int *states)
     CKTnode *tmp;
 
     /*  loop through all the inductor models */
-    for( ; model != NULL; model = model->INDnextModel ) {
+    for( ; model != NULL; model = INDnextModel(model)) {
  
    /* Default Value Processing for Model Parameters */
         if (!model->INDmIndGiven) {
              model->INDmInd = 0.0;
         }
-	if (!model->INDtnomGiven) {
+        if (!model->INDtnomGiven) {
              model->INDtnom = ckt->CKTnomTemp;
         }
-	if (!model->INDtc1Given) {
+        if (!model->INDtc1Given) {
              model->INDtempCoeff1 = 0.0;
         }
         if (!model->INDtc2Given) {
@@ -40,6 +44,9 @@ INDsetup(SMPmatrix *matrix, GENmodel *inModel, CKTcircuit *ckt, int *states)
         if (!model->INDcsectGiven){
              model->INDcsect = 0.0;
         }
+        if (!model->INDdiaGiven){
+             model->INDdia = 0.0;
+        }
         if (!model->INDlengthGiven) {
              model->INDlength = 0.0;
         }
@@ -47,38 +54,44 @@ INDsetup(SMPmatrix *matrix, GENmodel *inModel, CKTcircuit *ckt, int *states)
              model->INDmodNt = 0.0;
         }
         if (!model->INDmuGiven) {
-             model->INDmu = 0.0;
+             model->INDmu = 1.0;
+        }
+
+        /* diameter takes preference over cross section */
+        if (model->INDdiaGiven) {
+            model->INDcsect = PI * model->INDdia * model->INDdia / 4.;
         }
           
-	/* precompute specific inductance (one turn) */
-	if((model->INDlengthGiven) 
-              && (model->INDlength > 0.0)) {
-                
-		if (model->INDmuGiven)
-                    model->INDspecInd = (model->INDmu * CONSTmuZero 
-		     * model->INDcsect * model->INDcsect) / model->INDlength;   
-		else
-                   model->INDspecInd = (CONSTmuZero * model->INDcsect
-		   * model->INDcsect ) / model->INDlength; 
-	
-	} else  {
-	        model->INDspecInd = 0.0;
-	}	
-        
-	if (!model->INDmIndGiven) 
+        /* precompute specific inductance (one turn) */
+        if((model->INDlengthGiven) && (model->INDlength > 0.0)) {
+             model->INDspecInd = (model->INDmu * CONSTmuZero
+		         * model->INDcsect) / model->INDlength;
+        } else  {
+            model->INDspecInd = 0.0;
+        }
+
+        /* Lundin's geometry correction factor */
+        if(model->INDlengthGiven && (model->INDdiaGiven || model->INDcsectGiven))
+            model->INDspecInd *= Lundin(model->INDlength, model->INDcsect);
+
+/*
+        double kl = Lundin(model->INDlength, model->INDcsect);
+        double Dl = model->INDlength / sqrt(model->INDcsect / PI) / 2.;
+        fprintf(stdout, "Lundin's correction factor %f at l/D %f\n", kl, Dl);
+*/
+
+        /* How many turns ? */
+        if (!model->INDmIndGiven) 
             model->INDmInd = model->INDmodNt * model->INDmodNt * model->INDspecInd;
-		   
-            
-        
 	
         /* loop through all the instances of the model */
-        for (here = model->INDinstances; here != NULL ;
-                here=here->INDnextInstance) {
+        for (here = INDinstances(model); here != NULL ;
+                here=INDnextInstance(here)) {
 
             here->INDflux = *states;
-            *states += 2 ;
+            *states += INDnumStates ;
             if(ckt->CKTsenInfo && (ckt->CKTsenInfo->SENmode & TRANSEN) ){
-                *states += 2 * (ckt->CKTsenInfo->SENparms);
+                *states += INDnumSenStates * (ckt->CKTsenInfo->SENparms);
             }
 
             if(here->INDbrEq == 0) {
@@ -87,17 +100,20 @@ INDsetup(SMPmatrix *matrix, GENmodel *inModel, CKTcircuit *ckt, int *states)
                 here->INDbrEq = tmp->number;
             }
 
+            here->system = NULL;
+            here->system_next_ind = NULL;
+
 /* macro to make elements with built in test for out of memory */
 #define TSTALLOC(ptr,first,second) \
 do { if((here->ptr = SMPmakeElt(matrix, here->first, here->second)) == NULL){\
     return(E_NOMEM);\
 } } while(0)
 
-            TSTALLOC(INDposIbrptr,INDposNode,INDbrEq);
-            TSTALLOC(INDnegIbrptr,INDnegNode,INDbrEq);
-            TSTALLOC(INDibrNegptr,INDbrEq,INDnegNode);
-            TSTALLOC(INDibrPosptr,INDbrEq,INDposNode);
-            TSTALLOC(INDibrIbrptr,INDbrEq,INDbrEq);
+            TSTALLOC(INDposIbrPtr,INDposNode,INDbrEq);
+            TSTALLOC(INDnegIbrPtr,INDnegNode,INDbrEq);
+            TSTALLOC(INDibrNegPtr,INDbrEq,INDnegNode);
+            TSTALLOC(INDibrPosPtr,INDbrEq,INDposNode);
+            TSTALLOC(INDibrIbrPtr,INDbrEq,INDbrEq);
         }
     }
     return(OK);
@@ -110,16 +126,49 @@ INDunsetup(GENmodel *inModel, CKTcircuit *ckt)
     INDinstance *here;
 
     for (model = (INDmodel *)inModel; model != NULL;
-	    model = model->INDnextModel)
+	    model = INDnextModel(model))
     {
-        for (here = model->INDinstances; here != NULL;
-                here=here->INDnextInstance)
+        for (here = INDinstances(model); here != NULL;
+                here=INDnextInstance(here))
 	{
-	    if (here->INDbrEq) {
+	    if (here->INDbrEq > 0)
 		CKTdltNNum(ckt, here->INDbrEq);
-		here->INDbrEq = 0;
-	    }
+            here->INDbrEq = 0;
 	}
     }
     return OK;
 }
+
+/* Calculates Nagaoka's coeff. using Lundin's handbook formula.
+   D: W. Knight, https://g3ynh.info/zdocs/magnetics/Solenoids.pdf, p. 36 */
+static double Lundin(double l, double csec)
+{
+    /* x = solenoid diam. / length */
+    double num, den, kk, x, xx, xxxx;
+
+
+
+    if (csec < 1e-12 || l < 1e-6) {
+        fprintf(stderr, "Warning: coil geometries too small (< 1um length dimensions),\n");
+        fprintf(stderr, "    Lundin's correction factor will not be calculated\n");
+        return 1;
+    }
+
+    x = sqrt(csec / PI) * 2. / l;
+
+    xx = x * x;
+    xxxx = xx * xx;
+
+    if (x < 1) {
+        num = 1 + 0.383901 * xx + 0.017108 * xxxx;
+        den = 1 + 0.258952 * xx;
+        return num / den - 4 * x / (3 * PI);
+    }
+    else {
+        num = (log(4 * x) - 0.5) * (1 + 0.383901 / xx + 0.017108 / xxxx);
+        den = 1 + 0.258952 / xx;
+        kk = 0.093842 / xx + 0.002029 / xxxx - 0.000801 / (xx * xxxx);
+        return 2 * (num / den + kk) / (PI * x);
+    }
+}
+

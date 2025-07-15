@@ -8,8 +8,6 @@ libvbic_la_SOURCES =	\
 	vbicask.c	\
 	vbicconv.c	\
 	vbicdefs.h	\
-	vbicdel.c	\
-	vbicdest.c	\
 	vbicext.h	\
 	vbicgetic.c	\
 	vbicinit.c	\
@@ -17,7 +15,6 @@ libvbic_la_SOURCES =	\
 	vbicitf.h	\
 	vbicload.c	\
 	vbicmask.c	\
-	vbicmdel.c	\
 	vbicmpar.c	\
 	vbicnoise.c	\
 	vbicparam.c	\
@@ -28,6 +25,9 @@ libvbic_la_SOURCES =	\
 	vbictrunc.c
 
 
+if KLU_WANTED
+libvbic_la_SOURCES += vbicbindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)

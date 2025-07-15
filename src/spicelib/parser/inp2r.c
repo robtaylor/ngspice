@@ -13,11 +13,13 @@ Remarks:  This code is based on a version written by Serban Popescu which
 #include "ngspice/inpmacs.h"
 #include "ngspice/fteext.h"
 #include "inpxx.h"
+#include "ngspice/stringskip.h"
+#include "ngspice/compatmode.h"
 
 /* undefine to add tracing to this file */
 /* #define TRACE */
 
-void INP2R(CKTcircuit *ckt, INPtables * tab, card * current)
+void INP2R(CKTcircuit *ckt, INPtables * tab, struct card *current)
 {
 /* parse a resistor card */
 /* Rname <node> <node> [<val>][<mname>][w=<val>][l=<val>][ac=<val>] */
@@ -37,7 +39,7 @@ void INP2R(CKTcircuit *ckt, INPtables * tab, card * current)
     int error1;			/* secondary error code temporary */
     INPmodel *thismodel;	/* pointer to model structure describing our model */
     GENmodel *mdfast = NULL;	/* pointer to the actual model */
-    GENinstance *fast;		/* pointer to the actual instance */
+    GENinstance *fast = NULL;		/* pointer to the actual instance */
     IFvalue ptemp;		/* a value structure to package resistance into */
     int waslead;		/* flag to indicate that funny unlabeled number was found */
     double leadval;		/* actual value of unlabeled number */
@@ -56,13 +58,32 @@ void INP2R(CKTcircuit *ckt, INPtables * tab, card * current)
         }
     }
     line = current->line;
-    INPgetTok(&line, &name, 1);			/* Rname */
-    INPinsert(&name, tab);
+    INPgetNetTok(&line, &name, 1);			/* Rname */
+    if (*line == '\0') {
+        fprintf(stderr, "\nWarning: '%s' is not a valid resistor instance line, ignored!\n\n", current->line);
+        return;
+    }
     INPgetNetTok(&line, &nname1, 1);		/* <node> */
-    INPtermInsert(ckt, &nname1, tab, &node1);
+    if (*line == '\0') {
+        fprintf(stderr, "\nWarning: '%s' is not a valid resistor instance line, ignored!\n\n", current->line);
+        return;
+    }
     INPgetNetTok(&line, &nname2, 1);		/* <node> */
+    if (*line == '\0') {
+        fprintf(stderr, "\nWarning: '%s' is not a valid resistor instance line, ignored!\n\n", current->line);
+        return;
+    }
+
+    INPinsert(&name, tab);
+    INPtermInsert(ckt, &nname1, tab, &node1);
     INPtermInsert(ckt, &nname2, tab, &node2);
-    val = INPevaluate(&line, &error1, 1);	/* [<val>] */
+
+    /* enable reading values like 4k7 */
+    if (newcompat.lt)
+        val = INPevaluateRKM_R(&line, &error1, 1);	/* [<val>] */
+    else
+        val = INPevaluate(&line, &error1, 1);	/* [<val>] */
+
     /* either not a number -> model, or
      * follows a number, so must be a model name
      * -> MUST be a model name (or null)
@@ -82,40 +103,30 @@ void INP2R(CKTcircuit *ckt, INPtables * tab, card * current)
         char *p;
         size_t left_length;
 
-        s += 2;
-
-        /* skip any white space */
-        while(isspace(*s))
-            s++;
+        s = skip_ws(s + 2);
 
         /* reject if not '=' */
         if(*s != '=')
             continue;
 
-        s++;
-
-        /* skip any white space */
-        while(isspace(*s))
-            s++;
+        s = skip_ws(s + 1);
 
         /* if we now have +, - or a decimal digit then assume we have a number,
            otherwise reject */
-        if((*s != '+') && (*s != '-') && !isdigit(*s))
+        if((*s != '+') && (*s != '-') && !isdigit_c(*s))
             continue;
 
         /* look for next white space or null */
-        while(*s && !isspace(*s))
-            s++;
+        s = skip_non_ws(s);
 
         left_length = (size_t) (s - current->line);
 
         /* skip any additional white space */
-        while(isspace(*s))
-            s++;
+        s = skip_ws(s);
 
         /* if we now have +, - or a decimal digit then assume we have the
             second number, otherwise reject */
-        if((*s != '+') && (*s != '-') && !isdigit(*s))
+        if((*s != '+') && (*s != '-') && !isdigit_c(*s))
             continue;
 
         /* if we get this far we have met all are criterea,
@@ -146,7 +157,7 @@ void INP2R(CKTcircuit *ckt, INPtables * tab, card * current)
 
     saveline = line;		/* save then old pointer */
 
-    INPgetTok(&line, &model, 1);
+    INPgetNetTok(&line, &model, 1);
 
     if (*model && (strcmp(model, "r") != 0)) {
       /* token isn't null */
@@ -156,10 +167,10 @@ void INP2R(CKTcircuit *ckt, INPtables * tab, card * current)
           printf("In INP2R, Valid R Model: %s\n", model);
 #endif
           INPinsert(&model, tab);
-          thismodel = NULL;
           current->error = INPgetMod(ckt, model, &thismodel, tab);
           if (thismodel != NULL) {
-            if (mytype != thismodel->INPmodType) {
+            if (INPtypelook("Resistor") != thismodel->INPmodType)
+            {
                 LITERR("incorrect model type for resistor");
                 return;
             }
@@ -194,6 +205,11 @@ void INP2R(CKTcircuit *ckt, INPtables * tab, card * current)
         printf ("In INP2R, R=val construction: val=%g\n", val);
 #endif
       }
+    }
+
+    if (!fast || !fast->GENmodPtr) {
+        fprintf(stderr, "\nWarning: Instance for resistor '%s' could not be set up properly, ignored!\n\n", current->line);
+        return;
     }
 
     if (error1 == 0) {		/* got a resistance above */

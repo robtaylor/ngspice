@@ -11,6 +11,7 @@ Modified: 2000 Alansfixes
 #include "ngspice/sperror.h"
 #include "ngspice/suffix.h"
 #include "ngspice/1-f-code.h"
+#include "ngspice/compatmode.h"
 
 #ifdef XSPICE_EXP
 /* gtri - begin - wbk - modify for supply ramping option */
@@ -35,11 +36,11 @@ ISRCload(GENmodel *inModel, CKTcircuit *ckt)
     double m;
 
     /*  loop through all the source models */
-    for( ; model != NULL; model = model->ISRCnextModel ) {
+    for( ; model != NULL; model = ISRCnextModel(model)) {
 
         /* loop through all the instances of the model */
-        for (here = model->ISRCinstances; here != NULL ;
-                here=here->ISRCnextInstance) {
+        for (here = ISRCinstances(model); here != NULL ;
+                here=ISRCnextInstance(here)) {
 
             m = here->ISRCmValue;
 
@@ -72,11 +73,11 @@ ISRCload(GENmodel *inModel, CKTcircuit *ckt)
                     case PULSE: {
                         double V1, V2, TD, TR, TF, PW, PER;
                         double basetime = 0;
-#ifdef XSPICE
                         double PHASE;
                         double phase;
                         double deltat;
-#endif
+                        double tmax = 1e99;
+
                         V1 = here->ISRCcoeffs[0];
                         V2 = here->ISRCcoeffs[1];
                         TD = here->ISRCfunctionOrder > 2
@@ -97,35 +98,45 @@ ISRCload(GENmodel *inModel, CKTcircuit *ckt)
                         /* shift time by delay time TD */
                         time -=  TD;
 
-#ifdef XSPICE
-/* gtri - begin - wbk - add PHASE parameter */
                         PHASE = here->ISRCfunctionOrder > 7
                            ? here->ISRCcoeffs[7] : 0.0;
 
-                        /* normalize phase to cycles */
-                        phase = PHASE / 360.0;
-                        phase = fmod(phase, 1.0);
-                        deltat =  phase * PER;
-                        while (deltat > 0)
-                            deltat -= PER;
-                        /* shift time by pase (neg. for pos. phase value) */
-                        time += deltat;
-/* gtri - end - wbk - add PHASE parameter */
-#endif
-                        if(time > PER) {
-                            /* repeating signal - figure out where we are */
-                            /* in period */
-                            basetime = PER * floor(time/PER);
-                            time -= basetime;
+                        if (newcompat.xs) { /* 7th parameter is PHASE */
+                            /* normalize phase to cycles */
+                            phase = PHASE / 360.0;
+                            phase = fmod(phase, 1.0);
+                            deltat =  phase * PER;
+                            while (deltat > 0)
+                                deltat -= PER;
+                            /* shift time by pase (neg. for pos. phase value) */
+                            time += deltat;
                         }
-                        if (time <= 0 || time >= TR + PW + TF) {
+                        else if (PHASE > 0.0) { /* 7th parameter is number of pulses */
+                            tmax = PHASE * PER;
+                        }
+
+                        if (!newcompat.xs && time > tmax) {
                             value = V1;
-                        } else  if (time >= TR && time <= TR + PW) {
-                            value = V2;
-                        } else if (time > 0 && time < TR) {
-                            value = V1 + (V2 - V1) * (time) / TR;
-                        } else { /* time > TR + PW && < TR + PW + TF */
-                            value = V2 + (V1 - V2) * (time - (TR + PW)) / TF;
+                        }
+                        else {
+                            if (time > PER) {
+                                /* repeating signal - figure out where we are */
+                                /* in period */
+                                basetime = PER * floor(time / PER);
+                                time -= basetime;
+                            }
+                            if (time <= 0 || time >= TR + PW + TF) {
+                                value = V1;
+                            }
+                            else  if (time >= TR && time <= TR + PW) {
+                                value = V2;
+                            }
+                            else if (time > 0 && time < TR) {
+                                value = V1 + (V2 - V1) * (time) / TR;
+                            }
+                            else { /* time > TR + PW && < TR + PW + TF */
+                                value = V2 + (V1 - V2) * (time - (TR + PW)) / TF;
+                            }
                         }
                     }
                     break;
@@ -133,8 +144,6 @@ ISRCload(GENmodel *inModel, CKTcircuit *ckt)
                     case SINE: {
 
                         double VO, VA, FREQ, TD, THETA;
-/* gtri - begin - wbk - add PHASE parameter */
-#ifdef XSPICE
                         double PHASE;
                         double phase;
 
@@ -143,7 +152,7 @@ ISRCload(GENmodel *inModel, CKTcircuit *ckt)
 
                         /* compute phase in radians */
                         phase = PHASE * M_PI / 180.0;
-#endif
+
                         VO = here->ISRCcoeffs[0];
                         VA = here->ISRCcoeffs[1];
                         FREQ =  here->ISRCfunctionOrder > 2
@@ -156,18 +165,11 @@ ISRCload(GENmodel *inModel, CKTcircuit *ckt)
 
                         time -= TD;
                         if (time <= 0) {
-#ifdef XSPICE
+
                             value = VO + VA * sin(phase);
                         } else {
                             value = VO + VA * sin(FREQ*time * 2.0 * M_PI + phase) *
                                 exp(-time*THETA);
-#else
-                            value = VO;
-                        } else {
-                            value = VO + VA * sin(FREQ * time * 2.0 * M_PI) *
-                                exp(-time*THETA);
-#endif
-/* gtri - end - wbk - add PHASE parameter */
                         }
                     }
                     break;
@@ -203,95 +205,86 @@ ISRCload(GENmodel *inModel, CKTcircuit *ckt)
 
                     case SFFM: {
 
-                        double VO, VA, FC, MDI, FS;
-/* gtri - begin - wbk - add PHASE parameters */
-#ifdef XSPICE
-                        double PHASEC, PHASES;
+                        double VO, VA, FM, MDI, FC, TD, PHASEM, PHASEC;
                         double phasec;
-                        double phases;
-
-                        PHASEC = here->ISRCfunctionOrder > 5
-                            ? here->ISRCcoeffs[5] : 0.0;
-                        PHASES = here->ISRCfunctionOrder > 6
-                            ? here->ISRCcoeffs[6] : 0.0;
-
-                        /* compute phases in radians */
-                        phasec = PHASEC * M_PI / 180.0;
-                        phases = PHASES * M_PI / 180.0;
-#endif
+                        double phasem;
+                        static bool warn1 = FALSE, warn2 = FALSE;
 
                         VO = here->ISRCcoeffs[0];
                         VA = here->ISRCcoeffs[1];
-                        FC = here->ISRCfunctionOrder > 2
-                           && here->ISRCcoeffs[2]
-                           ? here->ISRCcoeffs[2] : (1/ckt->CKTfinalTime);
+                        FM = here->ISRCfunctionOrder > 2
+                           ? here->ISRCcoeffs[2] : (5./ckt->CKTfinalTime);
                         MDI = here->ISRCfunctionOrder > 3
-                           ? here->ISRCcoeffs[3] : 0.0;
-                        FS  = here->ISRCfunctionOrder > 4
+                           ? here->ISRCcoeffs[3] : 90.0;
+                        FC  = here->ISRCfunctionOrder > 4
                            && here->ISRCcoeffs[4]
-                           ? here->ISRCcoeffs[4] : (1/ckt->CKTfinalTime);
+                           ? here->ISRCcoeffs[4] : (500./ckt->CKTfinalTime);
+                        TD = here->ISRCfunctionOrder > 5
+                            ? here->ISRCcoeffs[5] : 0;
+                        PHASEM = here->ISRCfunctionOrder > 5
+                            ? here->ISRCcoeffs[5] : 0.0;
+                        PHASEC = here->ISRCfunctionOrder > 6
+                            ? here->ISRCcoeffs[6] : 0.0;
 
-#ifdef XSPICE
+                        /* limit the modulation index */
+                        if (MDI > FC / FM) {
+                            MDI = FC / FM;
+                            if (!warn1){
+                                fprintf(stderr, "Warning: MDI in %s limited to FC/FM\n", here->gen.GENname);
+                                warn1 = TRUE;
+                            }
+                        }
+                        else if (MDI < 0) {
+                            MDI = 0;
+                            if (!warn2) {
+                                fprintf(stderr, "Warning: MDI in %s set to 0\n", here->gen.GENname);
+                                warn2 = TRUE;
+                            }
+                        }
+
+                        /* compute phases in radians */
+                        phasec = PHASEC * M_PI / 180.0;
+                        phasem = PHASEM * M_PI / 180.0;
+
                         /* compute waveform value */
                         value = VO + VA *
                             sin((2.0 * M_PI * FC * time + phasec) +
-                            MDI * sin(2.0 * M_PI * FS * time + phases));
-#else
-                        value = VO + VA *
-                            sin((2.0 * M_PI * FC * time) +
-                            MDI * sin(2.0 * M_PI * FS * time));
-#endif
-/* gtri - end - wbk - add PHASE parameters */
-
+                            MDI * sin(2.0 * M_PI * FM * time + phasem));
                     }
                     break;
 
                     case AM: {
 
-                        double VA, FC, MF, VO, TD;
-/* gtri - begin - wbk - add PHASE parameters */
-#ifdef XSPICE
-                        double PHASEC, PHASES;
-                        double phasec;
-                        double phases;
+                        double VO, VMO, VMA, FM, FC, TD, PHASEM, PHASEC;
+                        double phasec, phasem;
 
-                        PHASEC = here->ISRCfunctionOrder > 5
+                        VO = here->ISRCcoeffs[0];
+                        VMO = here->ISRCcoeffs[1];
+                        VMA = here->ISRCfunctionOrder > 2
+                            ? here->ISRCcoeffs[2] : 1.;
+                        FM = here->ISRCfunctionOrder > 3
+                            ? here->ISRCcoeffs[3] : (5. / ckt->CKTfinalTime);
+                        FC = here->ISRCfunctionOrder > 4
+                            ? here->ISRCcoeffs[4] : (500. / ckt->CKTfinalTime);
+                        TD = here->ISRCfunctionOrder > 5
                             ? here->ISRCcoeffs[5] : 0.0;
-                        PHASES = here->ISRCfunctionOrder > 6
+                        PHASEM = here->ISRCfunctionOrder > 6
                             ? here->ISRCcoeffs[6] : 0.0;
+                        PHASEC = here->ISRCfunctionOrder > 7
+                            ? here->ISRCcoeffs[7] : 0.0;
 
                         /* compute phases in radians */
                         phasec = PHASEC * M_PI / 180.0;
-                        phases = PHASES * M_PI / 180.0;
-#endif
-
-                        VA = here->ISRCcoeffs[0];
-                        VO = here->ISRCcoeffs[1];
-                        MF = here->ISRCfunctionOrder > 2
-                           && here->ISRCcoeffs[2]
-                           ? here->ISRCcoeffs[2] : (1/ckt->CKTfinalTime);
-                        FC = here->ISRCfunctionOrder > 3
-                           ? here->ISRCcoeffs[3] : 0.0;
-                        TD  = here->ISRCfunctionOrder > 4
-                           && here->ISRCcoeffs[4]
-                           ? here->ISRCcoeffs[4] : 0.0;
+                        phasem = PHASEM * M_PI / 180.0;
 
                         time -= TD;
                         if (time <= 0) {
                             value = 0;
                         } else {
-#ifdef XSPICE
                             /* compute waveform value */
-                            value = VA * (VO + sin(2.0 * M_PI * MF * time + phases )) *
-                                sin(2.0 * M_PI * FC * time + phases);
-
-#else
-                            value = VA * (VO + sin(2.0 * M_PI * MF * time)) *
-                                sin(2.0 * M_PI * FC * time);
-#endif
+                            value = VO + (VMO + VMA * sin(2.0 * M_PI * FM * time + phasem)) *
+                                sin(2.0 * M_PI * FC * time + phasec);
                         }
-
-/* gtri - end - wbk - add PHASE parameters */
                     }
                     break;
 
@@ -302,7 +295,7 @@ ISRCload(GENmodel *inModel, CKTcircuit *ckt)
                             break;
                         }
                         for(i=0; i < (here->ISRCfunctionOrder / 2) - 1; i++) {
-                            if((*(here->ISRCcoeffs+2*i)==time)) {
+                            if(*(here->ISRCcoeffs+2*i)==time) {
                                 value = *(here->ISRCcoeffs+2*i+1);
                                 goto loadDone;
                             }
@@ -334,19 +327,27 @@ INoi1 1 0  DC 0 TRNOISE(0n 0.5n 1 10n) : generate 1/f noise
                         double TS = state -> TS;
                         double RTSAM = state->RTSAM;
 
-                        /* reset top (hack for repeated tran commands) */
-                        if (time == 0)
-                            state->top = 0;
+                        /* reset top (hack for repeated tran commands)
+                        when there is the jump from time=0 to time>0 */
+                        if (time == 0.0)
+                            state->timezero = TRUE;
+                        else
+                            if (state->timezero) {
+                                state->top = 0;
+                                state->timezero = FALSE;
+                            }
 
-                        /* no noise */
-                        if(TS == 0.0) {
+                        /* no noise or time == 0 */
+                        if (TS == 0.0 || time == 0.0) {
                             value = 0.0;
-                        } else {
+                        }
+                        else {
+
                             /* 1/f and white noise */
-                            size_t n1 = (size_t) floor(time / TS);
+                            size_t n1 = (size_t)floor(time / TS);
 
                             double V1 = trnoise_state_get(state, ckt, n1);
-                            double V2 = trnoise_state_get(state, ckt, n1+1);
+                            double V2 = trnoise_state_get(state, ckt, n1 + 1);
 
                             value = V1 + (V2 - V1) * (time / TS - (double)n1);
                         }
@@ -401,11 +402,7 @@ loadDone:
 
 /* gtri - end - wbk - modify to process srcFact, etc. for all sources */
 
-#ifdef XSPICE
-/* gtri - begin - wbk - record value so it can be output if requested */
             here->ISRCcurrent = m * value;
-/* gtri - end   - wbk - record value so it can be output if requested */
-#endif
         } // for loop instances
     } // for loop models
 

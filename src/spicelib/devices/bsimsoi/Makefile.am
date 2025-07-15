@@ -8,8 +8,6 @@ libbsim4soi_la_SOURCES = \
         b4soiask.c        \
         b4soicheck.c        \
         b4soicvtest.c        \
-        b4soidel.c        \
-        b4soidest.c        \
         b4soigetic.c        \
         b4soild.c        \
         b4soimask.c        \
@@ -29,6 +27,9 @@ libbsim4soi_la_SOURCES = \
         b4soiitf.h
 
 
+if KLU_WANTED
+libbsim4soi_la_SOURCES += b4soibindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)

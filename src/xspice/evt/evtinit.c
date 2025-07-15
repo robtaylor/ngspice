@@ -3,11 +3,10 @@ FILE    EVTinit.c
 
 MEMBER OF process XSPICE
 
-Copyright 1991
+Public Domain
+
 Georgia Tech Research Corporation
 Atlanta, Georgia 30332
-All Rights Reserved
-
 PROJECT A-8503
 
 AUTHORS
@@ -45,11 +44,10 @@ NON-STANDARD FEATURES
 //#include  "util.h"
 #include  "ngspice/sperror.h"
 
+#include  "ngspice/evt.h"
 #include  "ngspice/evtproto.h"
 
 
-
-static int EVTcheck_nodes(CKTcircuit *ckt);
 static int EVTcount_hybrids(CKTcircuit *ckt);
 static int EVTinit_info(CKTcircuit *ckt);
 static int EVTinit_queue(CKTcircuit *ckt);
@@ -87,9 +85,6 @@ int EVTinit(
 
     int  err;           /* SPICE error return code   0 = OK */
 
-    /*    static char *err_no_hybrids = "ERROR - no hybrids found in input deck";*/
-
-
     /* Exit immediately if there are no event-driven instances */
     /* but don't complain */
     if(ckt->evt->counts.num_insts == 0)
@@ -97,20 +92,6 @@ int EVTinit(
 
     /* Count the number of hybrids and hybrid outputs */
     err = EVTcount_hybrids(ckt);
-    if(err)
-        return(err);
-
-    /* Exit with error if there are no hybrids in the circuit. */
-    /* Will probably remove this restriction later... */
-/*
-    if(ckt->evt->counts.num_hybrids == 0) {
-        errMsg = TMALLOC(char, strlen(err_no_hybrids) + 1);
-        strcpy(errMsg, err_no_hybrids);
-        return(E_PRIVATE);
-    }
-*/
-    /* Check that event nodes have not been used as analog nodes also */
-    err = EVTcheck_nodes(ckt);
     if(err)
         return(err);
 
@@ -194,46 +175,6 @@ static int EVTcount_hybrids(
 
 
 /*
-EVTcheck_nodes
-
-Report error if any event node name is also used as an analog node.
-*/
-
-
-static int EVTcheck_nodes(
-    CKTcircuit *ckt)             /* The circuit structure */
-{
-
-    CKTnode             *analog_node;
-    Evt_Node_Info_t     *event_node;
-
-    static char *err_prefix  = "ERROR - node ";
-    static char *err_collide = " cannot be both analog and digital";
-
-
-    /* Report error if any analog node name matches any event node name */
-    event_node = ckt->evt->info.node_list;
-    while(event_node) {
-        analog_node = ckt->CKTnodes;
-        while(analog_node) {
-            if(strcmp(event_node->name, analog_node->name) == 0) {
-                errMsg = tprintf("%s%s%s", err_prefix,
-                                   event_node->name,
-                                   err_collide);
-                fprintf(stdout, "%s\n", errMsg);
-                return(E_PRIVATE);
-            }
-            analog_node = analog_node->next;
-        }
-        event_node = event_node->next;
-    }
-
-    /* Return */
-    return(OK);
-}
-
-
-/*
 EVTinit_info
 
 This function creates the ``info'' pointer tables used in the
@@ -266,7 +207,7 @@ static int EVTinit_info(
     Evt_Port_Info_t     **port_table = NULL;
     Evt_Output_Info_t   **output_table = NULL;
 
-    int                 *hybrid_index = NULL;
+    MIFinstance         **hybrids = NULL;
 
     int num_hybrids;
 
@@ -312,15 +253,14 @@ static int EVTinit_info(
     ckt->evt->info.output_table = output_table;
 
 
-    /* Allocate and create table of indexes into inst_table for hybrids */
+    /* Allocate and create table of hybrids */
     num_hybrids = ckt->evt->counts.num_hybrids;
-    CKALLOC(hybrid_index, num_hybrids, int)
+    CKALLOC(hybrids, num_hybrids, MIFinstance *)
     for(i = 0, j = 0; i < num_insts; i++) {
         if(inst_table[i]->inst_ptr->analog)
-            hybrid_index[j++] = i;
+            hybrids[j++] = inst_table[i]->inst_ptr;
     }
-    ckt->evt->info.hybrid_index = hybrid_index;
-
+    ckt->evt->info.hybrids = hybrids;
 
     /* Return */
     return(OK);
@@ -384,14 +324,13 @@ static int EVTinit_queue(
     CKALLOC(output_queue->head, num_outputs, Evt_Output_Event_t *)
     CKALLOC(output_queue->current, num_outputs, Evt_Output_Event_t **)
     CKALLOC(output_queue->last_step, num_outputs, Evt_Output_Event_t **)
-    CKALLOC(output_queue->free, num_outputs, Evt_Output_Event_t *)
+    CKALLOC(output_queue->free_list, num_outputs, Evt_Output_Event_t **)
     CKALLOC(output_queue->modified_index, num_outputs, int)
     CKALLOC(output_queue->modified, num_outputs, Mif_Boolean_t)
     CKALLOC(output_queue->pending_index, num_outputs, int)
     CKALLOC(output_queue->pending, num_outputs, Mif_Boolean_t)
     CKALLOC(output_queue->changed_index, num_outputs, int)
     CKALLOC(output_queue->changed, num_outputs, Mif_Boolean_t)
-
 
     /* Return */
     return(OK);

@@ -9,7 +9,7 @@ static void *tcalloc(size_t a, size_t b) {
 }
 
 #ifdef HAVE_LIBGC
-static void no_free(void *p) {
+static void no_free(const void *p) {
   NG_IGNORE(p);
 }
 #endif
@@ -58,12 +58,18 @@ struct coreInfo_t  coreInfo =
   cm_message_send,
   cm_netlist_get_c,
   cm_netlist_get_l,
+  cm_irreversible,
+  cm_get_node_name,
+  cm_probe_node,
+  cm_schedule_output,
+  cp_getvar,
   cm_complex_set,
   cm_complex_add,
   cm_complex_subtract,
   cm_complex_multiply,
   cm_complex_divide,
   cm_get_path,
+  cm_get_circuit,
   no_file,
   no_file,
   no_file,
@@ -74,7 +80,8 @@ struct coreInfo_t  coreInfo =
   txfree,
   tmalloc,
   trealloc,
-  txfree
+  txfree,
+  cm_cexit
 #else
   GC_malloc,
   tcalloc,
@@ -83,5 +90,11 @@ struct coreInfo_t  coreInfo =
   GC_malloc,
   GC_realloc,
   no_free
+#endif
+#ifdef KLU
+  ,
+  MIFbindCSC,
+  MIFbindCSCComplex,
+  MIFbindCSCComplexToReal
 #endif
 };

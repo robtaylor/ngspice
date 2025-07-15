@@ -18,7 +18,7 @@ NIdestroy(CKTcircuit *ckt)
 {
     if (ckt->CKTmatrix)
 	SMPdestroy(ckt->CKTmatrix);
-    ckt->CKTmatrix = NULL;
+    FREE(ckt->CKTmatrix);
     if(ckt->CKTrhs)         FREE(ckt->CKTrhs);
     if(ckt->CKTrhsOld)      FREE(ckt->CKTrhsOld);
     if(ckt->CKTrhsSpare)    FREE(ckt->CKTrhsSpare);
@@ -31,6 +31,12 @@ NIdestroy(CKTcircuit *ckt)
         if(ckt->CKTsenRhs) FREE(ckt->CKTsenRhs);
         if(ckt->CKTseniRhs) FREE(ckt->CKTseniRhs);
         SENdestroy(ckt->CKTsenInfo);
+    }
+#endif
+#ifdef PREDICTOR
+    if(ckt->CKTpred) FREE(ckt->CKTpred);
+    for(int i=0;i<8;i++) {
+        if(ckt->CKTsols[i]) FREE(ckt->CKTsols[i]);
     }
 #endif
 }

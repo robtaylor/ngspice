@@ -8,11 +8,8 @@ Modified: 2000 AlansFixes
 extern int LTRAaccept(CKTcircuit*,GENmodel*);
 extern int LTRAask(CKTcircuit*,GENinstance*,int,IFvalue*,IFvalue*);
 extern int LTRAacLoad(GENmodel*,CKTcircuit*);
-extern int LTRAdelete(GENmodel*,IFuid,GENinstance**);
-extern void LTRAdestroy(GENmodel**);
 extern int LTRAload(GENmodel*,CKTcircuit*);
 extern int LTRAmAsk(CKTcircuit*,GENmodel*,int,IFvalue*);
-extern int LTRAmDelete(GENmodel**,IFuid,GENmodel*);
 extern int LTRAparam(int,IFvalue*,GENinstance*,IFvalue*);
 extern int LTRAmParam(int,IFvalue*,GENmodel*);
 extern int LTRAsetup(SMPmatrix*,GENmodel*,CKTcircuit*,int*);
@@ -44,3 +41,12 @@ extern double LTRAh3dashCoeffSetup(double*,int,double,double,double,double*,int,
 extern void LTRArcCoeffsSetup(double*,double*,double*,double*,double*,double*,int,double,double,double,double*,int,double);
 extern void LTRArlcCoeffsSetup(double*,double*,double*,double*,double*,double*,int,double,double,double,double,double*,int,double,int*);
 extern int LTRAstraightLineCheck(double,double,double,double,double,double,double,double);
+
+extern int LTRAdevDelete(GENinstance*);
+extern int LTRAmDelete(GENmodel*);
+
+#ifdef KLU
+extern int LTRAbindCSC (GENmodel*, CKTcircuit*) ;
+extern int LTRAbindCSCComplex (GENmodel*, CKTcircuit*) ;
+extern int LTRAbindCSCComplexToReal (GENmodel*, CKTcircuit*) ;
+#endif

@@ -1,17 +1,28 @@
 ## Process this file with automake to produce Makefile.in
+## regression first, then xspice, then the model qua tests
 
-SUBDIRS =		\
-	bsim3		\
-	bsim4		\
-	bsimsoi		\
-	hisim		\
-	hisimhv1	\
-	regression
+SUBDIRS = regression
 
 if XSPICE_WANTED
 SUBDIRS += xspice
 endif
 
+if SHORT_CHECK_WANTED
+SUBDIRS +=		\
+	bsim3		\
+	bsim4
+endif
+
+if !SHORT_CHECK_WANTED
+SUBDIRS +=		\
+	bsim3		\
+	bsim4		\
+	bsimsoi		\
+	hisim		\
+	hicum2		\
+	hisimhv1	\
+	hisimhv2
+endif
 
 DIST_SUBDIRS =		\
 	bsim1		\
@@ -25,8 +36,10 @@ DIST_SUBDIRS =		\
 	filters		\
 	general		\
 	hfet		\
+	hicum2		\
 	hisim		\
 	hisimhv1	\
+	hisimhv2	\
 	jfet		\
 	mes		\
 	mesa		\

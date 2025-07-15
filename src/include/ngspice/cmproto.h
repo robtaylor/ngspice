@@ -48,6 +48,8 @@ NON-STANDARD FEATURES
 
 #include  <stdio.h>
 #include "ngspice/cmtypes.h"
+#include "ngspice/cktdefs.h"
+#include "ngspice/cpextern.h"
 
 
 void cm_climit_fcn(double in, double in_offset, double cntl_upper, 
@@ -85,8 +87,23 @@ int  cm_event_queue(double time);
 char *cm_message_get_errmsg(void);
 int  cm_message_send(char *msg);
 
+#ifdef __GNUC__
+int cm_message_printf(const char *fmt, ...) __attribute__ ((format (__printf__, 1, 2)));
+#else
+int cm_message_printf(const char *fmt, ...);
+#endif
+
+
 double cm_netlist_get_c(void);
 double cm_netlist_get_l(void);
+
+void        cm_irreversible(unsigned int);
+const char *cm_get_node_name(const char *, unsigned int);
+bool        cm_probe_node(unsigned int, unsigned int, void *);
+bool        cm_schedule_output(unsigned int, unsigned int, double, void *);
+
+enum cp_types;
+bool        cm_getvar(char *, enum cp_types, void *, size_t);
 
 Complex_t cm_complex_set(double real, double imag);
 Complex_t cm_complex_add(Complex_t x, Complex_t y);
@@ -95,6 +112,7 @@ Complex_t cm_complex_multiply(Complex_t x, Complex_t y);
 Complex_t cm_complex_divide(Complex_t x, Complex_t y);
 
 char *cm_get_path(void);
+CKTcircuit *cm_get_circuit(void);
 
 FILE *cm_stream_out(void);
 FILE *cm_stream_in(void);
@@ -102,9 +120,13 @@ FILE *cm_stream_err(void);
 
 void *malloc_pj(size_t s);
 void *calloc_pj(size_t s1, size_t s2);
-void *realloc_pj(void *ptr, size_t s);
-void  free_pj(void *ptr);
+void *realloc_pj(const void *ptr, size_t s);
+void  free_pj(const void *ptr);
 
 FILE *fopen_with_path(const char *path, const char *mode);
 
-#endif
+#define CM_IGNORE(x) (void) (x)
+
+void cm_cexit(const int);
+
+#endif /* include guard */

@@ -7,15 +7,12 @@ libcsw_la_SOURCES =	\
 	cswacld.c	\
 	cswask.c	\
 	cswdefs.h	\
-	cswdel.c	\
-	cswdest.c	\
 	cswext.h	\
 	cswinit.c	\
 	cswinit.h	\
 	cswitf.h	\
 	cswload.c	\
 	cswmask.c	\
-	cswmdel.c	\
 	cswmpar.c	\
 	cswnoise.c	\
 	cswparam.c	\
@@ -24,7 +21,11 @@ libcsw_la_SOURCES =	\
 	cswtrunc.c
 
 
+if KLU_WANTED
+libcsw_la_SOURCES += cswbindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)
+
 MAINTAINERCLEANFILES = Makefile.in

@@ -41,7 +41,7 @@ fourier(wordlist *wl, struct plot *current_plot)
 {
     struct dvec *time, *vec;
     struct pnode *pn, *names;
-    double *ff, fundfreq, *data = NULL;
+    double fundfreq, *data = NULL;
     int nfreqs, fourgridsize, polydegree;
     double *freq, *mag, *phase, *nmag, *nphase;  /* Outputs from CKTfour */
     double thd, *timescale = NULL;
@@ -50,8 +50,8 @@ fourier(wordlist *wl, struct plot *current_plot)
     char xbuf[20];
     int shift;
     int rv = 1;
+    bool foursave = TRUE;
 
-    char newvecname[32];
     struct dvec *n;
     int newveccount = 1;
     static int callstof = 1;
@@ -66,12 +66,14 @@ fourier(wordlist *wl, struct plot *current_plot)
         return 1;
     }
 
-    if (!cp_getvar("nfreqs", CP_NUM, &nfreqs) || nfreqs < 1)
+    if (!cp_getvar("nfreqs", CP_NUM, &nfreqs, 0) || nfreqs < 1)
         nfreqs = 10;
-    if (!cp_getvar("polydegree", CP_NUM, &polydegree) || polydegree < 0)
+    if (!cp_getvar("polydegree", CP_NUM, &polydegree, 0) || polydegree < 0)
         polydegree = 1;
-    if (!cp_getvar("fourgridsize", CP_NUM, &fourgridsize) || fourgridsize < 1)
+    if (!cp_getvar("fourgridsize", CP_NUM, &fourgridsize, 0) || fourgridsize < 1)
         fourgridsize = DEF_FOURGRIDSIZE;
+    if (cp_getvar("fournosave", CP_BOOL, NULL, 0))
+        foursave = FALSE;
 
     time = current_plot->pl_scale;
     if (!isreal(time)) {
@@ -79,11 +81,10 @@ fourier(wordlist *wl, struct plot *current_plot)
         return 1;
     }
     s = wl->wl_word;
-    if ((ff = ft_numparse(&s, FALSE)) == NULL || (*ff <= 0.0)) {
-        fprintf(cp_err, "Error: bad fund freq %s\n", wl->wl_word);
+    if (ft_numparse(&s, FALSE, &fundfreq) < 0 || fundfreq <= 0.0) {
+        fprintf(cp_err, "Error: bad fundamental freq %s\n", wl->wl_word);
         return 1;
     }
-    fundfreq = *ff;
 
     freq = TMALLOC(double, nfreqs);
     mag = TMALLOC(double, nfreqs);
@@ -92,7 +93,7 @@ fourier(wordlist *wl, struct plot *current_plot)
     nphase = TMALLOC(double, nfreqs);
 
     wl = wl->wl_next;
-    names = ft_getpnames(wl, TRUE);
+    names = ft_getpnames_quotes(wl, TRUE);
     for (pn = names; pn; pn = pn->pn_next) {
         vec = ft_evaluate(pn);
         for (; vec; vec = vec->v_link2) {
@@ -190,39 +191,48 @@ fourier(wordlist *wl, struct plot *current_plot)
             }
             fputs("\n", cp_out);
 
-            /* generate name for new vector, using vec->name */
-            sprintf(newvecname, "fourier%d%d", callstof, newveccount);
+            if (foursave) {
+                /* create a vector for THD */
+                n = dvec_alloc(tprintf("thd%d%d", callstof, newveccount),
+                    SV_NOTYPE,
+                    VF_REAL | VF_PERMANENT,
+                    1, NULL);
 
-            /* create and assign a new vector n */
-            /* with size 3 * nfreqs in current plot */
-            n = alloc(struct dvec);
-            ZERO(n, struct dvec);
-            n->v_name = copy(newvecname);
-            n->v_type = SV_NOTYPE;
-            n->v_flags = (VF_REAL | VF_PERMANENT);
-            n->v_length = 3 * nfreqs;
-            n->v_numdims = 2;
-            n->v_dims[0] = 3;
-            n->v_dims[1] = nfreqs;
+                n->v_numdims = 1;
 
-            n->v_realdata = TMALLOC(double, n->v_length);
+                vec_new(n);
 
-            vec_new(n);
+                n->v_realdata[0] = thd;
 
-            /* store data in vector: freq, mag, phase */
-            for (i = 0; i < nfreqs; i++) {
-                n->v_realdata[i] = freq[i];
-                n->v_realdata[i + nfreqs] = mag[i];
-                n->v_realdata[i + 2 * nfreqs] = phase[i];
+                /* create and assign a new vector n */
+                /* with size 3 * nfreqs in current plot */
+                /* generate name for new vector, using vec->name */
+                n = dvec_alloc(tprintf("fourier%d%d", callstof, newveccount),
+                    SV_NOTYPE,
+                    VF_REAL | VF_PERMANENT,
+                    3 * nfreqs, NULL);
+
+                n->v_numdims = 2;
+                n->v_dims[0] = 3;
+                n->v_dims[1] = nfreqs;
+
+                vec_new(n);
+
+                /* store data in vector: freq, mag, phase */
+                for (i = 0; i < nfreqs; i++) {
+                    n->v_realdata[i] = freq[i];
+                    n->v_realdata[i + nfreqs] = mag[i];
+                    n->v_realdata[i + 2 * nfreqs] = phase[i];
+                }
+                newveccount++;
+
+                if (polydegree) {
+                    tfree(timescale);
+                    tfree(data);
+                }
+                timescale = NULL;
+                data = NULL;
             }
-            newveccount++;
-
-            if (polydegree) {
-                tfree(timescale);
-                tfree(data);
-            }
-            timescale = NULL;
-            data = NULL;
         }
     }
 
@@ -255,18 +265,15 @@ com_fourier(wordlist *wl)
 static char *
 pnum(double num)
 {
-    char buf[BSIZE_SP];
     int i = cp_numdgt;
 
     if (i < 1)
         i = 6;
 
     if (num < 0.0)
-        sprintf(buf, "%.*g", i - 1, num);
+        return tprintf("%.*g", i - 1, num);
     else
-        sprintf(buf, "%.*g", i, num);
-
-    return (copy(buf));
+        return tprintf("%.*g", i, num);
 }
 
 

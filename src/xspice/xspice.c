@@ -8,7 +8,7 @@ static void *tcalloc(size_t a, size_t b) {
   return tmalloc(a*b);          /* FIXME, tcalloc must zero !?!? */
 }
 
-static void no_free(void *p) {
+static void no_free(const void *p) {
   NG_IGNORE(p);
 }
 
@@ -62,6 +62,7 @@ struct coreInfo_t  coreInfo =
   cm_complex_multiply,
   cm_complex_divide,
   cm_get_path,
+  cm_get_circuit,
   no_file,
   no_file,
   no_file,
@@ -81,5 +82,11 @@ struct coreInfo_t  coreInfo =
   GC_malloc,
   GC_realloc,
   no_free
+#endif
+#ifdef KLU
+  ,
+  MIFbindCSC,
+  MIFbindCSCComplex,
+  MIFbindCSCComplexToReal
 #endif
 };

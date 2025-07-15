@@ -1,0 +1,118 @@
+name: Build and test on MacOS
+
+on:
+  push:
+    branches: main
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}  # Use dynamic runner based on OS
+    strategy:
+      matrix:
+        # See https://github.com/actions/runner-images?tab=readme-ov-file#available-images
+        # os: [macos-15-large, macos-15, macos-14-large, macos-14, macos-13, macos-13-xlarge]
+        os: [macos-14]
+        sharedlib: ['library-only', 'full']
+        build-type: ['debug', 'release']
+        compiler: ['gcc', 'clang']
+        include:
+          - build-type: 'debug'
+            debug-flag: '-d'
+          - build-type: 'release'
+            debug-flag: ''
+          - sharedlib: 'library-only'
+            sharedlib-flag: '-l'
+          - sharedlib: 'full'
+            sharedlib-flag: ''
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: tecolicom/actions-use-homebrew-tools@v1
+        with:
+          tools: 'xquartz libx11 libxaw bison flex libtool autoconf automake libomp make gcc'
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+
+      - name: Find number of CPUs
+        id: num-cpus
+        run: echo "NCPUS=$(sysctl -n hw.logicalcpu)" >> "$GITHUB_ENV"
+
+      - name: Configure for macos
+        run: |
+          if [[ "${{matrix.compiler}}" == 'gcc' ]]; then
+            export CC='ccache gcc'
+            export CXX='ccache g++'
+          else
+            export CC='ccache clang'
+            export CXX='ccache clang++'
+          fi
+
+          EXIT_AFTER_CONFIGURE=1 ./compile_macos.sh ${{matrix.sharedlib-flag}} ${{matrix.debug-flag}} -i $HOME/test || cat ${{ matrix.build-type }}/config.log
+
+      - name: Build
+        working-directory: ${{ matrix.build-type }}
+        run: make -j $NCPUS
+
+      - name: Upload build artifact for tests
+        if: ${{matrix.sharedlib == 'full' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifact-${{matrix.os}}-${{matrix.compiler}}-${{matrix.build-type}}
+          path: ./${{ matrix.build-type }}
+
+      - name: Install
+        run: make install
+
+  define-tests:
+    runs-on: macos-latest
+    outputs:
+      tests: ${{ steps.check-list.outputs.tests}}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: tecolicom/actions-use-homebrew-tools@v1
+        with:
+          tools: 'xquartz libx11 libxaw bison flex libtool autoconf automake libomp make gcc'
+
+      - name: Configure for macos
+        run: EXIT_AFTER_CONFIGURE=1 ./compile_macos.sh -i $HOME/test
+
+      - name: Get list of checks
+        id: check-list
+        working-directory: ./release
+        run: |
+          tests=$( gmake -s -C tests --eval='print-tests:;@echo $(SUBDIRS)' print-tests)
+          array=($tests)
+          joined=$(printf "\"%s\"\n" "${array[@]}" | paste -sd ',' -)
+          echo "tests=[$joined]" >> "$GITHUB_OUTPUT"
+          echo "tests=[$joined]"
+
+  run-tests:
+    runs-on: ${{matrix.os}}
+    needs: [build, define-tests]
+    strategy:
+      matrix:
+        test: ${{ fromJSON(needs.define-tests.outputs.tests) }}
+        # os: [macos-15-large, macos-15, macos-14-large, macos-14, macos-13, macos-13-xlarge]
+        os: [macos-14]
+        build-type: ['debug', 'release']
+        compiler: ['gcc', 'clang']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: tecolicom/actions-use-homebrew-tools@v1
+        with:
+          tools: 'xquartz libx11 libxaw bison flex libtool autoconf automake libomp make gcc'
+
+      - name: Fetch appropriate build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifact-${{matrix.os}}-${{matrix.compiler}}-${{matrix.build-type}}
+
+      - name: Find number of CPUs
+        id: num-cpus
+        run: echo "NCPUS=$(sysctl -n hw.logicalcpu)" >> "$GITHUB_ENV"
+
+      - name: Run Checks, distributed
+        run: make -C tests/${{matrix.test}} -j $NCPUS checks

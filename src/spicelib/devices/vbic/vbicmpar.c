@@ -17,6 +17,7 @@ Spice3 Implementation: 2003 Dietmar Warning DAnalyse GmbH
 #include "ngspice/sperror.h"
 #include "ngspice/suffix.h"
 
+#define R_MIN 0.01
 
 int
 VBICmParam(int param, IFvalue *value, GENmodel *inModel)
@@ -41,12 +42,16 @@ VBICmParam(int param, IFvalue *value, GENmodel *inModel)
             break;
         case VBIC_MOD_RCX:
             mods->VBICextCollResist = value->rValue;
-            if (mods->VBICextCollResist < 0.1) mods->VBICextCollResist = 0.1;
+            if (mods->VBICextCollResist < R_MIN) {
+                mods->VBICextCollResist = R_MIN;
+            }
             mods->VBICextCollResistGiven = TRUE;
             break;
         case VBIC_MOD_RCI:
             mods->VBICintCollResist = value->rValue;
-            if (mods->VBICintCollResist < 0.1) mods->VBICintCollResist = 0.1;
+            if (mods->VBICintCollResist < R_MIN) {
+                mods->VBICintCollResist = R_MIN;
+            }
             mods->VBICintCollResistGiven = TRUE;
             break;
         case VBIC_MOD_VO:
@@ -63,27 +68,37 @@ VBICmParam(int param, IFvalue *value, GENmodel *inModel)
             break;
         case VBIC_MOD_RBX:
             mods->VBICextBaseResist = value->rValue;
-            if (mods->VBICextBaseResist < 0.1) mods->VBICextBaseResist = 0.1;
+            if (mods->VBICextBaseResist < R_MIN) {
+                mods->VBICextBaseResist = R_MIN;
+            }
             mods->VBICextBaseResistGiven = TRUE;
             break;
         case VBIC_MOD_RBI:
             mods->VBICintBaseResist = value->rValue;
-            if (mods->VBICintBaseResist < 0.1) mods->VBICintBaseResist = 0.1;
+            if (mods->VBICintBaseResist < R_MIN) {
+                mods->VBICintBaseResist = R_MIN;
+            }
             mods->VBICintBaseResistGiven = TRUE;
             break;
         case VBIC_MOD_RE:
             mods->VBICemitterResist = value->rValue;
-            if (mods->VBICemitterResist < 0.01) mods->VBICemitterResist = 0.01;
+            if (mods->VBICemitterResist < R_MIN) {
+                mods->VBICemitterResist = R_MIN;
+            }
             mods->VBICemitterResistGiven = TRUE;
             break;
         case VBIC_MOD_RS:
             mods->VBICsubstrateResist = value->rValue;
-            if (mods->VBICsubstrateResist < 0.1) mods->VBICsubstrateResist = 0.1;
+            if (mods->VBICsubstrateResist < R_MIN) {
+                mods->VBICsubstrateResist = R_MIN;
+            }
             mods->VBICsubstrateResistGiven = TRUE;
             break;
         case VBIC_MOD_RBP:
             mods->VBICparBaseResist = value->rValue;
-            if (mods->VBICparBaseResist < 0.1) mods->VBICparBaseResist = 0.1;
+            if (mods->VBICparBaseResist < R_MIN) {
+                mods->VBICparBaseResist = R_MIN;
+            }
             mods->VBICparBaseResistGiven = TRUE;
             break;
         case VBIC_MOD_IS:
@@ -310,17 +325,9 @@ VBICmParam(int param, IFvalue *value, GENmodel *inModel)
             mods->VBICtempExpRE = value->rValue;
             mods->VBICtempExpREGiven = TRUE;
             break;
-        case VBIC_MOD_XRB:
-            mods->VBICtempExpRB = value->rValue;
-            mods->VBICtempExpRBGiven = TRUE;
-            break;
         case VBIC_MOD_XRBI:
             mods->VBICtempExpRBI = value->rValue;
             mods->VBICtempExpRBIGiven = TRUE;
-            break;
-        case VBIC_MOD_XRC:
-            mods->VBICtempExpRC = value->rValue;
-            mods->VBICtempExpRCGiven = TRUE;
             break;
         case VBIC_MOD_XRCI:
             mods->VBICtempExpRCI = value->rValue;
@@ -493,6 +500,26 @@ VBICmParam(int param, IFvalue *value, GENmodel *inModel)
         case VBIC_MOD_VCE_MAX:
             mods->VBICvceMax = value->rValue;
             mods->VBICvceMaxGiven = TRUE;
+            break;
+        case VBIC_MOD_VSUB_MAX:
+            mods->VBICvsubMax = value->rValue;
+            mods->VBICvsubMaxGiven = TRUE;
+            break;
+        case VBIC_MOD_VBEFWD_MAX:
+            mods->VBICvbefwdMax = value->rValue;
+            mods->VBICvbefwdMaxGiven = TRUE;
+            break;
+        case VBIC_MOD_VBCFWD_MAX:
+            mods->VBICvbcfwdMax = value->rValue;
+            mods->VBICvbcfwdMaxGiven = TRUE;
+            break;
+        case VBIC_MOD_VSUBFWD_MAX:
+            mods->VBICvsubfwdMax = value->rValue;
+            mods->VBICvsubfwdMaxGiven = TRUE;
+            break;
+        case VBIC_MOD_SELFT:
+            mods->VBICselft = value->iValue;
+            mods->VBICselftGiven = TRUE;
             break;
         default:
             return(E_BADPARM);

@@ -12,6 +12,8 @@ Author:	1991 David A. Gates, U. C. Berkeley CAD Group
 #include "twoddefs.h"
 #include "twodext.h"
 
+extern void CiderLoaded(int);
+
 void
 TWOdestroy(TWOdevice *pDevice)
 {
@@ -31,7 +33,16 @@ TWOdestroy(TWOdevice *pDevice)
     FREE( pDevice->copiedSolution );
     FREE( pDevice->rhs );
     FREE( pDevice->rhsImag );
-    spDestroy( pDevice->matrix );
+
+#ifdef KLU
+    SMPdestroyKLUforCIDER (pDevice->matrix) ;
+#else
+    SMPdestroy (pDevice->matrix) ;
+#endif
+    if (pDevice->matrix) {
+        FREE(pDevice->matrix);
+    }
+
     break;
   case SLV_EQUIL:
     /* free up the vectors allocated in the equilibrium solution */
@@ -39,7 +50,16 @@ TWOdestroy(TWOdevice *pDevice)
     FREE( pDevice->dcDeltaSolution );
     FREE( pDevice->copiedSolution );
     FREE( pDevice->rhs );
-    spDestroy( pDevice->matrix );
+
+#ifdef KLU
+    SMPdestroyKLUforCIDER (pDevice->matrix) ;
+#else
+    SMPdestroy (pDevice->matrix) ;
+#endif
+    if (pDevice->matrix) {
+        FREE(pDevice->matrix);
+    }
+
     break;
   case SLV_NONE:
     break;
@@ -66,11 +86,54 @@ TWOdestroy(TWOdevice *pDevice)
       FREE( pElem );
     }
     FREE( pDevice->elements );
+    for (int xIndex = 1; xIndex < pDevice->numXNodes; xIndex++) {
+      FREE(pDevice->elemArray[xIndex]);
+    }
     FREE( pDevice->elemArray );
   }
 
-  /* destroy the contacts & channels */
-  /* NOT IMPLEMENTED */
+  if (pDevice->pChannel) {
+      TWOchannel* pCtmp = pDevice->pChannel;
+      while (pCtmp) {
+          TWOchannel* pCtmpnext = pCtmp->next;
+          FREE(pCtmp);
+          pCtmp = pCtmpnext;
+      }
+  }
+
+  if (pDevice->pMaterials) {
+      TWOmaterial* pMtmp = pDevice->pMaterials;
+      while (pMtmp) {
+          TWOmaterial* pMtmpnext = pMtmp->next;
+          FREE(pMtmp);
+          pMtmp = pMtmpnext;
+      }
+  }
+
+  if (pDevice->pFirstContact) {
+      struct sTWOcontact* pFCtmp = pDevice->pFirstContact;
+      while (pFCtmp) {
+          struct sTWOcontact* pFCtmpnext = pFCtmp->next;
+          if (pFCtmp->pNodes) {
+              FREE(pFCtmp->pNodes);
+          }
+          FREE(pFCtmp);
+          pFCtmp = pFCtmpnext;
+      }
+  }
+
+  if (pDevice->pStats) {
+    FREE(pDevice->pStats);
+  }
+  if (pDevice->xScale) {
+    FREE(pDevice->xScale);
+  }
+  if (pDevice->yScale) {
+    FREE(pDevice->yScale);
+  }
 
   FREE( pDevice );
+  {
+    CiderLoaded(-1);
+  }
 }

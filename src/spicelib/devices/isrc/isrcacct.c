@@ -11,6 +11,7 @@ Author: 1985 Thomas L. Quarles
 #include "ngspice/suffix.h"
 #include "ngspice/missing_math.h"
 #include "ngspice/1-f-code.h"
+#include "ngspice/compatmode.h"
 
 #ifndef HAVE_LIBFFTW3
 extern void fftFree(void);
@@ -30,11 +31,11 @@ ISRCaccept(CKTcircuit *ckt, GENmodel *inModel)
     int error;
 
     /*  loop through all the voltage source models */
-    for( ; model != NULL; model = model->ISRCnextModel ) {
+    for( ; model != NULL; model = ISRCnextModel(model)) {
 
         /* loop through all the instances of the model */
-        for (here = model->ISRCinstances; here != NULL ;
-                here=here->ISRCnextInstance) {
+        for (here = ISRCinstances(model); here != NULL ;
+                here=ISRCnextInstance(here)) {
 
             if(!(ckt->CKTmode & (MODETRAN | MODETRANOP))) {
                 /* not transient, so shouldn't be here */
@@ -53,13 +54,11 @@ ISRCaccept(CKTcircuit *ckt, GENmodel *inModel)
                         double tshift;
                         double time = 0.;
                         double basetime = 0;
-
-/* gtri - begin - wbk - add PHASE parameter */
-#ifdef XSPICE
                         double PHASE;
                         double phase;
                         double deltat;
-#endif
+                        double tmax = 1e99;
+
                         TD = here->ISRCfunctionOrder > 2
                             ? here->ISRCcoeffs[2] : 0.0;
                         TR = here->ISRCfunctionOrder > 3
@@ -74,71 +73,86 @@ ISRCaccept(CKTcircuit *ckt, GENmodel *inModel)
                         PER = here->ISRCfunctionOrder > 6
                             && here->ISRCcoeffs[6] != 0.0
                             ? here->ISRCcoeffs[6] : ckt->CKTfinalTime;
-#ifdef XSPICE
                         PHASE = here->ISRCfunctionOrder > 7
                             ? here->ISRCcoeffs[7] : 0.0;
-#endif
+
                         /* offset time by delay */
                         time = ckt->CKTtime - TD;
                         tshift = TD;
 
-#ifdef XSPICE
-                     /* normalize phase to 0 - 360° */
-                     /* normalize phase to cycles */
-                        phase = PHASE / 360.0;
-                        phase = fmod(phase, 1.0);
-                        deltat =  phase * PER;
-                        while (deltat > 0)
-                            deltat -= PER;
-                        time += deltat;
-                        tshift = TD - deltat;
-#endif
-/* gtri - end - wbk - add PHASE parameter */
-
-                        if(time >= PER) {
-                            /* repeating signal - figure out where we are */
-                            /* in period */
-                            basetime = PER * floor(time/PER);
-                            time -= basetime;
+                        if (newcompat.xs) {
+                         /* normalize phase to 0 - 360° */
+                         /* normalize phase to cycles */
+                            phase = PHASE / 360.0;
+                            phase = fmod(phase, 1.0);
+                            deltat =  phase * PER;
+                            while (deltat > 0)
+                                deltat -= PER;
+                            time += deltat;
+                            tshift = TD - deltat;
+                        }
+                        else if (PHASE > 0.0) {
+                            tmax = PHASE * PER;
                         }
 
-                        if( time <= 0.0 || time >= TR + PW + TF) {
-                            if(ckt->CKTbreak &&  SAMETIME(time,0.0)) {
-                                error = CKTsetBreak(ckt,basetime + TR + tshift);
-                                if(error) return(error);
-                            } else if(ckt->CKTbreak && SAMETIME(TR+PW+TF,time) ) {
-                                error = CKTsetBreak(ckt,basetime + PER + tshift);
-                                if(error) return(error);
-                            } else if (ckt->CKTbreak && (time == -tshift) ) {
-                                error = CKTsetBreak(ckt,basetime + tshift);
-                                if(error) return(error);
-                            } else if (ckt->CKTbreak && SAMETIME(PER,time) ) {
-                                error = CKTsetBreak(ckt,basetime + tshift + TR + PER);
-                                if(error) return(error);
+                        if (!newcompat.xs && time > tmax) {
+                            /* Do nothing */
+                        }
+                        else {
+                            if (time >= PER) {
+                                /* repeating signal - figure out where we are */
+                                /* in period */
+                                basetime = PER * floor(time / PER);
+                                time -= basetime;
                             }
-                        } else  if ( time >= TR && time <= TR + PW) {
-                            if(ckt->CKTbreak &&  SAMETIME(time,TR) ) {
-                                error = CKTsetBreak(ckt,basetime + tshift + TR + PW);
-                                if(error) return(error);
-                            } else if(ckt->CKTbreak &&  SAMETIME(TR+PW,time) ) {
-                                error = CKTsetBreak(ckt,basetime + tshift + TR + PW + TF);
-                                if(error) return(error);
+
+                            if (time <= 0.0 || time >= TR + PW + TF) {
+                                if (ckt->CKTbreak && SAMETIME(time, 0.0)) {
+                                    error = CKTsetBreak(ckt, basetime + TR + tshift);
+                                    if (error) return(error);
+                                }
+                                else if (ckt->CKTbreak && SAMETIME(TR + PW + TF, time)) {
+                                    error = CKTsetBreak(ckt, basetime + PER + tshift);
+                                    if (error) return(error);
+                                }
+                                else if (ckt->CKTbreak && (time == -tshift)) {
+                                    error = CKTsetBreak(ckt, basetime + tshift);
+                                    if (error) return(error);
+                                }
+                                else if (ckt->CKTbreak && SAMETIME(PER, time)) {
+                                    error = CKTsetBreak(ckt, basetime + tshift + TR + PER);
+                                    if (error) return(error);
+                                }
                             }
-                        } else if (time > 0 && time < TR) {
-                            if(ckt->CKTbreak && SAMETIME(time,0) ) {
-                                error = CKTsetBreak(ckt,basetime + tshift + TR);
-                                if(error) return(error);
-                            } else if(ckt->CKTbreak && SAMETIME(time,TR)) {
-                                error = CKTsetBreak(ckt,basetime + tshift + TR + PW);
-                                if(error) return(error);
+                            else  if (time >= TR && time <= TR + PW) {
+                                if (ckt->CKTbreak && SAMETIME(time, TR)) {
+                                    error = CKTsetBreak(ckt, basetime + tshift + TR + PW);
+                                    if (error) return(error);
+                                }
+                                else if (ckt->CKTbreak && SAMETIME(TR + PW, time)) {
+                                    error = CKTsetBreak(ckt, basetime + tshift + TR + PW + TF);
+                                    if (error) return(error);
+                                }
                             }
-                        } else { /* time > TR + PW && < TR + PW + TF */
-                            if(ckt->CKTbreak && SAMETIME(time,TR+PW) ) {
-                                error = CKTsetBreak(ckt,basetime + tshift+TR + PW +TF);
-                                if(error) return(error);
-                            } else if(ckt->CKTbreak && SAMETIME(time,TR+PW+TF) ) {
-                                error = CKTsetBreak(ckt,basetime + tshift + PER);
-                                if(error) return(error);
+                            else if (time > 0 && time < TR) {
+                                if (ckt->CKTbreak && SAMETIME(time, 0)) {
+                                    error = CKTsetBreak(ckt, basetime + tshift + TR);
+                                    if (error) return(error);
+                                }
+                                else if (ckt->CKTbreak && SAMETIME(time, TR)) {
+                                    error = CKTsetBreak(ckt, basetime + tshift + TR + PW);
+                                    if (error) return(error);
+                                }
+                            }
+                            else { /* time > TR + PW && < TR + PW + TF */
+                                if (ckt->CKTbreak && SAMETIME(time, TR + PW)) {
+                                    error = CKTsetBreak(ckt, basetime + tshift + TR + PW + TF);
+                                    if (error) return(error);
+                                }
+                                else if (ckt->CKTbreak && SAMETIME(time, TR + PW + TF)) {
+                                    error = CKTsetBreak(ckt, basetime + tshift + PER);
+                                    if (error) return(error);
+                                }
                             }
                         }
                     }
@@ -201,7 +215,7 @@ ISRCaccept(CKTcircuit *ckt, GENmodel *inModel)
                         /* FIXME, dont' want this here, over to aof_get or somesuch */
                         if (ckt->CKTtime == 0.0) {
                             if (ft_ngdebug)
-                                printf("VSRC: free fft tables\n");
+                                printf("ISRC: free fft tables\n");
                             fftFree();
                         }
 #endif

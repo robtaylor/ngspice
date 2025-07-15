@@ -5,12 +5,9 @@ Author: Trond Ytterdal
 
 extern int MESAacLoad(GENmodel*,CKTcircuit*);
 extern int MESAask(CKTcircuit*,GENinstance*,int,IFvalue*,IFvalue*);
-extern int MESAdelete(GENmodel*,IFuid,GENinstance**);
-extern void MESAdestroy(GENmodel**);
 extern int MESAgetic(GENmodel*,CKTcircuit*);
 extern int MESAload(GENmodel*,CKTcircuit*);
 extern int MESAmAsk(CKTcircuit*,GENmodel*,int,IFvalue*);
-extern int MESAmDelete(GENmodel**,IFuid,GENmodel*);
 extern int MESAmParam(int,IFvalue*,GENmodel*);
 extern int MESAparam(int,IFvalue*,GENinstance*,IFvalue*);
 extern int MESApzLoad(GENmodel*,CKTcircuit*, SPcomplex*);
@@ -18,3 +15,9 @@ extern int MESAsetup(SMPmatrix*,GENmodel*,CKTcircuit*,int*);
 extern int MESAtemp(GENmodel*,CKTcircuit*);
 extern int MESAtrunc(GENmodel*,CKTcircuit*,double*);
 extern int MESAunsetup(GENmodel*,CKTcircuit*);
+
+#ifdef KLU
+extern int MESAbindCSC (GENmodel*, CKTcircuit*) ;
+extern int MESAbindCSCComplex (GENmodel*, CKTcircuit*) ;
+extern int MESAbindCSCComplexToReal (GENmodel*, CKTcircuit*) ;
+#endif

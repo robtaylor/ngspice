@@ -62,6 +62,7 @@ libckt_la_SOURCES = \
 		cktsetup.c	\
 		cktsgen.c	\
 		cktsopt.c	\
+		cktspnoise.c	\
 		ckttemp.c	\
 		cktterr.c	\
 		ckttroub.c	\
@@ -83,7 +84,10 @@ libckt_la_SOURCES = \
 		nevalsrc.c	\
 		ninteg.c	\
 		noisean.c	\
+		noisesp.c	\
 		nsetparm.c	\
+		optran.c	\
+        com_optran.h    \
 		pzan.c		\
 		pzaskq.c	\
 		pzsetp.c	\
@@ -104,6 +108,14 @@ libckt_la_SOURCES += \
 		pssaskq.c	\
 		pssinit.c	\
 		psssetp.c
+endif
+
+if SP_WANTED
+libckt_la_SOURCES += \
+		cktspdum.c		\
+		span.c	\
+		spaskq.c	\
+		spsetp.c
 endif
 
 

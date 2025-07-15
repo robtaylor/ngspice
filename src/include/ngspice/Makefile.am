@@ -1,15 +1,12 @@
 ## Process this file with automake to produce Makefile.in
 
-includedir = $(pkgdatadir)/include/ngspice
-
-nodist_include_HEADERS = \
-	config.h
-
-include_HEADERS = \
+noinst_HEADERS = \
 	tclspice.h	\
 	acdefs.h	\
+    amd.h \
 	bdrydefs.h	\
 	bool.h		\
+    btf.h \
 	carddefs.h	\
 	ciderinp.h	\
 	cidersupt.h	\
@@ -19,10 +16,12 @@ include_HEADERS = \
 	cm.h		\
 	cmproto.h	\
 	cmtypes.h	\
+    colamd.h \
 	compatmode.h	\
 	complex.h	\
 	const.h		\
 	contdefs.h	\
+    cosim.h \
 	cpdefs.h	\
 	cpextern.h	\
 	cpstd.h		\
@@ -37,8 +36,11 @@ include_HEADERS = \
 	dvec.h		\
 	elctdefs.h	\
 	enh.h		\
+	enhtypes.h	\
 	evt.h		\
 	evtproto.h	\
+	evttypes.h	\
+	evtshared.h	\
 	evtudn.h	\
 	ftedbgra.h	\
 	ftedebug.h	\
@@ -57,6 +59,7 @@ include_HEADERS = \
 	hlpdefs.h	\
 	iferrmsg.h	\
 	ifsim.h		\
+	inertial.h	\
 	inpdefs.h	\
 	inpmacs.h	\
 	inpptree.h	\
@@ -64,6 +67,9 @@ include_HEADERS = \
 	ipcproto.h	\
 	ipctiein.h	\
 	jobdefs.h	\
+	klu.h		\
+	klu-binding.h   \
+	logicexp.h  \
 	lsort.h		\
 	macros.h	\
 	material.h	\
@@ -94,20 +100,24 @@ include_HEADERS = \
 	opdefs.h	\
 	optdefs.h	\
 	optndefs.h	\
+	osdiitf.h       \
 	outpdefs.h	\
 	plot.h		\
 	pnode.h		\
 	profile.h	\
 	pssdefs.h	\
 	pzdefs.h	\
+	randnumb.h	\
 	sen2defs.h	\
 	sensdefs.h	\
 	sensgen.h	\
 	sharedspice.h	\
 	sim.h		\
 	smpdefs.h	\
+	spardefs.h	\
 	sperror.h	\
 	spmatrix.h	\
+	stringskip.h	\
 	stringutil.h	\
 	suffix.h	\
 	swec.h		\
@@ -118,11 +128,19 @@ include_HEADERS = \
 	twodev.h	\
 	twomesh.h	\
 	typedefs.h	\
+	udevices.h      \
+    UFconfig.h \
 	wordlist.h	\
 	1-f-code.h	\
 	FastNorm3.h	\
 	fftext.h	\
 	wallace.h	\
+	wincolornames.h	\
 	wstdio.h
+
+if SHARED_MODULE
+pkginclude_HEADERS = \
+	sharedspice.h
+endif SHARED_MODULE
 
 MAINTAINERCLEANFILES = Makefile.in

@@ -1,27 +1,30 @@
-/**** BSIM4.8.0 Released by Navid Paydavosi 11/01/2013 ****/
+/* ******************************************************************************
+   *  BSIM4 4.8.2 released by Chetan Kumar Dabhi 01/01/2020                     *
+   *  BSIM4 Model Equations                                                     *
+   ******************************************************************************
 
-/**********
- * Copyright 2006 Regents of the University of California. All rights reserved.
- * File: b4set.c of BSIM4.8.0.
- * Author: 2000 Weidong Liu
- * Authors: 2001- Xuemei Xi, Mohan Dunga, Ali Niknejad, Chenming Hu.
- * Authors: 2006- Mohan Dunga, Ali Niknejad, Chenming Hu
- * Authors: 2007- Mohan Dunga, Wenwei Yang, Ali Niknejad, Chenming Hu
- * Authors: 2008- Wenwei Yang, Ali Niknejad, Chenming Hu 
- * Project Director: Prof. Chenming Hu.
- * Modified by Xuemei Xi, 04/06/2001.
- * Modified by Xuemei Xi, 10/05/2001.
- * Modified by Xuemei Xi, 11/15/2002.
- * Modified by Xuemei Xi, 05/09/2003.
- * Modified by Xuemei Xi, 03/04/2004.
- * Modified by Xuemei Xi, Mohan Dunga, 07/29/2005.
- * Modified by Mohan Dunga, 12/13/2006
- * Modified by Mohan Dunga, Wenwei Yang, 05/18/2007.
- * Modified by Wenwei Yang, 07/31/2008.
- * Modified by Tanvir Morshed, Darsen Lu 03/27/2011
- * Modified by Pankaj Kumar Thakur, 07//2012
- * Modified by Navid Paydavosi, 06/12/2013
-**********/
+   ******************************************************************************
+   *  Copyright (c) 2020 University of California                               *
+   *                                                                            *
+   *  Project Director: Prof. Chenming Hu.                                      *
+   *  Current developers: Chetan Kumar Dabhi   (Ph.D. student, IIT Kanpur)      *
+   *                      Prof. Yogesh Chauhan (IIT Kanpur)                     *
+   *                      Dr. Pragya Kushwaha  (Postdoc, UC Berkeley)           *
+   *                      Dr. Avirup Dasgupta  (Postdoc, UC Berkeley)           *
+   *                      Ming-Yen Kao         (Ph.D. student, UC Berkeley)     *
+   *  Authors: Gary W. Ng, Weidong Liu, Xuemei Xi, Mohan Dunga, Wenwei Yang     *
+   *           Ali Niknejad, Chetan Kumar Dabhi, Yogesh Singh Chauhan,          *
+   *           Sayeef Salahuddin, Chenming Hu                                   * 
+   ******************************************************************************/
+
+/*
+Licensed under Educational Community License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License. You may obtain a copy of the license at
+http://opensource.org/licenses/ECL-2.0
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT 
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations
+under the License.
+*/
 
 #include "ngspice/ngspice.h"
 #include "ngspice/jobdefs.h"
@@ -61,7 +64,7 @@ double Rtot, DMCGeff, DMCIeff, DMDGeff;
 JOB   *job;
 
 #ifdef USE_OMP
-unsigned int idx, InstCount;
+int idx, InstCount;
 BSIM4instance **InstArray;
 #endif
 
@@ -74,7 +77,7 @@ BSIM4instance **InstArray;
     }
 
     /*  loop through all the BSIM4 device models */
-    for( ; model != NULL; model = model->BSIM4nextModel )
+    for( ; model != NULL; model = BSIM4nextModel(model))
     {   /* process defaults of model parameters */
         if (!model->BSIM4typeGiven)
             model->BSIM4type = NMOS;     
@@ -210,7 +213,7 @@ BSIM4instance **InstArray;
         }
 
         if (!model->BSIM4versionGiven) 
-            model->BSIM4version = copy("4.8.0");
+            model->BSIM4version = copy("4.8.2");
         if (!model->BSIM4toxrefGiven)
             model->BSIM4toxref = 30.0e-10;
         if (!model->BSIM4eotGiven)
@@ -242,7 +245,7 @@ BSIM4instance **InstArray;
             model->BSIM4cdsc = 2.4e-4;   /* unit Q/V/m^2  */
         if (!model->BSIM4cdscbGiven)
             model->BSIM4cdscb = 0.0;   /* unit Q/V/m^2  */    
-            if (!model->BSIM4cdscdGiven)
+        if (!model->BSIM4cdscdGiven)
             model->BSIM4cdscd = 0.0;   /* unit Q/V/m^2  */
         if (!model->BSIM4citGiven)
             model->BSIM4cit = 0.0;   /* unit Q/V/m^2  */
@@ -348,18 +351,32 @@ BSIM4instance **InstArray;
             model->BSIM4eu = (model->BSIM4type == NMOS) ? 1.67 : 1.0;
         if (!model->BSIM4ucsGiven)
             model->BSIM4ucs = (model->BSIM4type == NMOS) ? 1.67 : 1.0;
-        if (!model->BSIM4uaGiven)
-            model->BSIM4ua = ((model->BSIM4mobMod == 2)) ? 1.0e-15 : 1.0e-9; /* unit m/V */
+        if ((strcmp(model->BSIM4version, "4.8.1")) && (strncmp(model->BSIM4version, "4.81", 4)) &&
+            (strcmp(model->BSIM4version, "4.8.2")) && (strncmp(model->BSIM4version, "4.82", 4)))
+        {  /* check only for version <= 4.80 */
+            if (!model->BSIM4uaGiven)
+                model->BSIM4ua = ((model->BSIM4mobMod == 2)) ? 1.0e-15 : 1.0e-9; /* unit m/V */
+            if (!model->BSIM4ucGiven)
+                model->BSIM4uc = (model->BSIM4mobMod == 1) ? -0.0465 : -0.0465e-9;   
+            if (!model->BSIM4uc1Given)
+                model->BSIM4uc1 = (model->BSIM4mobMod == 1) ? -0.056 : -0.056e-9;   
+        }
+        else
+        {
+            if (!model->BSIM4uaGiven)
+                model->BSIM4ua = ((model->BSIM4mobMod == 2 || model->BSIM4mobMod == 6)) ? 1.0e-15 : 1.0e-9; /* unit m/V */
+            /*printf("warning:ua=%g",model->BSIM4ua);*/
+            if (!model->BSIM4ucGiven)
+                model->BSIM4uc = (model->BSIM4mobMod == 1 || model->BSIM4mobMod == 5) ? -0.0465 : -0.0465e-9;
+            if (!model->BSIM4uc1Given)
+                model->BSIM4uc1 = (model->BSIM4mobMod == 1 || model->BSIM4mobMod == 5) ? -0.056 : -0.056e-9;
+        }
         if (!model->BSIM4ua1Given)
             model->BSIM4ua1 = 1.0e-9;      /* unit m/V */
         if (!model->BSIM4ubGiven)
             model->BSIM4ub = 1.0e-19;     /* unit (m/V)**2 */
         if (!model->BSIM4ub1Given)
             model->BSIM4ub1 = -1.0e-18;     /* unit (m/V)**2 */
-        if (!model->BSIM4ucGiven)
-            model->BSIM4uc = (model->BSIM4mobMod == 1) ? -0.0465 : -0.0465e-9;   
-        if (!model->BSIM4uc1Given)
-            model->BSIM4uc1 = (model->BSIM4mobMod == 1) ? -0.056 : -0.056e-9;   
         if (!model->BSIM4udGiven)
             model->BSIM4ud = 0.0;     /* unit m**(-2) */
         if (!model->BSIM4ud1Given)
@@ -608,6 +625,10 @@ BSIM4instance **InstArray;
             model->BSIM4rnoia = 0.577;
         if (!model->BSIM4rnoibGiven)
             model->BSIM4rnoib = 0.5164;
+        if (!model->BSIM4gidlclampGiven)
+            model->BSIM4gidlclamp = -1e-5;
+        if (!model->BSIM4idovvdscGiven)
+            model->BSIM4idovvdsc = 1e-9;
         if (!model->BSIM4rnoicGiven)
             model->BSIM4rnoic = 0.395;
         if (!model->BSIM4ntnoiGiven)
@@ -773,7 +794,7 @@ BSIM4instance **InstArray;
             model->BSIM4lcdsc = 0.0;
         if (!model->BSIM4lcdscbGiven)
             model->BSIM4lcdscb = 0.0;
-            if (!model->BSIM4lcdscdGiven) 
+        if (!model->BSIM4lcdscdGiven)
             model->BSIM4lcdscd = 0.0;
         if (!model->BSIM4lcitGiven)
             model->BSIM4lcit = 0.0;
@@ -1150,7 +1171,7 @@ BSIM4instance **InstArray;
             model->BSIM4wcdsc = 0.0;
         if (!model->BSIM4wcdscbGiven)
             model->BSIM4wcdscb = 0.0;  
-            if (!model->BSIM4wcdscdGiven)
+        if (!model->BSIM4wcdscdGiven)
             model->BSIM4wcdscd = 0.0;
         if (!model->BSIM4wcitGiven)
             model->BSIM4wcit = 0.0;
@@ -1474,7 +1495,7 @@ BSIM4instance **InstArray;
             model->BSIM4wxrcrg2 = 0.0;
         if (!model->BSIM4weuGiven)
             model->BSIM4weu = 0.0;
-            if (!model->BSIM4wucsGiven)
+        if (!model->BSIM4wucsGiven)
             model->BSIM4wucs = 0.0;
         if (!model->BSIM4wvfbGiven)
             model->BSIM4wvfb = 0.0;
@@ -1527,7 +1548,7 @@ BSIM4instance **InstArray;
             model->BSIM4pcdsc = 0.0;
         if (!model->BSIM4pcdscbGiven)
             model->BSIM4pcdscb = 0.0;   
-            if (!model->BSIM4pcdscdGiven)
+        if (!model->BSIM4pcdscdGiven)
             model->BSIM4pcdscd = 0.0;
         if (!model->BSIM4pcitGiven)
             model->BSIM4pcit = 0.0;
@@ -1991,15 +2012,10 @@ BSIM4instance **InstArray;
         }
         if (!model->BSIM4dwjGiven)
            model->BSIM4dwj = model->BSIM4dwc;
-        if (!model->BSIM4cfGiven)
-           model->BSIM4cf = 2.0 * model->BSIM4epsrox * EPS0 / PI
-                          * log(1.0 + 0.4e-6 / model->BSIM4toxe);
-
         if (!model->BSIM4xpartGiven)
             model->BSIM4xpart = 0.0;
         if (!model->BSIM4sheetResistanceGiven)
             model->BSIM4sheetResistance = 0.0;
-
         if (!model->BSIM4SunitAreaJctCapGiven)
             model->BSIM4SunitAreaJctCap = 5.0E-4;
         if (!model->BSIM4DunitAreaJctCapGiven)
@@ -2185,6 +2201,16 @@ BSIM4instance **InstArray;
             model->BSIM4vbsMax = 1e99;
         if (!model->BSIM4vbdMaxGiven)
             model->BSIM4vbdMax = 1e99;
+        if (!model->BSIM4vgsrMaxGiven)
+            model->BSIM4vgsrMax = 1e99;
+        if (!model->BSIM4vgdrMaxGiven)
+            model->BSIM4vgdrMax = 1e99;
+        if (!model->BSIM4vgbrMaxGiven)
+            model->BSIM4vgbrMax = 1e99;
+        if (!model->BSIM4vbsrMaxGiven)
+            model->BSIM4vbsrMax = 1e99;
+        if (!model->BSIM4vbdrMaxGiven)
+            model->BSIM4vbdrMax = 1e99;
 
         /* stress effect */
         if (!model->BSIM4sarefGiven)
@@ -2277,8 +2303,8 @@ BSIM4instance **InstArray;
          * through all the instances of the model
          */
 
-        for (here = model->BSIM4instances; here != NULL ;
-             here=here->BSIM4nextInstance) 
+        for (here = BSIM4instances(model); here != NULL ;
+             here=BSIM4nextInstance(here)) 
         {
             /* allocate a chunk of the state vector */
             here->BSIM4states = *states;
@@ -2326,6 +2352,8 @@ BSIM4instance **InstArray;
                 here->BSIM4rbpd = model->BSIM4rbpd;
             if (!here->BSIM4delvtoGiven)
                 here->BSIM4delvto = 0.0;
+            if (!here->BSIM4mulu0Given)
+                here->BSIM4mulu0 = 1.0;
             if (!here->BSIM4xgwGiven)
                 here->BSIM4xgw = model->BSIM4xgw;
             if (!here->BSIM4ngconGiven)
@@ -2660,30 +2688,32 @@ do { if((here->ptr = SMPmakeElt(matrix,here->first,here->second))==(double *)NUL
     /* loop through all the BSIM4 device models 
        to count the number of instances */
     
-    for( ; model != NULL; model = model->BSIM4nextModel )
+    for( ; model != NULL; model = BSIM4nextModel(model))
     {
         /* loop through all the instances of the model */
-        for (here = model->BSIM4instances; here != NULL ;
-             here=here->BSIM4nextInstance) 
+        for (here = BSIM4instances(model); here != NULL ;
+             here=BSIM4nextInstance(here)) 
         { 
             InstCount++;
         }
+        model->BSIM4InstCount = 0;
+        model->BSIM4InstanceArray = NULL;
     }
     InstArray = TMALLOC(BSIM4instance*, InstCount);
     model = (BSIM4model*)inModel;
+    /* store this in the first model only */
+    model->BSIM4InstCount = InstCount;
+    model->BSIM4InstanceArray = InstArray;
     idx = 0;
-    for( ; model != NULL; model = model->BSIM4nextModel )
+    for( ; model != NULL; model = BSIM4nextModel(model))
     {
         /* loop through all the instances of the model */
-        for (here = model->BSIM4instances; here != NULL ;
-             here=here->BSIM4nextInstance) 
+        for (here = BSIM4instances(model); here != NULL ;
+             here=BSIM4nextInstance(here)) 
         { 
             InstArray[idx] = here;
             idx++;
         }
-        /* set the array pointer and instance count into each model */
-        model->BSIM4InstCount = InstCount;
-        model->BSIM4InstanceArray = InstArray;		
     }
 #endif
 
@@ -2699,24 +2729,55 @@ CKTcircuit *ckt)
     BSIM4model *model;
     BSIM4instance *here;
 
+#ifdef USE_OMP
+    model = (BSIM4model*)inModel;
+    tfree(model->BSIM4InstanceArray);
+#endif
+
     for (model = (BSIM4model *)inModel; model != NULL;
-            model = model->BSIM4nextModel)
+            model = BSIM4nextModel(model))
     {
-        for (here = model->BSIM4instances; here != NULL;
-                here=here->BSIM4nextInstance)
+        for (here = BSIM4instances(model); here != NULL;
+                here=BSIM4nextInstance(here))
         {
-            if (here->BSIM4dNodePrime
-                    && here->BSIM4dNodePrime != here->BSIM4dNode)
-            {
-                CKTdltNNum(ckt, here->BSIM4dNodePrime);
-                here->BSIM4dNodePrime = 0;
-            }
-            if (here->BSIM4sNodePrime
+            if (here->BSIM4qNode > 0)
+                CKTdltNNum(ckt, here->BSIM4qNode);
+            here->BSIM4qNode = 0;
+
+            if (here->BSIM4sbNode > 0 &&
+                here->BSIM4sbNode != here->BSIM4bNode)
+                CKTdltNNum(ckt, here->BSIM4sbNode);
+            here->BSIM4sbNode = 0;
+
+            if (here->BSIM4bNodePrime > 0 &&
+                here->BSIM4bNodePrime != here->BSIM4bNode)
+                CKTdltNNum(ckt, here->BSIM4bNodePrime);
+            here->BSIM4bNodePrime = 0;
+
+            if (here->BSIM4dbNode > 0 &&
+                here->BSIM4dbNode != here->BSIM4bNode)
+                CKTdltNNum(ckt, here->BSIM4dbNode);
+            here->BSIM4dbNode = 0;
+
+            if (here->BSIM4gNodeMid > 0 &&
+                here->BSIM4gNodeMid != here->BSIM4gNodeExt)
+                CKTdltNNum(ckt, here->BSIM4gNodeMid);
+            here->BSIM4gNodeMid = 0;
+
+            if (here->BSIM4gNodePrime > 0 &&
+                here->BSIM4gNodePrime != here->BSIM4gNodeExt)
+                CKTdltNNum(ckt, here->BSIM4gNodePrime);
+            here->BSIM4gNodePrime = 0;
+
+            if (here->BSIM4sNodePrime > 0
                     && here->BSIM4sNodePrime != here->BSIM4sNode)
-            {
                 CKTdltNNum(ckt, here->BSIM4sNodePrime);
-                here->BSIM4sNodePrime = 0;
-            }
+            here->BSIM4sNodePrime = 0;
+
+            if (here->BSIM4dNodePrime > 0
+                    && here->BSIM4dNodePrime != here->BSIM4dNode)
+                CKTdltNNum(ckt, here->BSIM4dNodePrime);
+            here->BSIM4dNodePrime = 0;
         }
     }
 #endif

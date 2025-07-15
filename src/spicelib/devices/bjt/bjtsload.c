@@ -86,11 +86,11 @@ BJTsLoad(GENmodel *inModel, CKTcircuit *ckt)
     info->SENstatus = PERTURBATION;
 
     /*  loop through all the models */
-    for( ; model != NULL; model = model->BJTnextModel ) {
+    for( ; model != NULL; model = BJTnextModel(model)) {
 
         /* loop through all the instances of the model */
-        for (here = model->BJTinstances; here != NULL ;
-                here=here->BJTnextInstance) {
+        for (here = BJTinstances(model); here != NULL ;
+                here=BJTnextInstance(here)) {
 
 #ifdef SENSDEBUG
             printf("base = %d , baseprm = %d ,col = %d, colprm = %d\n",
@@ -313,7 +313,6 @@ restore:
             for(i=0; i <= 20; i++){
                 *(ckt->CKTstate0 + here->BJTstate + i) = *(SaveState0 + i);
             }
-            *(ckt->CKTstate1 + here->BJTcexbc) = *(SaveState0 + 21);
             *(ckt->CKTstate1 + here->BJTcexbc) = *(SaveState0 + 21);
             here->BJTcapbe = *(SaveState0 + 23) ;
             here->BJTcapbc = *(SaveState0 + 24) ;

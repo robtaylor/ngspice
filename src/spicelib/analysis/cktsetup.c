@@ -14,6 +14,11 @@ Author: 1985 Thomas L. Quarles
 #include "ngspice/cktdefs.h"
 #include "ngspice/devdefs.h"
 #include "ngspice/sperror.h"
+#include "ngspice/fteext.h"
+
+#ifdef XSPICE
+#include "ngspice/enh.h"
+#endif
 
 #ifdef USE_OMP
 #include <omp.h>
@@ -26,19 +31,39 @@ int nthreads;
             return(E_NOMEM);\
 }
 
-
 int
 CKTsetup(CKTcircuit *ckt)
 {
     int i;
     int error;
+
 #ifdef XSPICE
  /* gtri - begin - Setup for adding rshunt option resistors */
     CKTnode *node;
     int     num_nodes;
  /* gtri - end - Setup for adding rshunt option resistors */
+
+#ifdef KLU
+    BindElement BindNode, *matched, *BindStruct ;
+    size_t nz ;
 #endif
+#endif
+
     SMPmatrix *matrix;
+
+    if (!ckt->CKThead) {
+        fprintf(stderr, "Error: No model list found, device setup not possible!\n");
+        if (ft_stricterror)
+            controlled_exit(EXIT_BAD);
+        return E_PANIC;
+    }
+    if (!DEVices) {
+        fprintf(stderr, "Error: No device list found, device setup not possible!\n");
+        if (ft_stricterror)
+            controlled_exit(EXIT_BAD);
+        return E_PANIC;
+    }
+
     ckt->CKTnumStates=0;
 
 #ifdef WANT_SENSE2
@@ -53,13 +78,15 @@ CKTsetup(CKTcircuit *ckt)
         return E_NOCHANGE;
 
     error = NIinit(ckt);
-    if (error) return(error);
+    if (error) 
+        return(error);
+
     ckt->CKTisSetup = 1;
 
     matrix = ckt->CKTmatrix;
 
 #ifdef USE_OMP
-    if (!cp_getvar("num_threads", CP_NUM, &nthreads))
+    if (!cp_getvar("num_threads", CP_NUM, &nthreads, 0))
         nthreads = 2;
 
     omp_set_num_threads(nthreads);
@@ -69,16 +96,98 @@ CKTsetup(CKTcircuit *ckt)
       printf("OpenMP: %d threads are requested in ngspice\n", nthreads);*/
 #endif
 
-    for (i=0;i<DEVmaxnum;i++) {
 #ifdef HAS_PROGREP
-        SetAnalyse( "Device Setup", 0 );
+    SetAnalyse("Device Setup", 0);
 #endif
+
+    /* preserve CKTlastNode before invoking DEVsetup()
+     * so we can check for incomplete CKTdltNNum() invocations
+     * during DEVunsetup() causing an erronous circuit matrix
+     *   when reinvoking CKTsetup()
+     */
+    ckt->prev_CKTlastNode = ckt->CKTlastNode;
+
+    for (i=0;i<DEVmaxnum;i++) {
         if ( DEVices[i] && DEVices[i]->DEVsetup && ckt->CKThead[i] ) {
             error = DEVices[i]->DEVsetup (matrix, ckt->CKThead[i], ckt,
                     &ckt->CKTnumStates);
             if(error) return(error);
         }
     }
+
+#ifdef XSPICE
+  /* gtri - begin - Setup for adding rshunt option resistors */
+
+    if(ckt->enh->rshunt_data.enabled) {
+
+        /* Count number of voltage nodes in circuit */
+        for(num_nodes = 0, node = ckt->CKTnodes; node; node = node->next)
+            if((node->type == SP_VOLTAGE) && (node->number != 0))
+                num_nodes++;
+
+        /* Allocate space for the matrix diagonal data */
+        if(num_nodes > 0) {
+            FREE(ckt->enh->rshunt_data.diag);
+            ckt->enh->rshunt_data.diag =
+                 TMALLOC(double *, num_nodes);
+        }
+
+        /* Set the number of nodes in the rshunt data */
+        ckt->enh->rshunt_data.num_nodes = num_nodes;
+
+        /* Get/create matrix diagonal entry following what RESsetup does */
+        for(i = 0, node = ckt->CKTnodes; node; node = node->next) {
+            if((node->type == SP_VOLTAGE) && (node->number != 0)) {
+                ckt->enh->rshunt_data.diag[i] =
+                      SMPmakeElt(matrix,node->number,node->number);
+                i++;
+            }
+        }
+    }
+
+    /* gtri - end - Setup for adding rshunt option resistors */
+#endif
+
+#ifdef KLU
+    if (ckt->CKTmatrix->CKTkluMODE)
+    {
+        fprintf (stdout, "Using KLU as Direct Linear Solver\n") ;
+
+        /* Convert the COO Storage to CSC for KLU and Fill the Binding Table */
+        SMPconvertCOOtoCSC (matrix) ;
+
+        /* Assign the KLU Pointers */
+        for (i = 0 ; i < DEVmaxnum ; i++)
+            if (DEVices [i] && DEVices [i]->DEVbindCSC && ckt->CKThead [i])
+                DEVices [i]->DEVbindCSC (ckt->CKThead [i], ckt) ;
+
+#ifdef XSPICE
+        if (ckt->enh->rshunt_data.num_nodes > 0) {
+            BindStruct = ckt->CKTmatrix->SMPkluMatrix->KLUmatrixBindStructCOO ;
+            nz = (size_t)ckt->CKTmatrix->SMPkluMatrix->KLUmatrixLinkedListNZ ;
+            for(i = 0, node = ckt->CKTnodes; node; node = node->next) {
+                if((node->type == SP_VOLTAGE) && (node->number != 0)) {
+                    BindNode.COO = ckt->enh->rshunt_data.diag [i] ;
+                    BindNode.CSC = NULL ;
+                    BindNode.CSC_Complex = NULL ;
+                    matched = (BindElement *) bsearch (&BindNode, BindStruct, nz, sizeof (BindElement), BindCompare) ;
+                    if (!matched) {
+                        fprintf (stderr, "Error: Ptr %p not found in BindStruct Table\n", ckt->enh->rshunt_data.diag [i]) ;
+                        ckt->enh->rshunt_data.diag[i] = NULL;
+                    }
+                    else
+                        ckt->enh->rshunt_data.diag [i] = matched->CSC ;
+                    i++;
+                }
+            }
+        }
+#endif
+
+    } else {
+        fprintf (stdout, "Using SPARSE 1.3 as Direct Linear Solver\n") ;
+    }
+#endif
+
     for(i=0;i<=MAX(2,ckt->CKTmaxOrder)+1;i++) { /* dctran needs 3 states as minimum */
         CKALLOC(ckt->CKTstates[i],ckt->CKTnumStates,double);
     }
@@ -95,38 +204,7 @@ CKTsetup(CKTcircuit *ckt)
         error = NIreinit(ckt);
         if(error) return(error);
     }
-#ifdef XSPICE
-  /* gtri - begin - Setup for adding rshunt option resistors */
 
-    if(ckt->enh->rshunt_data.enabled) {
-
-        /* Count number of voltage nodes in circuit */
-        for(num_nodes = 0, node = ckt->CKTnodes; node; node = node->next)
-            if((node->type == SP_VOLTAGE) && (node->number != 0))
-                num_nodes++;
-
-        /* Allocate space for the matrix diagonal data */
-        if(num_nodes > 0) {
-            ckt->enh->rshunt_data.diag =
-                 TMALLOC(double *, num_nodes);
-        }
-
-        /* Set the number of nodes in the rshunt data */
-        ckt->enh->rshunt_data.num_nodes = num_nodes;
-
-        /* Get/create matrix diagonal entry following what RESsetup does */
-        for(i = 0, node = ckt->CKTnodes; node; node = node->next) {
-            if((node->type == SP_VOLTAGE) && (node->number != 0)) {
-                ckt->enh->rshunt_data.diag[i] =
-                      SMPmakeElt(matrix,node->number,node->number);
-                i++;
-            }
-        }
-
-    }
-
-    /* gtri - end - Setup for adding rshunt option resistors */
-#endif
     return(OK);
 }
 
@@ -147,7 +225,7 @@ CKTunsetup(CKTcircuit *ckt)
     /* added by HT 050802*/
     for(node=ckt->CKTnodes;node;node=node->next){
         if(node->icGiven || node->nsGiven) {
-            node->ptr=0;
+            node->ptr=NULL;
         }
     }
 
@@ -158,6 +236,13 @@ CKTunsetup(CKTcircuit *ckt)
                 error = e2;
         }
     }
+
+    if (ckt->prev_CKTlastNode != ckt->CKTlastNode) {
+        fprintf(stderr, "Internal Error: incomplete CKTunsetup(), this will cause serious problems, please report this issue !\n");
+        controlled_exit(EXIT_FAILURE);
+    }
+    ckt->prev_CKTlastNode = NULL;
+
     ckt->CKTisSetup = 0;
     if(error) return(error);
 

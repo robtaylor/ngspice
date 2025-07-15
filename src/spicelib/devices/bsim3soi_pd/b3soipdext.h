@@ -8,12 +8,9 @@ Modified by Paolo Nenzi 2002
 extern int B3SOIPDacLoad(GENmodel *,CKTcircuit*);
 extern int B3SOIPDask(CKTcircuit *,GENinstance*,int,IFvalue*,IFvalue*);
 extern int B3SOIPDconvTest(GENmodel *,CKTcircuit*);
-extern int B3SOIPDdelete(GENmodel*,IFuid,GENinstance**);
-extern void B3SOIPDdestroy(GENmodel**);
 extern int B3SOIPDgetic(GENmodel*,CKTcircuit*);
 extern int B3SOIPDload(GENmodel*,CKTcircuit*);
 extern int B3SOIPDmAsk(CKTcircuit*,GENmodel *,int, IFvalue*);
-extern int B3SOIPDmDelete(GENmodel**,IFuid,GENmodel*);
 extern int B3SOIPDmParam(int,IFvalue*,GENmodel*);
 extern void B3SOIPDmosCap(CKTcircuit*, double, double, double, double,
         double, double, double, double, double, double, double,
@@ -28,3 +25,9 @@ extern int B3SOIPDtemp(GENmodel*,CKTcircuit*);
 extern int B3SOIPDtrunc(GENmodel*,CKTcircuit*,double*);
 extern int B3SOIPDnoise(int,int,GENmodel*,CKTcircuit*,Ndata*,double*);
 extern int B3SOIPDunsetup(GENmodel*,CKTcircuit*);
+
+#ifdef KLU
+extern int B3SOIPDbindCSC (GENmodel*, CKTcircuit*) ;
+extern int B3SOIPDbindCSCComplex (GENmodel*, CKTcircuit*) ;
+extern int B3SOIPDbindCSCComplexToReal (GENmodel*, CKTcircuit*) ;
+#endif

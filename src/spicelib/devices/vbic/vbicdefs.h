@@ -16,19 +16,43 @@ Spice3 Implementation: 2003 Dietmar Warning DAnalyse GmbH
 
 /* structures to describe Bipolar Junction Transistors */
 
+/* indices to array of VBIC noise sources */
+
+enum {
+    VBICRCNOIZ = 0,
+    VBICRCINOIZ,
+    VBICRBNOIZ,
+    VBICRBINOIZ,
+    VBICRENOIZ,
+    VBICRBPNOIZ,
+    VBICRSNOIZ,
+    VBICICNOIZ,
+    VBICIBNOIZ,
+    VBICIBEPNOIZ,
+    VBICICCPNOIZ,
+    VBICFLBENOIZ,
+    VBICFLBEPNOIZ,
+    VBICTOTNOIZ,
+    /* finally, the number of noise sources */
+    VBICNSRCS
+};
+
 /* data needed to describe a single instance */
 
 typedef struct sVBICinstance {
-    struct sVBICmodel *VBICmodPtr;    /* backpointer to model */
-    struct sVBICinstance *VBICnextInstance;   /* pointer to next instance of
-                                                 current model*/
-    IFuid VBICname;  /* pointer to character string naming this instance */
-    int VBICstate;   /* pointer to start of state vector for vbic */
 
-    int VBICcollNode;   /* number of collector node of vbic */
-    int VBICbaseNode;   /* number of base node of vbic */
-    int VBICemitNode;   /* number of emitter node of vbic */
-    int VBICsubsNode;   /* number of substrate node of vbic */
+    struct GENinstance gen;
+
+#define VBICmodPtr(inst) ((struct sVBICmodel *)((inst)->gen.GENmodPtr))
+#define VBICnextInstance(inst) ((struct sVBICinstance *)((inst)->gen.GENnextInstance))
+#define VBICname gen.GENname
+#define VBICstate gen.GENstate
+
+    const int VBICcollNode;   /* number of collector node of vbic */
+    const int VBICbaseNode;   /* number of base node of vbic */
+    const int VBICemitNode;   /* number of emitter node of vbic */
+    const int VBICsubsNode;   /* number of substrate node of vbic */
+    const int VBICtempNode;  /* number of the temperature node of the vbic */
     int VBICcollCXNode; /* number of internal collector node of vbic */
     int VBICcollCINode; /* number of internal collector node of vbic */
     int VBICbaseBXNode; /* number of internal base node of vbic */
@@ -36,6 +60,8 @@ typedef struct sVBICinstance {
     int VBICemitEINode; /* number of internal emitter node of vbic */
     int VBICbaseBPNode; /* number of internal base node of vbic */
     int VBICsubsSINode; /* number of internal substrate node */
+    int VBICxf1Node;    /* number of internal excess phase 1 node itf */
+    int VBICxf2Node;    /* number of internal excess phase 2 node itf */
 
     double VBICarea;     /* area factor for the vbic */
     double VBICicVBE;    /* initial condition voltage B-E*/
@@ -45,7 +71,6 @@ typedef struct sVBICinstance {
     double VBICm;        /* multiply factor for the vbic */
 
     double VBICtVcrit;
-    double VBICttnom;    /* temperature adjusted model parameters per instance */
     double VBICtextCollResist;
     double VBICtintCollResist;
     double VBICtepiSatVoltage;
@@ -102,6 +127,10 @@ typedef struct sVBICinstance {
                              * (emitter prime,emitter prime) */
     double *VBICsubsSISubsSIPtr;    /* pointer to sparse matrix at
                              * (substrate prime, substrate prime) */
+    double *VBICemitEIXfPtr;   /* pointer to sparse matrix at
+                             * (emitter prime,xf) */
+    double *VBICbaseBIXfPtr;   /* pointer to sparse matrix at
+                             * (base prime,xf) */
 
     double *VBICbaseEmitPtr; /* pointer to sparse matrix at
                              * (base,emit) */
@@ -185,6 +214,49 @@ typedef struct sVBICinstance {
     double *VBICsubsSIBaseBPPtr;   /* pointer to sparse matrix at
                              * (substrate,substrate) */
 
+    /* self heating */
+    double *VBICcollTempPtr;
+    double *VBICbaseTempPtr;
+    double *VBICemitTempPtr;
+    double *VBICsubsTempPtr;
+    double *VBICcollCItempPtr;
+    double *VBICcollCXtempPtr;
+    double *VBICbaseBItempPtr;
+    double *VBICbaseBXtempPtr;
+    double *VBICbaseBPtempPtr;
+    double *VBICemitEItempPtr;
+    double *VBICsubsSItempPtr;
+    double *VBICtempCollPtr;
+    double *VBICtempCollCIPtr;
+    double *VBICtempCollCXPtr;
+    double *VBICtempBasePtr;
+    double *VBICtempBaseBIPtr;
+    double *VBICtempBaseBXPtr;
+    double *VBICtempBaseBPPtr;
+    double *VBICtempEmitPtr;
+    double *VBICtempEmitEIPtr;
+    double *VBICtempSubsPtr;
+    double *VBICtempSubsSIPtr;
+    double *VBICtempTempPtr;
+
+    /* excess phase */
+    double *VBICxf1Xf1Ptr;
+    double *VBICxf1TempPtr;
+    double *VBICxf1BaseBIPtr;
+    double *VBICxf1EmitEIPtr;
+    double *VBICxf1CollCIPtr;
+    double *VBICxf1Xf2Ptr;
+
+    double *VBICxf2Xf1Ptr;
+    double *VBICxf2TempPtr;
+    double *VBICxf2BaseBIPtr;
+    double *VBICxf2EmitEIPtr;
+    double *VBICxf2CollCIPtr;
+    double *VBICxf2Xf2Ptr;
+    double *VBICemitXf2Ptr;
+    double *VBICemitEIXf2Ptr;
+    double *VBICcollCIXf2Ptr;
+
     unsigned VBICareaGiven   :1; /* flag to indicate area was specified */
     unsigned VBICoff         :1; /* 'off' flag for vbic */
     unsigned VBICicVBEGiven  :1; /* flag to indicate VBE init. cond. given */
@@ -192,49 +264,58 @@ typedef struct sVBICinstance {
     unsigned VBICtempGiven   :1; /* temperature given for vbic instance*/
     unsigned VBICdtempGiven  :1; /* delta temperature given for vbic instance*/
     unsigned VBICmGiven      :1; /* flag to indicate multiplier was specified */
-    unsigned VBICsenPertFlag :1; /* indictes whether the the parameter of
-                                    the particular instance is to be perturbed */
 
-    int  VBICsenParmNo;   /* parameter # for sensitivity use;
-                             set equal to  0 if not a design parameter */
     double VBICcapbe;
     double VBICcapbex;
     double VBICcapbc;
     double VBICcapbcx;
     double VBICcapbep;
     double VBICcapbcp;
-    double *VBICsens;
+    double VBICcapcth;
 
-#define VBICsenGpi VBICsens /* stores the perturbed values of gpi */
-#define VBICsenGmu VBICsens+5 /* stores the perturbed values of gmu */
-#define VBICsenGm VBICsens+10 /* stores the perturbed values of gm */
-#define VBICsenGo VBICsens+15 /* stores the perturbed values of go */
-#define VBICsenGx VBICsens+20 /* stores the perturbed values of gx */
-#define VBICsenCpi VBICsens+25 /* stores the perturbed values of cpi */
-#define VBICsenCmu VBICsens+30 /* stores the perturbed values of cmu */
-#define VBICsenCbx VBICsens+35 /* stores the perturbed values of cbx */
-#define VBICsenCmcb VBICsens+40 /* stores the perturbed values of cmcb */
-#define VBICsenCsub VBICsens+45 /* stores the perturbed values of csub */
+    double VBICcapqbeth;
+    double VBICcapqbexth;
+    double VBICcapqbcth;
+    double VBICcapqbcxth;
+    double VBICcapqbepth;
+    double VBICcapqbcpth;
 
+    double VBICibe_Vrth;
+    double VBICibex_Vrth;
+    double VBICibc_Vrth;
+    double VBICibep_Vrth;
+    double VBICircx_Vrth;
+    double VBICirci_Vrth;
+    double VBICirbx_Vrth;
+    double VBICirbi_Vrth;
+    double VBICire_Vrth;
+    double VBICirbp_Vrth;
+    double VBICibcp_Vrth;
+    double VBICiccp_Vrth;
+    double VBICirs_Vrth;
+    double VBICirth_Vrth;
+    double VBICith_Vrth;
 
-/* indices to array of VBIC noise sources */
+    double VBICith_Vbei;
+    double VBICith_Vbci;
+    double VBICith_Vcei;
+    double VBICith_Vbex;
+    double VBICith_Vbep;
+    double VBICith_Vbcp;
+    double VBICith_Vcep;
+    double VBICith_Vrci;
+    double VBICith_Vbcx;
+    double VBICith_Vrbi;
+    double VBICith_Vrbp;
+    double VBICith_Vrcx;
+    double VBICith_Vrbx;
+    double VBICith_Vre;
+    double VBICith_Vrs;
 
-#define VBICRCNOIZ       0
-#define VBICRCINOIZ      1
-#define VBICRBNOIZ       2
-#define VBICRBINOIZ      3
-#define VBICRENOIZ       4
-#define VBICRBPNOIZ      5
-#define VBICRSNOIZ       6
-#define VBICICNOIZ       7
-#define VBICIBNOIZ       8
-#define VBICIBEPNOIZ     9
-#define VBICICCPNOIZ    10
-#define VBICFLBENOIZ    11
-#define VBICFLBEPNOIZ   12
-#define VBICTOTNOIZ     13
+    double VBICpower;
 
-#define VBICNSRCS       14     /* the number of VBIC noise sources */
+    int VBIC_selfheat;    /* self-heating enabled  */
+    int VBIC_excessPhase; /* excess phase enabled  */
 
 #ifndef NONOISE
       double VBICnVar[NSTATVARS][VBICNSRCS];
@@ -243,125 +324,228 @@ typedef struct sVBICinstance {
 #endif /*NONOISE*/
 /* the above to avoid allocating memory when it is not needed */
 
+#ifdef KLU
+    BindElement *VBICcollCollBinding ;
+    BindElement *VBICbaseBaseBinding ;
+    BindElement *VBICemitEmitBinding ;
+    BindElement *VBICsubsSubsBinding ;
+    BindElement *VBICcollCXCollCXBinding ;
+    BindElement *VBICcollCICollCIBinding ;
+    BindElement *VBICbaseBXBaseBXBinding ;
+    BindElement *VBICbaseBIBaseBIBinding ;
+    BindElement *VBICemitEIEmitEIBinding ;
+    BindElement *VBICbaseBPBaseBPBinding ;
+    BindElement *VBICsubsSISubsSIBinding ;
+
+    BindElement *VBICbaseEmitBinding ;
+    BindElement *VBICemitBaseBinding ;
+    BindElement *VBICbaseCollBinding ;
+    BindElement *VBICcollBaseBinding ;
+    BindElement *VBICcollCollCXBinding ;
+    BindElement *VBICbaseBaseBXBinding ;
+    BindElement *VBICemitEmitEIBinding ;
+    BindElement *VBICsubsSubsSIBinding ;
+    BindElement *VBICcollCXCollCIBinding ;
+    BindElement *VBICcollCXBaseBXBinding ;
+    BindElement *VBICcollCXBaseBIBinding ;
+    BindElement *VBICcollCXBaseBPBinding ;
+    BindElement *VBICcollCIBaseBIBinding ;
+    BindElement *VBICcollCIEmitEIBinding ;
+    BindElement *VBICbaseBXBaseBIBinding ;
+    BindElement *VBICbaseBXEmitEIBinding ;
+    BindElement *VBICbaseBXBaseBPBinding ;
+    BindElement *VBICbaseBXSubsSIBinding ;
+    BindElement *VBICbaseBIEmitEIBinding ;
+    BindElement *VBICbaseBPSubsSIBinding ;
+
+    BindElement *VBICcollCXCollBinding ;
+    BindElement *VBICbaseBXBaseBinding ;
+    BindElement *VBICemitEIEmitBinding ;
+    BindElement *VBICsubsSISubsBinding ;
+    BindElement *VBICcollCICollCXBinding ;
+    BindElement *VBICbaseBICollCXBinding ;
+    BindElement *VBICbaseBPCollCXBinding ;
+    BindElement *VBICbaseBXCollCIBinding ;
+    BindElement *VBICbaseBICollCIBinding ;
+    BindElement *VBICemitEICollCIBinding ;
+    BindElement *VBICbaseBPCollCIBinding ;
+    BindElement *VBICbaseBIBaseBXBinding ;
+    BindElement *VBICemitEIBaseBXBinding ;
+    BindElement *VBICbaseBPBaseBXBinding ;
+    BindElement *VBICsubsSIBaseBXBinding ;
+    BindElement *VBICemitEIBaseBIBinding ;
+    BindElement *VBICbaseBPBaseBIBinding ;
+    BindElement *VBICsubsSICollCIBinding ;
+    BindElement *VBICsubsSIBaseBIBinding ;
+    BindElement *VBICsubsSIBaseBPBinding ;
+
+    BindElement *VBICcollTempBinding ;
+    BindElement *VBICbaseTempBinding ;
+    BindElement *VBICemitTempBinding ;
+    BindElement *VBICsubsTempBinding ;
+    BindElement *VBICcollCItempBinding ;
+    BindElement *VBICcollCXtempBinding ;
+    BindElement *VBICbaseBItempBinding ;
+    BindElement *VBICbaseBXtempBinding ;
+    BindElement *VBICbaseBPtempBinding ;
+    BindElement *VBICemitEItempBinding ;
+    BindElement *VBICsubsSItempBinding ;
+    BindElement *VBICtempCollBinding ;
+    BindElement *VBICtempCollCIBinding ;
+    BindElement *VBICtempCollCXBinding ;
+    BindElement *VBICtempBaseBIBinding ;
+    BindElement *VBICtempBaseBinding ;
+    BindElement *VBICtempBaseBXBinding ;
+    BindElement *VBICtempBaseBPBinding ;
+    BindElement *VBICtempEmitBinding ;
+    BindElement *VBICtempEmitEIBinding ;
+    BindElement *VBICtempSubsBinding ;
+    BindElement *VBICtempSubsSIBinding ;
+    BindElement *VBICtempTempBinding ;
+
+    BindElement *VBICcollCIXf2Binding ;
+    BindElement *VBICemitEIXf2Binding ;
+
+    BindElement *VBICxf1BaseBIBinding ;
+    BindElement *VBICxf1CollCIBinding ;
+    BindElement *VBICxf1EmitEIBinding ;
+    BindElement *VBICxf1TempBinding ;
+    BindElement *VBICxf1Xf1Binding ;
+    BindElement *VBICxf1Xf2Binding ;
+    BindElement *VBICxf2Xf1Binding ;
+    BindElement *VBICxf2Xf2Binding ;
+#endif
+
 } VBICinstance ;
 
 /* entries in the state vector for vbic: */
 
-#define VBICvbei VBICstate
-#define VBICvbex VBICstate+1
-#define VBICvbci VBICstate+2
-#define VBICvbcx VBICstate+3
-#define VBICvbep VBICstate+4
-#define VBICvrci VBICstate+5
-#define VBICvrbi VBICstate+6
-#define VBICvrbp VBICstate+7
-#define VBICvbcp VBICstate+8
+#define VBICvbei  VBICstate
+#define VBICvbex  VBICstate+1
+#define VBICvbci  VBICstate+2
+#define VBICvbcx  VBICstate+3
+#define VBICvbep  VBICstate+4
+#define VBICvrci  VBICstate+5
+#define VBICvrbi  VBICstate+6
+#define VBICvrbp  VBICstate+7
+#define VBICvbcp  VBICstate+8
+#define VBICvxf1  VBICstate+9
+#define VBICvxf2  VBICstate+10
 
-#define VBICibe VBICstate+9
-#define VBICibe_Vbei VBICstate+10
+#define VBICibe       VBICstate+11
+#define VBICibe_Vbei  VBICstate+12
 
-#define VBICibex VBICstate+11
-#define VBICibex_Vbex VBICstate+12
+#define VBICibex      VBICstate+13
+#define VBICibex_Vbex VBICstate+14
 
-#define VBICitzf VBICstate+13
-#define VBICitzf_Vbei VBICstate+14
-#define VBICitzf_Vbci VBICstate+15
+#define VBICiciei      VBICstate+15
+#define VBICiciei_Vbei VBICstate+16
+#define VBICiciei_Vbci VBICstate+17
+#define VBICiciei_Vrth VBICstate+18
+#define VBICiciei_Vxf2 VBICstate+19
 
-#define VBICitzr VBICstate+16
-#define VBICitzr_Vbci VBICstate+17
-#define VBICitzr_Vbei VBICstate+18
+#define VBICibc       VBICstate+20
+#define VBICibc_Vbci  VBICstate+21
+#define VBICibc_Vbei  VBICstate+22
 
-#define VBICibc VBICstate+19
-#define VBICibc_Vbci VBICstate+20
-#define VBICibc_Vbei VBICstate+21
+#define VBICibep      VBICstate+23
+#define VBICibep_Vbep VBICstate+24
 
-#define VBICibep VBICstate+22
-#define VBICibep_Vbep VBICstate+23
+#define VBICirci      VBICstate+25
+#define VBICirci_Vrci VBICstate+26
+#define VBICirci_Vbci VBICstate+27
+#define VBICirci_Vbcx VBICstate+28
 
-#define VBICirci VBICstate+24
-#define VBICirci_Vrci VBICstate+25
-#define VBICirci_Vbci VBICstate+26
-#define VBICirci_Vbcx VBICstate+27
+#define VBICirbi      VBICstate+29
+#define VBICirbi_Vrbi VBICstate+30
+#define VBICirbi_Vbei VBICstate+31
+#define VBICirbi_Vbci VBICstate+32
 
-#define VBICirbi VBICstate+28
-#define VBICirbi_Vrbi VBICstate+29
-#define VBICirbi_Vbei VBICstate+30
-#define VBICirbi_Vbci VBICstate+31
+#define VBICirbp      VBICstate+33
+#define VBICirbp_Vrbp VBICstate+34
+#define VBICirbp_Vbep VBICstate+35
+#define VBICirbp_Vbci VBICstate+36
 
-#define VBICirbp VBICstate+32
-#define VBICirbp_Vrbp VBICstate+33
-#define VBICirbp_Vbep VBICstate+34
-#define VBICirbp_Vbci VBICstate+35
+#define VBICqbe    VBICstate+37
+#define VBICcqbe   VBICstate+38
+#define VBICcqbeci VBICstate+39
 
+#define VBICqbex   VBICstate+40
+#define VBICcqbex  VBICstate+41
 
-#define VBICqbe VBICstate+36
-#define VBICcqbe VBICstate+37
-#define VBICcqbeci VBICstate+38
+#define VBICqbc    VBICstate+42
+#define VBICcqbc   VBICstate+43
 
-#define VBICqbex VBICstate+39
-#define VBICcqbex VBICstate+40
+#define VBICqbcx   VBICstate+44
+#define VBICcqbcx  VBICstate+45
 
-#define VBICqbc VBICstate+41
-#define VBICcqbc VBICstate+42
+#define VBICqbep    VBICstate+46
+#define VBICcqbep   VBICstate+47
+#define VBICcqbepci VBICstate+48
 
-#define VBICqbcx VBICstate+43
-#define VBICcqbcx VBICstate+44
+#define VBICqbeo  VBICstate+49
+#define VBICcqbeo VBICstate+50
+#define VBICgqbeo VBICstate+51
 
-#define VBICqbep VBICstate+45
-#define VBICcqbep VBICstate+46
-#define VBICcqbepci VBICstate+47
+#define VBICqbco  VBICstate+52
+#define VBICcqbco VBICstate+53
+#define VBICgqbco VBICstate+54
 
-#define VBICqbeo VBICstate+48
-#define VBICcqbeo VBICstate+49
-#define VBICgqbeo VBICstate+50
+#define VBICibcp      VBICstate+55
+#define VBICibcp_Vbcp VBICstate+56
 
-#define VBICqbco VBICstate+51
-#define VBICcqbco VBICstate+52
-#define VBICgqbco VBICstate+53
+#define VBICiccp      VBICstate+57
+#define VBICiccp_Vbep VBICstate+58
+#define VBICiccp_Vbci VBICstate+59
+#define VBICiccp_Vbcp VBICstate+60
 
-#define VBICibcp VBICstate+54
-#define VBICibcp_Vbcp VBICstate+55
+#define VBICqbcp      VBICstate+61
+#define VBICcqbcp     VBICstate+62
 
-#define VBICiccp VBICstate+56
-#define VBICiccp_Vbep VBICstate+57
-#define VBICiccp_Vbci VBICstate+58
-#define VBICiccp_Vbcp VBICstate+59
+#define VBICircx_Vrcx VBICstate+63
+#define VBICirbx_Vrbx VBICstate+64
+#define VBICirs_Vrs   VBICstate+65
+#define VBICire_Vre   VBICstate+66
 
-#define VBICqbcp VBICstate+60
-#define VBICcqbcp VBICstate+61
+#define VBICqcth      VBICstate+67 /* thermal capacitor charge */
+#define VBICcqcth     VBICstate+68 /* thermal capacitor current */
 
-#define VBICircx_Vrcx VBICstate+62
-#define VBICirbx_Vrbx VBICstate+63
-#define VBICirs_Vrs VBICstate+64
-#define VBICire_Vre VBICstate+65
+#define VBICvrth      VBICstate+69
+#define VBICicth_Vrth VBICstate+70
 
-#define VBICnumStates 66
+#define VBICqxf1      VBICstate+71
+#define VBICcqxf1     VBICstate+72
+#define VBICgqxf1     VBICstate+73
 
-#define VBICsensxpbe VBICstate+66 /* charge sensitivities and their
-                              derivatives. +67 for the derivatives -
-                              pointer to the beginning of the array */
-#define VBICsensxpbex VBICstate+68
-#define VBICsensxpbc VBICstate+70
-#define VBICsensxpbcx VBICstate+72
-#define VBICsensxpbep VBICstate+74
+#define VBICixf1      VBICstate+74
+#define VBICixf1_Vbei VBICstate+75
+#define VBICixf1_Vbci VBICstate+76
+#define VBICixf1_Vxf1 VBICstate+77
+#define VBICixf1_Vxf2 VBICstate+78
+#define VBICixf1_Vrth VBICstate+79
 
-#define VBICnumSenStates 10
+#define VBICqxf2      VBICstate+80
+#define VBICcqxf2     VBICstate+81
+#define VBICgqxf2     VBICstate+82
 
+#define VBICixf2      VBICstate+83
+#define VBICixf2_Vxf1 VBICstate+84
+#define VBICixf2_Vxf2 VBICstate+85
+
+#define VBICnumStates 86
 
 /* per model data */
 typedef struct sVBICmodel {           /* model structure for a vbic */
-    int VBICmodType;                  /* type index of this device type */
-    struct sVBICmodel *VBICnextModel; /* pointer to next possible model in 
-                                         linked list */
-    VBICinstance * VBICinstances;     /* pointer to list of instances that have
-                                         this model */
-    IFuid VBICmodName;                /* pointer to character string naming 
-                                         this model */
 
-    /* --- end of generic struct GENmodel --- */
+    struct GENmodel gen;
+
+#define VBICmodType gen.GENmodType
+#define VBICnextModel(inst) ((struct sVBICmodel *)((inst)->gen.GENnextModel))
+#define VBICinstances(inst) ((VBICinstance *)((inst)->gen.GENinstances))
+#define VBICmodName gen.GENmodName
 
     int VBICtype;
-
+    int VBICselft;
     double VBICtnom;
     double VBICextCollResist;
     double VBICintCollResist;
@@ -429,9 +613,7 @@ typedef struct sVBICmodel {           /* model structure for a vbic */
     double VBICfNexpA;
     double VBICfNexpB;
     double VBICtempExpRE;
-    double VBICtempExpRB;
     double VBICtempExpRBI;
-    double VBICtempExpRC;
     double VBICtempExpRCI;
     double VBICtempExpRS;
     double VBICtempExpVO;
@@ -473,15 +655,15 @@ typedef struct sVBICmodel {           /* model structure for a vbic */
     double VBICrevVersion;
     double VBICrefVersion;
 
-    double VBICcollectorConduct; /* collector conductance */
-    double VBICbaseConduct;      /* base conductance */
-    double VBICemitterConduct;   /* emitter conductance */
-    double VBICsubstrateConduct; /* substrate conductance */
-
     double VBICvbeMax; /* maximum voltage over B-E junction */
     double VBICvbcMax; /* maximum voltage over B-C junction */
     double VBICvceMax; /* maximum voltage over C-E branch */
+    double VBICvsubMax; /* maximum voltage over C-substrate branch */
+    double VBICvbcfwdMax; /* maximum forward voltage over B-C junction */
+    double VBICvbefwdMax; /* maximum forward voltage over C-E branch */
+    double VBICvsubfwdMax; /* maximum forward voltage over C-substrate branch */
 
+    unsigned VBICselftGiven : 1;
     unsigned VBICtnomGiven : 1;
     unsigned VBICextCollResistGiven : 1;
     unsigned VBICintCollResistGiven : 1;
@@ -595,6 +777,10 @@ typedef struct sVBICmodel {           /* model structure for a vbic */
     unsigned VBICvbeMaxGiven : 1;
     unsigned VBICvbcMaxGiven : 1;
     unsigned VBICvceMaxGiven : 1;
+    unsigned VBICvsubMaxGiven : 1;
+    unsigned VBICvbcfwdMaxGiven : 1;
+    unsigned VBICvbefwdMaxGiven : 1;
+    unsigned VBICvsubfwdMaxGiven : 1;
 } VBICmodel;
 
 #ifndef NPN
@@ -603,190 +789,185 @@ typedef struct sVBICmodel {           /* model structure for a vbic */
 #endif /*NPN*/
 
 /* device parameters */
-#define VBIC_AREA 1
-#define VBIC_OFF 2
-#define VBIC_IC 3
-#define VBIC_IC_VBE 4
-#define VBIC_IC_VCE 5
-#define VBIC_TEMP  6
-#define VBIC_DTEMP 7
-#define VBIC_M 8
+enum {
+    VBIC_AREA = 1,
+    VBIC_OFF,
+    VBIC_IC,
+    VBIC_IC_VBE,
+    VBIC_IC_VCE,
+    VBIC_TEMP,
+    VBIC_DTEMP,
+    VBIC_M,
+};
 
 /* model parameters */
-#define VBIC_MOD_NPN    101 
-#define VBIC_MOD_PNP    102 
-#define VBIC_MOD_TNOM   103 
-#define VBIC_MOD_RCX    104 
-#define VBIC_MOD_RCI    105 
-#define VBIC_MOD_VO     106 
-#define VBIC_MOD_GAMM   107 
-#define VBIC_MOD_HRCF   108 
-#define VBIC_MOD_RBX    109 
-#define VBIC_MOD_RBI    110 
-#define VBIC_MOD_RE     111 
-#define VBIC_MOD_RS     112 
-#define VBIC_MOD_RBP    113 
-#define VBIC_MOD_IS     114 
-#define VBIC_MOD_NF     115 
-#define VBIC_MOD_NR     116 
-#define VBIC_MOD_FC     117 
-#define VBIC_MOD_CBEO   118 
-#define VBIC_MOD_CJE    119 
-#define VBIC_MOD_PE     120 
-#define VBIC_MOD_ME     121 
-#define VBIC_MOD_AJE    122 
-#define VBIC_MOD_CBCO   123 
-#define VBIC_MOD_CJC    124 
-#define VBIC_MOD_QCO    125 
-#define VBIC_MOD_CJEP   126 
-#define VBIC_MOD_PC     127 
-#define VBIC_MOD_MC     128 
-#define VBIC_MOD_AJC    129 
-#define VBIC_MOD_CJCP   130 
-#define VBIC_MOD_PS     131 
-#define VBIC_MOD_MS     132 
-#define VBIC_MOD_AJS    133 
-#define VBIC_MOD_IBEI   134 
-#define VBIC_MOD_WBE    135 
-#define VBIC_MOD_NEI    136 
-#define VBIC_MOD_IBEN   137 
-#define VBIC_MOD_NEN    138 
-#define VBIC_MOD_IBCI   139 
-#define VBIC_MOD_NCI    140 
-#define VBIC_MOD_IBCN   141 
-#define VBIC_MOD_NCN    142 
-#define VBIC_MOD_AVC1   143 
-#define VBIC_MOD_AVC2   144 
-#define VBIC_MOD_ISP    145 
-#define VBIC_MOD_WSP    146 
-#define VBIC_MOD_NFP    147 
-#define VBIC_MOD_IBEIP  148 
-#define VBIC_MOD_IBENP  149 
-#define VBIC_MOD_IBCIP  150 
-#define VBIC_MOD_NCIP   151 
-#define VBIC_MOD_IBCNP  152 
-#define VBIC_MOD_NCNP   153 
-#define VBIC_MOD_VEF    154 
-#define VBIC_MOD_VER    155 
-#define VBIC_MOD_IKF    156 
-#define VBIC_MOD_IKR    157 
-#define VBIC_MOD_IKP    158   
-#define VBIC_MOD_TF     159 
-#define VBIC_MOD_QTF    160 
-#define VBIC_MOD_XTF    161 
-#define VBIC_MOD_VTF    162 
-#define VBIC_MOD_ITF    163 
-#define VBIC_MOD_TR     164 
-#define VBIC_MOD_TD     165 
-#define VBIC_MOD_KFN    166 
-#define VBIC_MOD_AFN    167 
-#define VBIC_MOD_BFN    168 
-#define VBIC_MOD_XRE    169 
-#define VBIC_MOD_XRB    170 
-#define VBIC_MOD_XRBI   171 
-#define VBIC_MOD_XRC    172 
-#define VBIC_MOD_XRCI   173 
-#define VBIC_MOD_XRS    174 
-#define VBIC_MOD_XVO    175 
-#define VBIC_MOD_EA     176 
-#define VBIC_MOD_EAIE   177 
-#define VBIC_MOD_EAIC   178 
-#define VBIC_MOD_EAIS   179 
-#define VBIC_MOD_EANE   180 
-#define VBIC_MOD_EANC   181 
-#define VBIC_MOD_EANS   182 
-#define VBIC_MOD_XIS    183 
-#define VBIC_MOD_XII    184 
-#define VBIC_MOD_XIN    185 
-#define VBIC_MOD_TNF    186 
-#define VBIC_MOD_TAVC   187 
-#define VBIC_MOD_RTH    188 
-#define VBIC_MOD_CTH    189 
-#define VBIC_MOD_VRT    190 
-#define VBIC_MOD_ART    191 
-#define VBIC_MOD_CCSO   192 
-#define VBIC_MOD_QBM    193 
-#define VBIC_MOD_NKF    194 
-#define VBIC_MOD_XIKF   195 
-#define VBIC_MOD_XRCX   196 
-#define VBIC_MOD_XRBX   197 
-#define VBIC_MOD_XRBP   198 
-#define VBIC_MOD_ISRR   199 
-#define VBIC_MOD_XISR   200 
-#define VBIC_MOD_DEAR   201 
-#define VBIC_MOD_EAP    202 
-#define VBIC_MOD_VBBE   203 
-#define VBIC_MOD_NBBE   204
-#define VBIC_MOD_IBBE   205
-#define VBIC_MOD_TVBBE1 206 
-#define VBIC_MOD_TVBBE2 207 
-#define VBIC_MOD_TNBBE  208 
-#define VBIC_MOD_EBBE   209 
-#define VBIC_MOD_DTEMP  210 
-#define VBIC_MOD_VERS   211
-#define VBIC_MOD_VREF   212
-#define VBIC_MOD_VBE_MAX 213
-#define VBIC_MOD_VBC_MAX 214
-#define VBIC_MOD_VCE_MAX 215
+enum {
+    VBIC_MOD_NPN = 101,
+    VBIC_MOD_PNP,
+    VBIC_MOD_TNOM,
+    VBIC_MOD_RCX,
+    VBIC_MOD_RCI,
+    VBIC_MOD_VO,
+    VBIC_MOD_GAMM,
+    VBIC_MOD_HRCF,
+    VBIC_MOD_RBX,
+    VBIC_MOD_RBI,
+    VBIC_MOD_RE,
+    VBIC_MOD_RS,
+    VBIC_MOD_RBP,
+    VBIC_MOD_IS,
+    VBIC_MOD_NF,
+    VBIC_MOD_NR,
+    VBIC_MOD_FC,
+    VBIC_MOD_CBEO,
+    VBIC_MOD_CJE,
+    VBIC_MOD_PE,
+    VBIC_MOD_ME,
+    VBIC_MOD_AJE,
+    VBIC_MOD_CBCO,
+    VBIC_MOD_CJC,
+    VBIC_MOD_QCO,
+    VBIC_MOD_CJEP,
+    VBIC_MOD_PC,
+    VBIC_MOD_MC,
+    VBIC_MOD_AJC,
+    VBIC_MOD_CJCP,
+    VBIC_MOD_PS,
+    VBIC_MOD_MS,
+    VBIC_MOD_AJS,
+    VBIC_MOD_IBEI,
+    VBIC_MOD_WBE,
+    VBIC_MOD_NEI,
+    VBIC_MOD_IBEN,
+    VBIC_MOD_NEN,
+    VBIC_MOD_IBCI,
+    VBIC_MOD_NCI,
+    VBIC_MOD_IBCN,
+    VBIC_MOD_NCN,
+    VBIC_MOD_AVC1,
+    VBIC_MOD_AVC2,
+    VBIC_MOD_ISP,
+    VBIC_MOD_WSP,
+    VBIC_MOD_NFP,
+    VBIC_MOD_IBEIP,
+    VBIC_MOD_IBENP,
+    VBIC_MOD_IBCIP,
+    VBIC_MOD_NCIP,
+    VBIC_MOD_IBCNP,
+    VBIC_MOD_NCNP,
+    VBIC_MOD_VEF,
+    VBIC_MOD_VER,
+    VBIC_MOD_IKF,
+    VBIC_MOD_IKR,
+    VBIC_MOD_IKP,
+    VBIC_MOD_TF,
+    VBIC_MOD_QTF,
+    VBIC_MOD_XTF,
+    VBIC_MOD_VTF,
+    VBIC_MOD_ITF,
+    VBIC_MOD_TR,
+    VBIC_MOD_TD,
+    VBIC_MOD_KFN,
+    VBIC_MOD_AFN,
+    VBIC_MOD_BFN,
+    VBIC_MOD_XRE,
+    VBIC_MOD_XRB,
+    VBIC_MOD_XRBI,
+    VBIC_MOD_XRC,
+    VBIC_MOD_XRCI,
+    VBIC_MOD_XRS,
+    VBIC_MOD_XVO,
+    VBIC_MOD_EA,
+    VBIC_MOD_EAIE,
+    VBIC_MOD_EAIC,
+    VBIC_MOD_EAIS,
+    VBIC_MOD_EANE,
+    VBIC_MOD_EANC,
+    VBIC_MOD_EANS,
+    VBIC_MOD_XIS,
+    VBIC_MOD_XII,
+    VBIC_MOD_XIN,
+    VBIC_MOD_TNF,
+    VBIC_MOD_TAVC,
+    VBIC_MOD_RTH,
+    VBIC_MOD_CTH,
+    VBIC_MOD_VRT,
+    VBIC_MOD_ART,
+    VBIC_MOD_CCSO,
+    VBIC_MOD_QBM,
+    VBIC_MOD_NKF,
+    VBIC_MOD_XIKF,
+    VBIC_MOD_XRCX,
+    VBIC_MOD_XRBX,
+    VBIC_MOD_XRBP,
+    VBIC_MOD_ISRR,
+    VBIC_MOD_XISR,
+    VBIC_MOD_DEAR,
+    VBIC_MOD_EAP,
+    VBIC_MOD_VBBE,
+    VBIC_MOD_NBBE,
+    VBIC_MOD_IBBE,
+    VBIC_MOD_TVBBE1,
+    VBIC_MOD_TVBBE2,
+    VBIC_MOD_TNBBE,
+    VBIC_MOD_EBBE,
+    VBIC_MOD_DTEMP,
+    VBIC_MOD_VERS,
+    VBIC_MOD_VREF,
+    VBIC_MOD_VBE_MAX,
+    VBIC_MOD_VBC_MAX,
+    VBIC_MOD_VCE_MAX,
+    VBIC_MOD_VSUB_MAX,
+    VBIC_MOD_VBEFWD_MAX,
+    VBIC_MOD_VBCFWD_MAX,
+    VBIC_MOD_VSUBFWD_MAX,
+    VBIC_MOD_SELFT,
+};
 
-                              
-/* device questions */        
-#define VBIC_QUEST_FT             221
-#define VBIC_QUEST_COLLNODE       222
-#define VBIC_QUEST_BASENODE       223
-#define VBIC_QUEST_EMITNODE       224
-#define VBIC_QUEST_SUBSNODE       225
-#define VBIC_QUEST_COLLCXNODE     226
-#define VBIC_QUEST_COLLCINODE     227
-#define VBIC_QUEST_BASEBXNODE     228
-#define VBIC_QUEST_BASEBINODE     229
-#define VBIC_QUEST_BASEBPNODE     230
-#define VBIC_QUEST_EMITEINODE     231
-#define VBIC_QUEST_SUBSSINODE     232
-#define VBIC_QUEST_VBE            233
-#define VBIC_QUEST_VBC            234
-#define VBIC_QUEST_CC             235
-#define VBIC_QUEST_CB             236
-#define VBIC_QUEST_CE             237
-#define VBIC_QUEST_CS             238
-#define VBIC_QUEST_GM             239
-#define VBIC_QUEST_GO             240
-#define VBIC_QUEST_GPI            241
-#define VBIC_QUEST_GMU            242
-#define VBIC_QUEST_GX             243
-#define VBIC_QUEST_QBE            244
-#define VBIC_QUEST_CQBE           245
-#define VBIC_QUEST_QBC            246
-#define VBIC_QUEST_CQBC           247
-#define VBIC_QUEST_QBX            248
-#define VBIC_QUEST_CQBX           249
-#define VBIC_QUEST_QBCP           250
-#define VBIC_QUEST_CQBCP          251
-#define VBIC_QUEST_CEXBC          252
-#define VBIC_QUEST_GEQCB          253
-#define VBIC_QUEST_GCSUB          254
-#define VBIC_QUEST_GDSUB          255
-#define VBIC_QUEST_GEQBX          256
-#define VBIC_QUEST_CBE            257
-#define VBIC_QUEST_CBEX           258
-#define VBIC_QUEST_CBC            259
-#define VBIC_QUEST_CBCX           260
-#define VBIC_QUEST_CBEP           261
-#define VBIC_QUEST_CBCP           262
-#define VBIC_QUEST_SENS_REAL      263
-#define VBIC_QUEST_SENS_IMAG      264
-#define VBIC_QUEST_SENS_MAG       265
-#define VBIC_QUEST_SENS_PH        266
-#define VBIC_QUEST_SENS_CPLX      267
-#define VBIC_QUEST_SENS_DC        268
-#define VBIC_QUEST_POWER          269
+/* device questions */
+enum {
+    VBIC_QUEST_COLLNODE = 221,
+    VBIC_QUEST_BASENODE,
+    VBIC_QUEST_EMITNODE,
+    VBIC_QUEST_SUBSNODE,
+    VBIC_QUEST_COLLCXNODE,
+    VBIC_QUEST_COLLCINODE,
+    VBIC_QUEST_BASEBXNODE,
+    VBIC_QUEST_BASEBINODE,
+    VBIC_QUEST_BASEBPNODE,
+    VBIC_QUEST_EMITEINODE,
+    VBIC_QUEST_SUBSSINODE,
+    VBIC_QUEST_VBE,
+    VBIC_QUEST_VBC,
+    VBIC_QUEST_CC,
+    VBIC_QUEST_CB,
+    VBIC_QUEST_CE,
+    VBIC_QUEST_CS,
+    VBIC_QUEST_POWER,
+    VBIC_QUEST_BETA,
+    VBIC_QUEST_GM,
+    VBIC_QUEST_GO,
+    VBIC_QUEST_GPI,
+    VBIC_QUEST_GMU,
+    VBIC_QUEST_GX,
+    VBIC_QUEST_CBE,
+    VBIC_QUEST_CBEX,
+    VBIC_QUEST_CBC,
+    VBIC_QUEST_CBCX,
+    VBIC_QUEST_CBEP,
+    VBIC_QUEST_CBCP,
+    VBIC_QUEST_QBE,
+    VBIC_QUEST_QBC,
+};
 
 /* model questions */
-#define VBIC_MOD_COLLCONDUCT           301
-#define VBIC_MOD_BASECONDUCT           302
-#define VBIC_MOD_EMITTERCONDUCT        303
-#define VBIC_MOD_SUBSTRATECONDUCT      304
-#define VBIC_MOD_TYPE                  305
+enum {
+    VBIC_MOD_COLLCONDUCT = 301,
+    VBIC_MOD_BASECONDUCT,
+    VBIC_MOD_EMITTERCONDUCT,
+    VBIC_MOD_SUBSTRATECONDUCT,
+    VBIC_MOD_TYPE,
+};
 
 #include "vbicext.h"
 #endif /*VBIC*/

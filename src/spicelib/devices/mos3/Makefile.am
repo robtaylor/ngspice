@@ -9,7 +9,6 @@ libmos3_la_SOURCES =	\
 	mos3conv.c	\
 	mos3defs.h	\
 	mos3del.c	\
-	mos3dest.c	\
 	mos3dist.c	\
 	mos3dset.c	\
 	mos3ext.h	\
@@ -19,7 +18,6 @@ libmos3_la_SOURCES =	\
 	mos3itf.h	\
 	mos3load.c	\
 	mos3mask.c	\
-	mos3mdel.c	\
 	mos3mpar.c	\
 	mos3noi.c	\
 	mos3par.c	\
@@ -33,7 +31,11 @@ libmos3_la_SOURCES =	\
 	mos3temp.c	\
 	mos3trun.c
 
+if KLU_WANTED
+libmos3_la_SOURCES += mos3bindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)
+
 MAINTAINERCLEANFILES = Makefile.in

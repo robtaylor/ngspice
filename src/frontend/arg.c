@@ -17,7 +17,11 @@ Author: 1987 Jeffrey M. Hsu
 #include "variable.h"
 
 
-static void common(char *string, struct wordlist *wl, struct comm *command);
+static void common(const char *string, const struct wordlist *wl,
+                   const struct comm *command);
+static void common_list(const char *string, const struct wordlist *wl,
+                        const struct comm *command);
+static int countargs(const wordlist *wl);
 
 
 /* returns a private copy of the string */
@@ -39,11 +43,10 @@ prompt(FILE *fp)
 }
 
 
-int
-countargs(wordlist *wl)
+static int countargs(const wordlist *wl)
 {
     int number = 0;
-    wordlist *w;
+    const wordlist *w;
 
     for (w = wl; w; w = w->wl_next)
         number++;
@@ -63,42 +66,42 @@ process(wordlist *wlist)
 
 
 void
-arg_print(wordlist *wl, struct comm *command)
+arg_print(const wordlist *wl, const struct comm *command)
 {
     common("which variable", wl, command);
 }
 
 
 void
-arg_plot(wordlist *wl, struct comm *command)
+arg_plot(const wordlist *wl, const struct comm *command)
 {
     common("which variable", wl, command);
 }
 
 
 void
-arg_load(wordlist *wl, struct comm *command)
+arg_load(const wordlist *wl_in, const struct comm *command)
 {
     /* just call com_load */
+    wordlist * const wl = wl_copy(wl_in);
     command->co_func(wl);
+    wl_free(wl);
 }
 
 
-void arg_let(wordlist *wl, struct comm *command)
+void arg_let(const wordlist *wl, const struct comm *command)
 {
     common("which vector", wl, command);
 }
 
 
-void
-arg_set(wordlist *wl, struct comm *command)
+void arg_set(const wordlist *wl, const struct comm *command)
 {
     common("which variable", wl, command);
 }
 
 
-void
-arg_display(wordlist *wl, struct comm *command)
+void arg_display(const wordlist *wl, const struct comm *command)
 {
     NG_IGNORE(wl);
     NG_IGNORE(command);
@@ -107,9 +110,15 @@ arg_display(wordlist *wl, struct comm *command)
 }
 
 
+void arg_enodes(const wordlist *wl, const struct comm *command)
+{
+    common_list("which event nodes", wl, command);
+}
+
+
 /* a common prompt routine */
-static void
-common(char *string, struct wordlist *wl, struct comm *command)
+static void common(const char *string, const struct wordlist *wl,
+        const struct comm *command)
 {
     struct wordlist *w;
     char *buf;
@@ -124,12 +133,37 @@ common(char *string, struct wordlist *wl, struct comm *command)
         w = process(w);
         /* O.K. now call fn */
         command->co_func(w);
+        wl_free(w);
+    }
+} /* end of function common */
+
+
+/* A common prompt routine for commands that take a list. */
+static void common_list(const char *string, const struct wordlist *wl,
+                        const struct comm *command)
+{
+    struct wordlist *w;
+    char *buf;
+
+    if (!countargs(wl)) {
+        outmenuprompt(string);
+        if ((buf = prompt(cp_in)) == NULL) /* prompt aborted */
+            return;               /* don't execute command */
+        /* do something with the wordlist */
+        w = cp_lexer(buf);
+        if (!w)
+            return;
+        if (w->wl_word) {
+            /* O.K. now call fn */
+            command->co_func(w);
+        }
+        wl_free(w);
     }
 }
 
 
 void
-outmenuprompt(char *string)
+outmenuprompt(const char *string)
 {
     fprintf(cp_out, "%s: ", string);
     fflush(cp_out);

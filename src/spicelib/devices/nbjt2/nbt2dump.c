@@ -38,6 +38,7 @@ NBJT2dump(GENmodel *inModel, CKTcircuit *ckt)
   char *prefix;
   int *state_num;
   int anyOutput = 0;
+  bool writeAscii = TRUE;
 
   if (ckt->CKTmode & MODEDCOP) {
     prefix = "OP";
@@ -56,10 +57,10 @@ NBJT2dump(GENmodel *inModel, CKTcircuit *ckt)
     return;
   }
 
-  for (; model != NULL; model = model->NBJT2nextModel) {
+  for (; model != NULL; model = NBJT2nextModel(model)) {
     output = model->NBJT2outputs;
-    for (inst = model->NBJT2instances; inst != NULL;
-	inst = inst->NBJT2nextInstance) {
+    for (inst = NBJT2instances(model); inst != NULL;
+         inst = NBJT2nextInstance(inst)) {
 
       if (inst->NBJT2printGiven) {
 	if ((ckt->CKTmode & MODETRAN) &&
@@ -69,12 +70,16 @@ NBJT2dump(GENmodel *inModel, CKTcircuit *ckt)
 	anyOutput = 1;
 	sprintf(fileName, "%s%s.%d.%s", output->OUTProotFile, prefix,
 	    *state_num, inst->NBJT2name);
-	if ((fpState = fopen(fileName, "wb")) == NULL) {
+
+	writeAscii = compareFiletypeVar("ascii");
+
+	fpState = fopen(fileName, (writeAscii ? "w" : "wb"));
+	if (!fpState) {
 	  perror(fileName);
 	} else {
 	  NBJT2putHeader(fpState, ckt, inst);
 	  TWOprnSolution(fpState, inst->NBJT2pDevice,
-	      model->NBJT2outputs);
+	      model->NBJT2outputs, writeAscii, "nbjt2");
 	  fclose(fpState);
 	  LOGmakeEntry(fileName, description);
 	}
@@ -156,10 +161,10 @@ NBJT2acct(GENmodel *inModel, CKTcircuit *ckt, FILE *file)
 
   NG_IGNORE(ckt);
 
-  for (; model != NULL; model = model->NBJT2nextModel) {
+  for (; model != NULL; model = NBJT2nextModel(model)) {
     output = model->NBJT2outputs;
-    for (inst = model->NBJT2instances; inst != NULL;
-	inst = inst->NBJT2nextInstance) {
+    for (inst = NBJT2instances(model); inst != NULL;
+         inst = NBJT2nextInstance(inst)) {
 
       if (output->OUTPstats) {
 	TWOmemStats(file, inst->NBJT2pDevice);

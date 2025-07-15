@@ -1,27 +1,30 @@
-/**** BSIM4.8.0 Released by Navid Paydavosi 11/01/2013 ****/
+/* ******************************************************************************
+   *  BSIM4 4.8.2 released by Chetan Kumar Dabhi 01/01/2020                     *
+   *  BSIM4 Model Equations                                                     *
+   ******************************************************************************
 
-/**********
- * Copyright 2006 Regents of the University of California. All rights reserved.
- * File: b4.c of BSIM4.8.0.
- * Author: 2000 Weidong Liu
- * Authors: 2001- Xuemei Xi, Mohan Dunga, Ali Niknejad, Chenming Hu.
- * Authors: 2006- Mohan Dunga, Ali Niknejad, Chenming Hu
- * Authors: 2007- Mohan Dunga, Wenwei Yang, Ali Niknejad, Chenming Hu
-  * Authors: 2008- Wenwei Yang, Ali Niknejad, Chenming Hu 
- * Project Director: Prof. Chenming Hu.
- * Modified by Xuemei Xi, 04/06/2001.
- * Modified by Xuemei Xi, 10/05/2001.
- * Modified by Xuemei Xi, 11/15/2002.
- * Modified by Xuemei Xi, 05/09/2003.
- * Modified by Xuemei Xi, 03/04/2004.
- * Modified by Xuemei Xi, Mohan Dunga, 07/29/2005.
- * Modified by Mohan Dunga, 12/13/2006.
- * Modified by Mohan Dunga, Wenwei Yang, 05/18/2007.
- * Modified by Wenwei Yang, 07/31/2008.
- * Modified by Tanvir Morshed, Darsen Lu 03/27/2011
- * Modified by Pankaj Kumar Thakur, 07/23/2012
- * Modified by Navid Paydavosi, 08/21/2013
- **********/
+   ******************************************************************************
+   *  Copyright (c) 2020 University of California                               *
+   *                                                                            *
+   *  Project Director: Prof. Chenming Hu.                                      *
+   *  Current developers: Chetan Kumar Dabhi   (Ph.D. student, IIT Kanpur)      *
+   *                      Prof. Yogesh Chauhan (IIT Kanpur)                     *
+   *                      Dr. Pragya Kushwaha  (Postdoc, UC Berkeley)           *
+   *                      Dr. Avirup Dasgupta  (Postdoc, UC Berkeley)           *
+   *                      Ming-Yen Kao         (Ph.D. student, UC Berkeley)     *
+   *  Authors: Gary W. Ng, Weidong Liu, Xuemei Xi, Mohan Dunga, Wenwei Yang     *
+   *           Ali Niknejad, Chetan Kumar Dabhi, Yogesh Singh Chauhan,          *
+   *           Sayeef Salahuddin, Chenming Hu                                   * 
+   ******************************************************************************/
+
+/*
+Licensed under Educational Community License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License. You may obtain a copy of the license at
+http://opensource.org/licenses/ECL-2.0
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT 
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations
+under the License.
+*/
 
 #include "ngspice/ngspice.h"
 #include "ngspice/devdefs.h"
@@ -54,9 +57,11 @@ IOP( "rbpb", BSIM4_RBPB,  IF_REAL   , "Body resistance"),
 IOP( "rbps", BSIM4_RBPS,  IF_REAL   , "Body resistance"),
 IOP( "rbpd", BSIM4_RBPD,  IF_REAL   , "Body resistance"),
 IOP( "delvto", BSIM4_DELVTO,  IF_REAL   , "Zero bias threshold voltage variation"),
+IOPR( "delvt0", BSIM4_DELVTO,  IF_REAL   , "Zero bias threshold voltage variation"),
+IOP( "mulu0", BSIM4_MULU0, IF_REAL, "Low field mobility multiplier"),
 IOP( "xgw",  BSIM4_XGW, IF_REAL, "Distance from gate contact center to device edge"),
 IOP( "ngcon", BSIM4_NGCON, IF_REAL, "Number of gate contacts"),
-
+IOP( "wnflag", BSIM4_WNFLAG, IF_INTEGER, "W/NF device flag for bin selection"),
 
 IOP( "trnqsmod", BSIM4_TRNQSMOD, IF_INTEGER, "Transient NQS model selector"),
 IOP( "acnqsmod", BSIM4_ACNQSMOD, IF_INTEGER, "AC NQS model selector"),
@@ -112,6 +117,13 @@ OP( "qinv",        BSIM4_QINV,       IF_REAL,    "Qinversion"),
 OP( "qdef",        BSIM4_QDEF,       IF_REAL,    "Qdef"),
 OP( "gcrg",        BSIM4_GCRG,       IF_REAL,    "Gcrg"),
 OP( "gtau",        BSIM4_GTAU,       IF_REAL,    "Gtau"),
+OP( "vgsteff",     BSIM4_VGSTEFF,    IF_REAL,    "Vgsteff"),
+OP( "vdseff",      BSIM4_VDSEFF,     IF_REAL,    "Vdseff"),
+OP( "cgso",        BSIM4_CGSO,       IF_REAL,    "Cgso"),
+OP( "cgdo",        BSIM4_CGDO,       IF_REAL,    "Cgdo"),
+OP( "cgbo",        BSIM4_CGBO,       IF_REAL,    "Cgbo"),
+OP( "weff",        BSIM4_WEFF,       IF_REAL,    "Weff"),
+OP( "leff",        BSIM4_LEFF,       IF_REAL,    "Leff"),
 };
 
 IFparm BSIM4mPTable[] = { /* model parameters */
@@ -208,7 +220,7 @@ IOP( "dvt2w", BSIM4_MOD_DVT2W, IF_REAL, "Narrow Width effect coeff. 2"),
 IOP( "drout", BSIM4_MOD_DROUT, IF_REAL, "DIBL coefficient of output resistance"),
 IOP( "dsub", BSIM4_MOD_DSUB, IF_REAL, "DIBL coefficient in the subthreshold region"),
 IOP( "vth0", BSIM4_MOD_VTH0, IF_REAL,"Threshold voltage"),
-IOP( "vtho", BSIM4_MOD_VTH0, IF_REAL,"Threshold voltage"),
+IOPR("vtho", BSIM4_MOD_VTH0, IF_REAL,"Threshold voltage"),
 IOP( "ua", BSIM4_MOD_UA, IF_REAL, "Linear gate dependence of mobility"),
 IOP( "ua1", BSIM4_MOD_UA1, IF_REAL, "Temperature coefficient of ua"),
 IOP( "ub", BSIM4_MOD_UB, IF_REAL, "Quadratic gate dependence of mobility"),
@@ -430,7 +442,7 @@ IOP( "jtssws", BSIM4_MOD_JTSSWS, IF_REAL, "Source STI sidewall trap-assisted sat
 IOP( "jtsswd", BSIM4_MOD_JTSSWD, IF_REAL, "Drain STI sidewall trap-assisted saturation current density"),
 IOP( "jtsswgs", BSIM4_MOD_JTSSWGS, IF_REAL, "Source gate-edge sidewall trap-assisted saturation current density"),
 IOP( "jtsswgd", BSIM4_MOD_JTSSWGD, IF_REAL, "Drain gate-edge sidewall trap-assisted saturation current density"),
-IOP( "jtweff", BSIM4_MOD_JTWEFF, IF_REAL, "TAT current width dependance"),
+IOP( "jtweff", BSIM4_MOD_JTWEFF, IF_REAL, "TAT current width dependence"),
 IOP( "njts", BSIM4_MOD_NJTS, IF_REAL, "Non-ideality factor for bottom junction"),
 IOP( "njtssw", BSIM4_MOD_NJTSSW, IF_REAL, "Non-ideality factor for STI sidewall junction"),
 IOP( "njtsswg", BSIM4_MOD_NJTSSWG, IF_REAL, "Non-ideality factor for gate-edge sidewall junction"),
@@ -541,8 +553,8 @@ IOP( "ldvt1w", BSIM4_MOD_LDVT1W, IF_REAL, "Length dependence of dvt1w"),
 IOP( "ldvt2w", BSIM4_MOD_LDVT2W, IF_REAL, "Length dependence of dvt2w"),
 IOP( "ldrout", BSIM4_MOD_LDROUT, IF_REAL, "Length dependence of drout"),
 IOP( "ldsub", BSIM4_MOD_LDSUB, IF_REAL, "Length dependence of dsub"),
-IOP( "lvth0", BSIM4_MOD_LVTH0, IF_REAL,"Length dependence of vto"),
-IOP( "lvtho", BSIM4_MOD_LVTH0, IF_REAL,"Length dependence of vto"),
+IOP( "lvth0", BSIM4_MOD_LVTH0, IF_REAL,"Length dependence of vth0"),
+IOPR("lvtho", BSIM4_MOD_LVTH0, IF_REAL,"Length dependence of vtho"),
 IOP( "lua",  BSIM4_MOD_LUA, IF_REAL, "Length dependence of ua"),
 IOP( "lua1", BSIM4_MOD_LUA1, IF_REAL, "Length dependence of ua1"),
 IOP( "lub", BSIM4_MOD_LUB, IF_REAL, "Length dependence of ub"),
@@ -703,8 +715,8 @@ IOP( "wdvt1w", BSIM4_MOD_WDVT1W, IF_REAL, "Width dependence of dvt1w"),
 IOP( "wdvt2w", BSIM4_MOD_WDVT2W, IF_REAL, "Width dependence of dvt2w"),
 IOP( "wdrout", BSIM4_MOD_WDROUT, IF_REAL, "Width dependence of drout"),
 IOP( "wdsub", BSIM4_MOD_WDSUB, IF_REAL, "Width dependence of dsub"),
-IOP( "wvth0", BSIM4_MOD_WVTH0, IF_REAL,"Width dependence of vto"),
-IOP( "wvtho", BSIM4_MOD_WVTH0, IF_REAL,"Width dependence of vto"),
+IOP( "wvth0", BSIM4_MOD_WVTH0, IF_REAL,"Width dependence of vth0"),
+IOPR("wvtho", BSIM4_MOD_WVTH0, IF_REAL,"Width dependence of vtho"),
 IOP( "wua",  BSIM4_MOD_WUA, IF_REAL, "Width dependence of ua"),
 IOP( "wua1", BSIM4_MOD_WUA1, IF_REAL, "Width dependence of ua1"),
 IOP( "wub", BSIM4_MOD_WUB, IF_REAL, "Width dependence of ub"),
@@ -864,8 +876,8 @@ IOP( "pdvt1w", BSIM4_MOD_PDVT1W, IF_REAL, "Cross-term dependence of dvt1w"),
 IOP( "pdvt2w", BSIM4_MOD_PDVT2W, IF_REAL, "Cross-term dependence of dvt2w"),
 IOP( "pdrout", BSIM4_MOD_PDROUT, IF_REAL, "Cross-term dependence of drout"),
 IOP( "pdsub", BSIM4_MOD_PDSUB, IF_REAL, "Cross-term dependence of dsub"),
-IOP( "pvth0", BSIM4_MOD_PVTH0, IF_REAL,"Cross-term dependence of vto"),
-IOP( "pvtho", BSIM4_MOD_PVTH0, IF_REAL,"Cross-term dependence of vto"),
+IOP( "pvth0", BSIM4_MOD_PVTH0, IF_REAL,"Cross-term dependence of vth0"),
+IOPR("pvtho", BSIM4_MOD_PVTH0, IF_REAL,"Cross-term dependence of vtho"),
 IOP( "pua",  BSIM4_MOD_PUA, IF_REAL, "Cross-term dependence of ua"),
 IOP( "pua1", BSIM4_MOD_PUA1, IF_REAL, "Cross-term dependence of ua1"),
 IOP( "pub", BSIM4_MOD_PUB, IF_REAL, "Cross-term dependence of ub"),
@@ -1027,6 +1039,8 @@ IOP( "tnoic", BSIM4_MOD_TNOIC, IF_REAL, "Thermal noise parameter"),
 IOP( "rnoia", BSIM4_MOD_RNOIA, IF_REAL, "Thermal noise coefficient"),
 IOP( "rnoib", BSIM4_MOD_RNOIB, IF_REAL, "Thermal noise coefficient"),
 IOP( "rnoic", BSIM4_MOD_RNOIC, IF_REAL, "Thermal noise coefficient"),
+IOP( "gidlclamp", BSIM4_MOD_GIDLCLAMP, IF_REAL, "gidl clamp value"),
+IOP( "idovvds", BSIM4_MOD_IDOVVDSC, IF_REAL, "noise clamping limit parameter"),
 IOP( "ntnoi", BSIM4_MOD_NTNOI, IF_REAL, "Thermal noise parameter"),
 IOP( "em", BSIM4_MOD_EM, IF_REAL, "Flicker noise parameter"),
 IOP( "ef", BSIM4_MOD_EF, IF_REAL, "Flicker noise frequency exponent"),
@@ -1039,6 +1053,11 @@ IOP("vgb_max", BSIM4_MOD_VGB_MAX, IF_REAL, "maximum voltage G-B branch"),
 IOP("vds_max", BSIM4_MOD_VDS_MAX, IF_REAL, "maximum voltage D-S branch"),
 IOP("vbs_max", BSIM4_MOD_VBS_MAX, IF_REAL, "maximum voltage B-S branch"),
 IOP("vbd_max", BSIM4_MOD_VBD_MAX, IF_REAL, "maximum voltage B-D branch"),
+IOP("vgsr_max", BSIM4_MOD_VGSR_MAX, IF_REAL, "maximum voltage G-S branch"),
+IOP("vgdr_max", BSIM4_MOD_VGDR_MAX, IF_REAL, "maximum voltage G-D branch"),
+IOP("vgbr_max", BSIM4_MOD_VGBR_MAX, IF_REAL, "maximum voltage G-B branch"),
+IOP("vbsr_max", BSIM4_MOD_VBSR_MAX, IF_REAL, "maximum voltage B-S branch"),
+IOP("vbdr_max", BSIM4_MOD_VBDR_MAX, IF_REAL, "maximum voltage B-D branch"),
 
 IP( "nmos", BSIM4_MOD_NMOS,  IF_FLAG, "Flag to indicate NMOS"),
 IP( "pmos", BSIM4_MOD_PMOS,  IF_FLAG, "Flag to indicate PMOS"),

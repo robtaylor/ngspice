@@ -1,24 +1,30 @@
-/**** BSIM4.8.0 Released by Navid Paydavosi 11/01/2013 ****/
+/* ******************************************************************************
+   *  BSIM4 4.8.2 released by Chetan Kumar Dabhi 01/01/2020                     *
+   *  BSIM4 Model Equations                                                     *
+   ******************************************************************************
 
-/**********
- * Copyright 2006 Regents of the University of California. All rights reserved.
- * File: b4noi.c of BSIM4.8.0.
- * Author: 2000 Weidong Liu
- * Authors: 2001- Xuemei Xi, Mohan Dunga, Ali Niknejad, Chenming Hu.
- * Authors: 2006- Mohan Dunga, Ali Niknejad, Chenming Hu
- * Authors: 2007- Mohan Dunga, Wenwei Yang, Ali Niknejad, Chenming Hu
-  * Authors: 2008- Wenwei Yang,  Ali Niknejad, Chenming Hu
- * Project Director: Prof. Chenming Hu.
- * Modified by Xuemei Xi, 04/06/2001.
- * Modified by Xuemei Xi, 10/05/2001.
- * Modified by Xuemei Xi, 05/09/2003.
- * Modified by Xuemei Xi, 03/04/2004.
- * Modified by Xuemei Xi, 07/29/2005.
- * Modified by Mohan Dunga, 12/13/2006
- * Modified by Wenwei Yang, 07/31/2008.
- * Modified by Tanvir Morshed, Darsen Lu 03/27/2011
- * Modified by Pankaj Kumar Thakur, 07/23/2012
- **********/
+   ******************************************************************************
+   *  Copyright (c) 2020 University of California                               *
+   *                                                                            *
+   *  Project Director: Prof. Chenming Hu.                                      *
+   *  Current developers: Chetan Kumar Dabhi   (Ph.D. student, IIT Kanpur)      *
+   *                      Prof. Yogesh Chauhan (IIT Kanpur)                     *
+   *                      Dr. Pragya Kushwaha  (Postdoc, UC Berkeley)           *
+   *                      Dr. Avirup Dasgupta  (Postdoc, UC Berkeley)           *
+   *                      Ming-Yen Kao         (Ph.D. student, UC Berkeley)     *
+   *  Authors: Gary W. Ng, Weidong Liu, Xuemei Xi, Mohan Dunga, Wenwei Yang     *
+   *           Ali Niknejad, Chetan Kumar Dabhi, Yogesh Singh Chauhan,          *
+   *           Sayeef Salahuddin, Chenming Hu                                   * 
+   ******************************************************************************/
+
+/*
+Licensed under Educational Community License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License. You may obtain a copy of the license at
+http://opensource.org/licenses/ECL-2.0
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT 
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations
+under the License.
+*/
 
 #include "ngspice/ngspice.h"
 #include "bsim4def.h"
@@ -93,13 +99,12 @@ NOISEAN *job = (NOISEAN *) ckt->CKTcurJob;
 BSIM4model *model = (BSIM4model *)inModel;
 BSIM4instance *here;
 struct bsim4SizeDependParam *pParam;
-char name[N_MXVLNTH];
 double tempOnoise;
 double tempInoise;
 double noizDens[BSIM4NSRCS];
 double lnNdens[BSIM4NSRCS];
 
-double T0, T1, T2, T3, T4, T5, T6, T7, T8, T10, T11;
+double T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11;
 double Vds, Ssi, Swi;
 double tmp=0.0, gdpr, gspr, npart_theta=0.0, npart_beta=0.0, igsquare, bodymode;
 
@@ -131,14 +136,14 @@ double m;
         ""                  /* total transistor noise */
     };
 
-    for (; model != NULL; model = model->BSIM4nextModel)
+    for (; model != NULL; model = BSIM4nextModel(model))
     {
          if(model->BSIM4tnoiMod != 2) {
              noizDens[BSIM4CORLNOIZ] = 0.0;
              lnNdens[BSIM4CORLNOIZ] = N_MINLOG;
          }
-         for (here = model->BSIM4instances; here != NULL;
-              here = here->BSIM4nextInstance)
+         for (here = BSIM4instances(model); here != NULL;
+              here = BSIM4nextInstance(here))
          {    pParam = here->pParam;
               switch (operation)
               {  case N_OPEN:
@@ -149,47 +154,13 @@ double m;
                       {   switch (mode)
                           {  case N_DENS:
                                   for (i = 0; i < BSIM4NSRCS; i++)
-                                  {    (void) sprintf(name, "onoise.%s%s",
-                                                      here->BSIM4name,
-                                                      BSIM4nNames[i]);
-                                       data->namelist = TREALLOC(IFuid,
-                                             data->namelist,
-                                             data->numPlots + 1);
-                                       if (!data->namelist)
-                                           return(E_NOMEM);
-                                       SPfrontEnd->IFnewUid (ckt,
-                                          &(data->namelist[data->numPlots++]),
-                                          NULL, name, UID_OTHER, NULL);
-                                       /* we've added one more plot */
+                                  {    NOISE_ADD_OUTVAR(ckt, data, "onoise.%s%s", here->BSIM4name, BSIM4nNames[i]);
                                   }
                                   break;
                              case INT_NOIZ:
                                   for (i = 0; i < BSIM4NSRCS; i++)
-                                  {    (void) sprintf(name, "onoise_total.%s%s",
-                                                      here->BSIM4name,
-                                                      BSIM4nNames[i]);
-                                       data->namelist = TREALLOC(IFuid,
-                                             data->namelist,
-                                             data->numPlots + 1);
-                                       if (!data->namelist)
-                                           return(E_NOMEM);
-                                       SPfrontEnd->IFnewUid (ckt,
-                                          &(data->namelist[data->numPlots++]),
-                                          NULL, name, UID_OTHER, NULL);
-                                       /* we've added one more plot */
-
-                                       (void) sprintf(name, "inoise_total.%s%s",
-                                                      here->BSIM4name,
-                                                      BSIM4nNames[i]);
-                                       data->namelist = TREALLOC(IFuid,
-                                             data->namelist,
-                                             data->numPlots + 1);
-                                       if (!data->namelist)
-                                           return(E_NOMEM);
-                                       SPfrontEnd->IFnewUid (ckt,
-                                          &(data->namelist[data->numPlots++]),
-                                          NULL, name, UID_OTHER, NULL);
-                                       /* we've added one more plot */
+                                  {    NOISE_ADD_OUTVAR(ckt, data, "onoise_total.%s%s", here->BSIM4name, BSIM4nNames[i]);
+                                       NOISE_ADD_OUTVAR(ckt, data, "inoise_total.%s%s", here->BSIM4name, BSIM4nNames[i]);
                                   }
                                   break;
                           }
@@ -407,45 +378,113 @@ double m;
 
                                   T8 = here->BSIM4Vgsteff / here->BSIM4EsatL;
                                   T8 *= T8;
-                                  npart_c = model->BSIM4rnoic * (1.0 + T8
-                                          * model->BSIM4tnoic * Leff);
-                                  ctnoi = epsilon / sqrt(gamma * delta)
-                                      * (2.5316 * npart_c);
+                                  if ((strcmp(model->BSIM4version, "4.8.1")) && (strncmp(model->BSIM4version, "4.81", 4))) {
+                                      npart_c = model->BSIM4rnoic * (1.0 + T8
+                                              * model->BSIM4tnoic * Leff);
+                                      ctnoi = epsilon / sqrt(gamma * delta)
+                                          * (2.5316 * npart_c);
 
-                                  npart_beta = model->BSIM4rnoia * (1.0 + T8
-                                      * model->BSIM4tnoia * Leff);
-                                  npart_theta = model->BSIM4rnoib * (1.0 + T8
-                                      * model->BSIM4tnoib * Leff);
-                                  gamma = gamma * (3.0 * npart_beta * npart_beta);
-                                  delta = delta * (3.75 * npart_theta * npart_theta);
+                                      npart_beta = model->BSIM4rnoia * (1.0 + T8
+                                          * model->BSIM4tnoia * Leff);
+                                      npart_theta = model->BSIM4rnoib * (1.0 + T8
+                                          * model->BSIM4tnoib * Leff);
+                                      gamma = gamma * (3.0 * npart_beta * npart_beta);
+                                      delta = delta * (3.75 * npart_theta * npart_theta);
 
-                                  GammaGd0 = gamma * here->BSIM4noiGd0;
-                                  C0 = here->BSIM4Coxeff * pParam->BSIM4weffCV * here->BSIM4nf * pParam->BSIM4leffCV;
-                                  T0 = C0 / here->BSIM4noiGd0;
-                                  sigrat = T0 * sqrt(delta / gamma);
+                                      GammaGd0 = gamma * here->BSIM4noiGd0;
+                                      C0 = here->BSIM4Coxeff * pParam->BSIM4weffCV * here->BSIM4nf * pParam->BSIM4leffCV;
+                                      T0 = C0 / here->BSIM4noiGd0;
+                                      sigrat = T0 * sqrt(delta / gamma);
+                                  }
+                                  else
+                                  {
+                                      npart_c = model->BSIM4rnoic * (1.0 + T8
+                                             * model->BSIM4tnoic * Leff);
+                                      /* Limits added for rnoia, rnoib, rnoic, tnoia, tnoib and tnoic in BSIM4.8.1 */
+                                      T9 = gamma * delta ;
+                                      if (T9 > 0)
+                                          ctnoi   = epsilon / sqrt( gamma * delta) * (2.5316 * npart_c);
+                                      else
+                                          ctnoi   = 1.0 ;
+                                      if (ctnoi > 1)
+                                          ctnoi=1;
+                                      if (ctnoi < 0)
+                                          ctnoi=0;
+
+                                      npart_beta = model->BSIM4rnoia * (1.0 + T8
+                                          * model->BSIM4tnoia * Leff);
+                                      npart_theta = model->BSIM4rnoib * (1.0 + T8
+                                          * model->BSIM4tnoib * Leff);
+                                      gamma = gamma * (3.0 * npart_beta * npart_beta);
+                                      delta = delta * (3.75 * npart_theta * npart_theta);
+
+                                      GammaGd0 = gamma * here->BSIM4noiGd0;
+                                          C0 = here->BSIM4Coxeff * pParam->BSIM4weffCV * here->BSIM4nf * pParam->BSIM4leffCV;
+                                      T0 = C0 / here->BSIM4noiGd0;
+
+                                      if (gamma > 0 && delta > 0)
+                                          sigrat = T0 * sqrt(delta / gamma);
+                                      else
+                                          sigrat = 0.0;
+                                  }
                               }
+
                               switch(model->BSIM4tnoiMod)
                               {  case 0:
-                                      T0 = here->BSIM4ueff * fabs(here->BSIM4qinv);
-                                      T1 = T0 * tmp + pParam->BSIM4leff
-                                         * pParam->BSIM4leff;
-                                      NevalSrc(&noizDens[BSIM4IDNOIZ],
-                                               &lnNdens[BSIM4IDNOIZ], ckt,
-                                               THERMNOISE, here->BSIM4dNodePrime,
-                                               here->BSIM4sNodePrime,
-                                               (T0 / T1) * model->BSIM4ntnoi * m);
+                                      if ((strcmp(model->BSIM4version, "4.8.1")) && (strncmp(model->BSIM4version, "4.81", 4))) {
+                                          T0 = here->BSIM4ueff * fabs(here->BSIM4qinv);
+                                          T1 = T0 * tmp + pParam->BSIM4leff
+                                             * pParam->BSIM4leff;
+                                          NevalSrc(&noizDens[BSIM4IDNOIZ],
+                                                   &lnNdens[BSIM4IDNOIZ], ckt,
+                                                   THERMNOISE, here->BSIM4dNodePrime,
+                                                   here->BSIM4sNodePrime,
+                                                   (T0 / T1) * model->BSIM4ntnoi * m);
+                                      }
+                                      else
+                                      {
+                                          T0 = here->BSIM4ueff * fabs(here->BSIM4qinv);
+                                          T1 = T0 * tmp + pParam->BSIM4leff
+                                                  * pParam->BSIM4leff;
+                                          NevalSrc(&noizDens[BSIM4IDNOIZ],
+                                                  &lnNdens[BSIM4IDNOIZ], ckt,
+                                                  THERMNOISE, here->BSIM4dNodePrime,
+                                                  here->BSIM4sNodePrime,
+                                                  (T0 / T1) * model->BSIM4ntnoi * m);
+
+                                          noizDens[BSIM4CORLNOIZ] = 0.0;
+                                          lnNdens[BSIM4CORLNOIZ] = log(MAX(noizDens[BSIM4CORLNOIZ], N_MINLOG));
+                                      }
                                       break;
                                  case 1:
-                                      T0 = here->BSIM4gm + here->BSIM4gmbs + here->BSIM4gds;
-                                      T0 *= T0;
-                                      igsquare = npart_theta * npart_theta * T0 / here->BSIM4IdovVds;
-                                      T1 = npart_beta * (here->BSIM4gm
-                                         + here->BSIM4gmbs) + here->BSIM4gds;
-                                      T2 = T1 * T1 / here->BSIM4IdovVds;
-                                      NevalSrc(&noizDens[BSIM4IDNOIZ],
-                                               &lnNdens[BSIM4IDNOIZ], ckt,
-                                               THERMNOISE, here->BSIM4dNodePrime,
-                                               here->BSIM4sNodePrime, (T2 - igsquare) * m);
+                                      if ((strcmp(model->BSIM4version, "4.8.1")) && (strncmp(model->BSIM4version, "4.81", 4))) {
+                                          T0 = here->BSIM4gm + here->BSIM4gmbs + here->BSIM4gds;
+                                          T0 *= T0;
+                                          igsquare = npart_theta * npart_theta * T0 / here->BSIM4IdovVds;
+                                          T1 = npart_beta * (here->BSIM4gm
+                                             + here->BSIM4gmbs) + here->BSIM4gds;
+                                          T2 = T1 * T1 / here->BSIM4IdovVds;
+                                          NevalSrc(&noizDens[BSIM4IDNOIZ],
+                                                   &lnNdens[BSIM4IDNOIZ], ckt,
+                                                   THERMNOISE, here->BSIM4dNodePrime,
+                                                   here->BSIM4sNodePrime, (T2 - igsquare) * m);
+                                      }
+                                      else
+                                      {
+                                          T0 = here->BSIM4gm + here->BSIM4gmbs + here->BSIM4gds;
+                                          T0 *= T0;
+                                          igsquare = npart_theta * npart_theta * T0 / here->BSIM4IdovVds;
+                                          T1 = npart_beta * (here->BSIM4gm
+                                          + here->BSIM4gmbs) + here->BSIM4gds;
+                                          T2 = T1 * T1 / here->BSIM4IdovVds;
+                                          NevalSrc(&noizDens[BSIM4IDNOIZ],
+                                                  &lnNdens[BSIM4IDNOIZ], ckt,
+                                                  THERMNOISE, here->BSIM4dNodePrime,
+                                                  here->BSIM4sNodePrime, (T2 - igsquare) * m);
+
+                                          noizDens[BSIM4CORLNOIZ] = 0.0;
+                                          lnNdens[BSIM4CORLNOIZ] = log(MAX(noizDens[BSIM4CORLNOIZ], N_MINLOG));
+                                      }
                                       break;
                                   case 2:
                                       T2 = GammaGd0;

@@ -1,28 +1,32 @@
-/**** BSIM4.8.0 Released by Navid Paydavosi 11/01/2013 ****/
-/**** OpenMP support ngspice 06/28/2010 ****/
-/**********
- * Copyright 2006 Regents of the University of California. All rights reserved.
- * File: b4ld.c of BSIM4.8.0.
- * Author: 2000 Weidong Liu
- * Authors: 2001- Xuemei Xi, Mohan Dunga, Ali Niknejad, Chenming Hu.
- * Authors: 2006- Mohan Dunga, Ali Niknejad, Chenming Hu
- * Authors: 2007- Mohan Dunga, Wenwei Yang, Ali Niknejad, Chenming Hu
- * Authors: 2008- Wenwei Yang, Ali Niknejad, Chenming Hu 
- * Project Director: Prof. Chenming Hu.
- * Modified by Xuemei Xi, 04/06/2001.
- * Modified by Xuemei Xi, 10/05/2001.
- * Modified by Xuemei Xi, 11/15/2002.
- * Modified by Xuemei Xi, 05/09/2003.
- * Modified by Xuemei Xi, 03/04/2004.
- * Modified by Xuemei Xi, Mohan Dunga, 07/29/2005.
- * Modified by Mohan Dunga, 12/13/2006.
- * Modified by Mohan Dunga, Wenwei Yang, 05/18/2007.
- * Modified by Wenwei Yang, 07/31/2008.
- * Modified by Tanvir Morshed, Darsen Lu 03/27/2011
- * Modified by Pankaj Kumar Thakur, 07/23/2012
- * Modified by Navid Paydavosi, 08/21/2013
- **********/
+/* ******************************************************************************
+   *  BSIM4 4.8.2 released by Chetan Kumar Dabhi 01/01/2020                     *
+   *  BSIM4 Model Equations                                                     *
+   ******************************************************************************
 
+   ******************************************************************************
+   *  Copyright (c) 2020 University of California                               *
+   *                                                                            *
+   *  Project Director: Prof. Chenming Hu.                                      *
+   *  Current developers: Chetan Kumar Dabhi   (Ph.D. student, IIT Kanpur)      *
+   *                      Prof. Yogesh Chauhan (IIT Kanpur)                     *
+   *                      Dr. Pragya Kushwaha  (Postdoc, UC Berkeley)           *
+   *                      Dr. Avirup Dasgupta  (Postdoc, UC Berkeley)           *
+   *                      Ming-Yen Kao         (Ph.D. student, UC Berkeley)     *
+   *  Authors: Gary W. Ng, Weidong Liu, Xuemei Xi, Mohan Dunga, Wenwei Yang     *
+   *           Ali Niknejad, Chetan Kumar Dabhi, Yogesh Singh Chauhan,          *
+   *           Sayeef Salahuddin, Chenming Hu                                   * 
+   ******************************************************************************/
+
+/*
+Licensed under Educational Community License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License. You may obtain a copy of the license at
+http://opensource.org/licenses/ECL-2.0
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT 
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations
+under the License.
+*/
+
+/**** OpenMP support ngspice 06/28/2010 ****/
 
 #include "ngspice/ngspice.h"
 #include "ngspice/cktdefs.h"
@@ -76,26 +80,26 @@ CKTcircuit *ckt)
 #ifdef USE_OMP
     int idx;
     BSIM4model *model = (BSIM4model*)inModel;
-    int good = 0;
+    int error = 0;
     BSIM4instance **InstArray;
     InstArray = model->BSIM4InstanceArray;
 
 #pragma omp parallel for
     for (idx = 0; idx < model->BSIM4InstCount; idx++) {
         BSIM4instance *here = InstArray[idx];
-        int local_good = BSIM4LoadOMP(here, ckt);
-        if (local_good)
-            good = local_good;
+        int local_error = BSIM4LoadOMP(here, ckt);
+        if (local_error)
+            error = local_error;
     }
 
     BSIM4LoadRhsMat(inModel, ckt);
     
-    return good;
+    return error;
 }
 
 
 int BSIM4LoadOMP(BSIM4instance *here, CKTcircuit *ckt) {
-BSIM4model *model;
+BSIM4model *model = BSIM4modPtr(here);
 #else
 BSIM4model *model = (BSIM4model*)inModel;
 BSIM4instance *here;
@@ -243,10 +247,6 @@ int ByPass, ChargeComputationNeeded, error, Check, Check1, Check2;
 
 double m;
 
-#ifdef USE_OMP
-model = here->BSIM4modPtr;
-#endif
-
 ScalingFactor = 1.0e-9;
 ChargeComputationNeeded =  
                  ((ckt->CKTmode & (MODEDCTRANCURVE | MODEAC | MODETRAN | MODEINITSMSIG)) ||
@@ -254,9 +254,9 @@ ChargeComputationNeeded =
                  ? 1 : 0;
 
 #ifndef USE_OMP
-for (; model != NULL; model = model->BSIM4nextModel)
-{    for (here = model->BSIM4instances; here != NULL; 
-          here = here->BSIM4nextInstance)
+for (; model != NULL; model = BSIM4nextModel(model))
+{    for (here = BSIM4instances(model); here != NULL; 
+          here = BSIM4nextInstance(here))
      {
 #endif
 
@@ -2170,7 +2170,7 @@ for (; model != NULL; model = model->BSIM4nextModel)
           here->BSIM4gm = Gm;
           here->BSIM4gmbs = Gmb;
           here->BSIM4IdovVds = Ids;
-          if( here->BSIM4IdovVds <= 1.0e-9) here->BSIM4IdovVds = 1.0e-9;
+          if( here->BSIM4IdovVds <= model->BSIM4idovvdsc) here->BSIM4IdovVds = model->BSIM4idovvdsc; 
 
           /* Calculate Rg */
           if ((here->BSIM4rgateMod > 1) ||
@@ -2420,6 +2420,9 @@ for (; model != NULL; model = model->BSIM4nextModel)
                         
                         }
                         T4 = vbs - pParam->BSIM4fgisl;
+                    /*--chetan dabhi solution for clamping T4-*/
+                        if(T4 > model->BSIM4gidlclamp)
+                            T4=model->BSIM4gidlclamp; 
                         
                         if (T4==0)
                             T5 = EXPL_THRESHOLD;
@@ -2476,6 +2479,9 @@ for (; model != NULL; model = model->BSIM4nextModel)
                             Ggidlg  = T3 * dT1_dVg;
                         }
                         T4 = vbd - pParam->BSIM4fgidl;
+                        /*--chetan dabhi solution for clamping T4-*/
+                        if(T4 > model->BSIM4gidlclamp)
+                            T4=model->BSIM4gidlclamp; 
                         if (T4==0)
                             T5 = EXPL_THRESHOLD;
                         else
@@ -4582,6 +4588,10 @@ line755:
           if (!ChargeComputationNeeded)
               goto line850;
 
+          /* no integration, if dc sweep, but keep evaluating capacitances */
+          if (ckt->CKTmode & MODEDCTRANCURVE)
+              goto line850;
+
           if (ckt->CKTmode & MODEINITTRAN)
           {   *(ckt->CKTstate1 + here->BSIM4qb) =
                     *(ckt->CKTstate0 + here->BSIM4qb);
@@ -5082,7 +5092,7 @@ line900:
            here->BSIM4_25 = m * (gcrgb + gcgmbb);
 
            here->BSIM4_26 = m * gcdgmb;
-           here->BSIM4_26 = m * gcrg;
+           here->BSIM4_27 = m * gcrg;
            here->BSIM4_28 = m * gcsgmb;
            here->BSIM4_29 = m * gcbgmb;
 
@@ -5414,7 +5424,7 @@ int BSIM4polyDepletion(
 #ifdef USE_OMP
 void BSIM4LoadRhsMat(GENmodel *inModel, CKTcircuit *ckt)
 {
-    unsigned int InstCount, idx;
+    int InstCount, idx;
     BSIM4instance **InstArray;
     BSIM4instance *here;
     BSIM4model *model = (BSIM4model*)inModel;
@@ -5424,6 +5434,7 @@ void BSIM4LoadRhsMat(GENmodel *inModel, CKTcircuit *ckt)
 
     for(idx = 0; idx < InstCount; idx++) {
        here = InstArray[idx];
+       model = BSIM4modPtr(here);
         /* Update b for Ax = b */
            (*(ckt->CKTrhs + here->BSIM4dNodePrime) += here->BSIM4rhsdPrime);
            (*(ckt->CKTrhs + here->BSIM4gNodePrime) -= here->BSIM4rhsgPrime);

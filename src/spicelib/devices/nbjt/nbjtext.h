@@ -8,11 +8,10 @@ Author: 1987 Karti Mayaram
 
 extern int NBJTacLoad(GENmodel *, CKTcircuit *);
 extern int NBJTask(CKTcircuit *, GENinstance *, int, IFvalue *, IFvalue *);
-extern int NBJTdelete(GENmodel *, IFuid, GENinstance **);
-extern void NBJTdestroy(GENmodel **);
+extern int NBJTdelete(GENinstance *);
+extern int NBJTmodDelete(GENmodel *);
 extern int NBJTgetic(GENmodel *, CKTcircuit *);
 extern int NBJTload(GENmodel *, CKTcircuit *);
-extern int NBJTmDelete(GENmodel **, IFuid, GENmodel *);
 extern int NBJTmParam(int, IFvalue *, GENmodel *);
 extern int NBJTparam(int, IFvalue *, GENinstance *, IFvalue *);
 extern int NBJTpzLoad(GENmodel *, CKTcircuit *, SPcomplex *);
@@ -23,5 +22,10 @@ extern int NBJTtrunc(GENmodel *, CKTcircuit *, double *);
 extern void NBJTdump(GENmodel *, CKTcircuit *);
 extern void NBJTacct(GENmodel *, CKTcircuit *, FILE *);
 
+#ifdef KLU
+extern int NBJTbindCSC (GENmodel*, CKTcircuit*) ;
+extern int NBJTbindCSCComplex (GENmodel*, CKTcircuit*) ;
+extern int NBJTbindCSCComplexToReal (GENmodel*, CKTcircuit*) ;
+#endif
 
 #endif /* NBJT_H */

@@ -75,6 +75,7 @@ typedef enum {
 typedef enum {
     MIF_ANALOG,         /* Analog call */
     MIF_EVENT_DRIVEN,   /* Event-driven call */
+    MIF_STEP_PENDING,   /* Special event call for irreversible Code Models */
 } Mif_Call_Type_t;
 
 
@@ -87,6 +88,7 @@ typedef enum {
     MIF_DC,                /* A DC or DCOP analysis */
     MIF_AC,                /* A swept AC analysis   */
     MIF_TRAN,              /* A transient analysis  */
+    MIF_NOI,               /* A noise analysis  */
 } Mif_Analysis_t;
 
 
@@ -172,6 +174,15 @@ typedef enum {
 } Mif_Cntl_Src_Type_t;
 
 
+/*
+ * The "reason" for a callback invocation
+ */
+
+typedef enum {
+    MIF_CB_DESTROY = 1,   /* MIFdestroy has been invoked, its time to clean up */
+}  Mif_Callback_Reason_t;
+
+
 /* ***************************************************************************** */
 
 
@@ -179,7 +190,7 @@ typedef enum {
  * Complex numbers
  */
 
-typedef struct {
+typedef struct Mif_Complex {
 
     double  real;
     double  imag;
@@ -194,34 +205,31 @@ typedef struct {
 
 typedef union {
 
-    Mif_Boolean_t  bvalue;         /* For digital node value */
+    Mif_Boolean_t  bvalue;         /* For boolean parameters */
     int            ivalue;         /* For integer parameters */
     double         rvalue;         /* For spice node values and real parameters */  
     Mif_Complex_t  cvalue;         /* For complex parameters */
-    char           *svalue;        /* For string parameters  */
-    void           *pvalue;        /* For user defined nodes */
+    char          *svalue;         /* For string parameters  */
+    void          *pvalue;         /* For Digital and user defined nodes */
 
 } Mif_Value_t;
 
 
 
+/* types from mifparse.h */
+typedef union Mif_Parse_Value Mif_Parse_Value_t;
+typedef struct Mif_Conn_Info Mif_Conn_Info_t;
+typedef struct Mif_Param_Info Mif_Param_Info_t;
+typedef struct Mif_Inst_Var_Info Mif_Inst_Var_Info_t;
 
-/*
- * Values of different types used by the parser.  Note that this is a structure
- * instead of a union because we need to do initializations in the ifspec.c files for
- * the models and unions cannot be initialized in any useful way in C
- *
- */
+/* types from mifcmdat.h */
+typedef struct Mif_Private Mif_Private_t;
 
-typedef struct {
+/* types from mifdefs.h */
+typedef struct MIFinstance MIFinstance;
+typedef struct MIFmodel MIFmodel;
 
-    Mif_Boolean_t     bvalue;         /* For boolean values */
-    int               ivalue;         /* For integer values */
-    double            rvalue;         /* For real values */  
-    Mif_Complex_t     cvalue;         /* For complex values */
-    char              *svalue;        /* For string values  */
-
-} Mif_Parse_Value_t;
+typedef void (* Mif_Callback_t)(Mif_Private_t *, Mif_Callback_Reason_t);
 
 
 #endif

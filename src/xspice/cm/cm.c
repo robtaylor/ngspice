@@ -3,11 +3,10 @@ FILE    CM.c
 
 MEMBER OF process XSPICE
 
-Copyright 1991
+Public Domain
+
 Georgia Tech Research Corporation
 Atlanta, Georgia 30332
-All Rights Reserved
-
 PROJECT A-8503
 
 AUTHORS
@@ -37,6 +36,11 @@ INTERFACES
     cm_message_get_errmsg()
     cm_message_send()
     cm_get_path()
+    cm_get_circuit()
+
+    cm_irreversible()
+    cm_get_node_name()
+    cm_probe_node()
 
 REFERENCED FILES
 
@@ -49,8 +53,12 @@ NON-STANDARD FEATURES
 =========================================================================== */
 #include "ngspice/ngspice.h"
 #include "ngspice/cm.h"
+#include "ngspice/evt.h"
+#include "ngspice/evtudn.h"
+#include "ngspice/enh.h"
 #include "ngspice/mif.h"
 #include "ngspice/cktdefs.h"
+#include "ngspice/cpextern.h"
 //#include "util.h"
 
 
@@ -412,7 +420,6 @@ int cm_analog_set_temp_bkpt(
 {
     CKTcircuit  *ckt;
 
-
     /* Get the address of the ckt and instance structs from g_mif_info */
     ckt  = g_mif_info.ckt;
 
@@ -424,10 +431,13 @@ int cm_analog_set_temp_bkpt(
     }
 
     /* If too close to a permanent breakpoint or the current time, discard it */
-    if( (fabs(time - ckt->CKTbreaks[0]) < ckt->CKTminBreak) ||
-        (fabs(time - ckt->CKTbreaks[1]) < ckt->CKTminBreak) ||
-        (fabs(time - ckt->CKTtime) < ckt->CKTminBreak) )
-        return(MIF_OK);
+    if ((ckt->CKTbreaks &&
+         (fabs(time - ckt->CKTbreaks[0]) < ckt->CKTminBreak ||
+          fabs(time - ckt->CKTbreaks[1]) < ckt->CKTminBreak)) ||
+        fabs(time - ckt->CKTtime) < ckt->CKTminBreak) {
+        g_mif_info.errmsg = "WARNING - time is too close to existing break.";
+        return MIF_ERROR;
+    }
 
     /* If < current dynamic breakpoint, make it the current breakpoint */
     if( time < g_mif_info.breakpoint.current)
@@ -435,8 +445,6 @@ int cm_analog_set_temp_bkpt(
 
     return(MIF_OK);
 }
-
-
 
 
 /*
@@ -521,8 +529,6 @@ double cm_analog_ramp_factor(void)
  * Copyright (c) 1985 Thomas L. Quarles
  *
  * This is a modified version of the function NIintegrate()
- *
- * Modifications are Copyright 1991 Georgia Tech Research Institute
  *
  */
 
@@ -705,3 +711,190 @@ char *cm_get_path(void)
     return Infile_Path;
 }
 
+
+/* cm_get_circuit(void)
+
+To build complex custom-built xspice-models, access to certain
+parameters (e.g. maximum step size) may be needed to get reasonable
+results of a simulation. In detail, this may be necessary when
+spice interacts with an external sensor-simulator and the results
+of that external simulator do not have a direct impact on the spice
+circuit. Then, modifying the maximum step size on the fly may help
+to improve the simulation results. Modifying such parameters has to
+be done carefully. The patch enhances the xspice interface with
+access to the (fundamental) ckt pointer.
+*/
+
+CKTcircuit *cm_get_circuit(void)
+{
+    return(g_mif_info.ckt);
+}
+
+/* Set the "irreversible" flag on the current instance and shuffle it to the
+ * requested position among any other irreversibles in the hybrid_index array.
+ * Array entries are sorted so that non-zero values of instance->irreversible
+ * are decreasing: an instance with instance->irreversible == 1 is fully
+ * protected.
+ */
+
+static void duplicate(MIFinstance *instance)
+{
+    fprintf(cp_err,
+            "Warning: Duplicate value %d in cm_irreversible() "
+            "for instance %s.\n",
+            instance->irreversible, instance->gen.GENname);
+}
+
+void cm_irreversible(unsigned int place)
+{
+    MIFinstance      *instance;
+    Evt_Ckt_Data_t   *evt;
+    int               num_hybrids;
+    MIFinstance     **hybrids;
+    int               old_index, i;
+    unsigned int      value;
+
+    instance = g_mif_info.instance;
+    if (!g_mif_info.circuit.init) {
+        fprintf(cp_err,
+                "%s: Ignoring call to cm_irreversible(): not in INIT\n",
+                instance->gen.GENname);
+        return;
+    }
+    if (instance->irreversible || place == 0) {
+        if (instance->irreversible != place) {
+            fprintf(cp_err, "%s: Ignoring new value %d in cm_irreversible()\n",
+                   instance->gen.GENname, place);
+        }
+        return;
+    }
+    instance->irreversible = place;
+
+    evt = g_mif_info.ckt->evt;
+    num_hybrids = evt->counts.num_hybrids;
+    hybrids = evt->info.hybrids;
+
+    /* Already a hybrid? */
+
+    for (old_index = 0; old_index < num_hybrids; ++old_index) {
+        if (hybrids[old_index] == instance)
+            break;
+    }
+
+    if (old_index < num_hybrids) {
+        /* Existing hybrid, move down, shuffling other entries up. */
+
+        for (i = old_index + 1; i < num_hybrids; ++i) {
+            value = hybrids[i]->irreversible;
+            if (value == 0 || value > place) {
+                hybrids[i - 1] = hybrids[i];
+            } else if (value == place) {
+                duplicate(instance);
+                break;
+            } else {
+                break;
+            }
+        }
+        hybrids[i - 1] = instance;
+    } else {
+        /* Instance is not hybrid, add an entry. */
+
+        num_hybrids++;
+        hybrids = TREALLOC(MIFinstance *, hybrids, num_hybrids);
+        evt->counts.num_hybrids = num_hybrids;
+        evt->info.hybrids = hybrids;
+        if (hybrids == NULL) {
+            fprintf(cp_err, "Allocation failed in cm_irreversible()\n");
+            abort();
+        }
+
+        /* Shuffle entries down. */
+
+        for (i = num_hybrids - 2; i >= 0; --i) {
+            value = hybrids[i]->irreversible;
+            if (value != 0 && value < place) {
+                hybrids[i + 1] = hybrids[i];
+            } else if (value == place) {
+                duplicate(instance);
+            } else {
+                break;
+            }
+        }
+        hybrids[i + 1] = instance;
+    }
+}
+
+/* Get the name of a circuit node connected to a port. */
+
+const char *cm_get_node_name(const char *port_name, unsigned int index)
+{
+    MIFinstance      *instance;
+    Mif_Conn_Data_t  *conn;
+    Mif_Port_Data_t  *port;
+    int               i;
+
+    instance = g_mif_info.instance;
+    for (i = 0; i < instance->num_conn; ++i) {
+        conn = instance->conn[i];
+        if (!strcmp(port_name, conn->name)) {
+            if (index >= (unsigned int)conn->size)
+                return NULL;
+            port = conn->port[index];
+            if (port->type == MIF_DIGITAL || port->type == MIF_USER_DEFINED) {
+                /* Event node, no name in port data. */
+
+                i = port->evt_data.node_index;
+                return g_mif_info.ckt->evt->info.node_table[i]->name;
+            }
+            return port->pos_node_str;
+        }
+    }
+    return NULL;
+}
+
+/* Test the resolved value of a connected Digital/UDN node, given
+ * an assumed value for a particular port.
+ */
+
+bool cm_probe_node(unsigned int  conn_index,  // Connection index
+                   unsigned int  port_index,  // Port index within connection
+                   void         *value)       // Inout UDN value
+{
+    MIFinstance      *instance;
+    Mif_Conn_Data_t  *conn;
+    Mif_Port_Data_t  *port;
+    Mif_Evt_Data_t   *edata;
+    Evt_Node_Info_t  *node_info;
+    Evt_Node_t       *this;
+    void             *hold;
+    int               num_outputs;
+
+    instance = g_mif_info.instance;
+    if (conn_index >= (unsigned int)instance->num_conn)
+        return FALSE;
+    conn = instance->conn[conn_index];
+    if (port_index >= (unsigned int)conn->size)
+        return FALSE;
+    port = conn->port[port_index];
+    if (port->type != MIF_DIGITAL && port->type != MIF_USER_DEFINED)
+        return FALSE;
+    edata = &port->evt_data;
+    node_info = g_mif_info.ckt->evt->info.node_table[edata->node_index];
+    num_outputs = node_info->num_outputs;
+    if (num_outputs <= 1)
+        return num_outputs == 1;    // This should be the only output.
+    this = g_mif_info.ckt->evt->data.node->rhsold + edata->node_index;
+
+    /* Replace the actual output with the test value and resolve.
+     * It is assumed that the resolve function will not use its output
+     * as a working variable.  (True for digital, real and integer.)
+     */
+
+    hold = this->output_value[edata->output_subindex];
+    this->output_value[edata->output_subindex] = value;
+    g_evt_udn_info[node_info->udn_index]->resolve(num_outputs,
+                                                  this->output_value,
+                                                  value);
+    this->output_value[edata->output_subindex] = hold;
+    return TRUE;
+}

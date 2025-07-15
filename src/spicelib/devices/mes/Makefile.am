@@ -7,8 +7,6 @@ libmes_la_SOURCES =	\
 	mesacl.c	\
 	mesask.c	\
 	mesdefs.h	\
-	mesdel.c	\
-	mesdest.c	\
 	mesdisto.c	\
 	mesdset.c	\
 	mesext.h	\
@@ -18,7 +16,6 @@ libmes_la_SOURCES =	\
 	mesitf.h	\
 	mesload.c	\
 	mesmask.c	\
-	mesmdel.c	\
 	mesmpar.c	\
 	mesnoise.c	\
 	mesparam.c	\
@@ -28,7 +25,11 @@ libmes_la_SOURCES =	\
 	mestrunc.c
 
 
+if KLU_WANTED
+libmes_la_SOURCES += mesbindCSC.c
+endif
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src/include
 AM_CFLAGS = $(STATIC)
+
 MAINTAINERCLEANFILES = Makefile.in

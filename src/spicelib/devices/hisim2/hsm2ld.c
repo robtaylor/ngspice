@@ -1,19 +1,58 @@
 /***********************************************************************
 
  HiSIM (Hiroshima University STARC IGFET Model)
- Copyright (C) 2012 Hiroshima University & STARC
+ Copyright (C) 2014 Hiroshima University & STARC
 
  MODEL NAME : HiSIM
- ( VERSION : 2  SUBVERSION : 7  REVISION : 0 ) Beta
+ ( VERSION : 2  SUBVERSION : 8  REVISION : 0 )
  
  FILE : hsm2ld.c
 
- Date : 2012.10.25
+ Date : 2014.6.5
 
  released by 
                 Hiroshima University &
                 Semiconductor Technology Academic Research Center (STARC)
 ***********************************************************************/
+
+/**********************************************************************
+
+The following source code, and all copyrights, trade secrets or other
+intellectual property rights in and to the source code in its entirety,
+is owned by the Hiroshima University and the STARC organization.
+
+All users need to follow the "HiSIM2 Distribution Statement and
+Copyright Notice" attached to HiSIM2 model.
+
+-----HiSIM2 Distribution Statement and Copyright Notice--------------
+
+Software is distributed as is, completely without warranty or service
+support. Hiroshima University or STARC and its employees are not liable
+for the condition or performance of the software.
+
+Hiroshima University and STARC own the copyright and grant users a perpetual,
+irrevocable, worldwide, non-exclusive, royalty-free license with respect 
+to the software as set forth below.   
+
+Hiroshima University and STARC hereby disclaim all implied warranties.
+
+Hiroshima University and STARC grant the users the right to modify, copy,
+and redistribute the software and documentation, both within the user's
+organization and externally, subject to the following restrictions
+
+1. The users agree not to charge for Hiroshima University and STARC code
+itself but may charge for additions, extensions, or support.
+
+2. In any product based on the software, the users agree to acknowledge
+Hiroshima University and STARC that developed the software. This
+acknowledgment shall appear in the product documentation.
+
+3. The users agree to reproduce any copyright notice which appears on
+the software on any copy or modification of such made available
+to others."
+
+
+*************************************************************************/
 
 #include "ngspice/ngspice.h"
 #include "ngspice/cktdefs.h"
@@ -189,26 +228,26 @@ int HSM2load(
 #ifdef USE_OMP
     int idx;
     HSM2model *model = (HSM2model*)inModel;
-    int good = 0;
+    int error = 0;
     HSM2instance **InstArray;
     InstArray = model->HSM2InstanceArray;
 
 #pragma omp parallel for
     for (idx = 0; idx < model->HSM2InstCount; idx++) {
         HSM2instance *here = InstArray[idx];
-        int local_good = HSM2LoadOMP(here, ckt);
-        if (local_good)
-            good = local_good;
+        int local_error = HSM2LoadOMP(here, ckt);
+        if (local_error)
+            error = local_error;
     }
 
     HSM2LoadRhsMat(inModel, ckt);
 
-    return good;
+    return error;
 }
 
 int HSM2LoadOMP(HSM2instance *here, CKTcircuit *ckt)
 {
-  HSM2model *model;
+  HSM2model *model = HSM2modPtr(here);
 #else
   HSM2model *model = (HSM2model*)inModel;
   HSM2instance *here;
@@ -236,7 +275,7 @@ int HSM2LoadOMP(HSM2instance *here, CKTcircuit *ckt)
   double ivds=0.0, ivgs=0.0, ivbs=0.0 ;
   double gjbs=0.0, gjbd=0.0, gcdbdb=0.0, gcsbsb=0.0, gcbbb=0.0, gcdbb=0.0, gcsbb=0.0, grg=0.0 ;
   double vdbs=0.0, vsbs=0.0, vdbd=0.0, delvdbs=0.0, delvsbs=0.0, delvdbd=0.0 ;
-  double vges=0.0, vged=0.0, delvges=0.0,/* delvged=0.0,*/ vgedo=0.0 ;
+  double vges=0.0, vged=0.0, delvges=0.0, delvged=0.0, vgedo=0.0 ;
   double vsbdo=0.0, vsbd=0.0; 
   double vbs_jct=0.0, vbd_jct=0.0, delvbs_jct=0.0, delvbd_jct=0.0 ;
   int ByPass=0, Check=0, Check1=0, Check2=0 ;
@@ -260,9 +299,7 @@ int HSM2LoadOMP(HSM2instance *here, CKTcircuit *ckt)
 tm0 = gtodsecld() ;
 #endif
 
-
 #ifdef USE_OMP
-    model = here->HSM2modPtr;
     reltol = ckt->CKTreltol * BYP_TOL_FACTOR ;
     abstol = ckt->CKTabstol * BYP_TOL_FACTOR ;
     voltTol= ckt->CKTvoltTol* BYP_TOL_FACTOR ;
@@ -270,7 +307,7 @@ tm0 = gtodsecld() ;
     model->HSM2_bypass_enable = BYPASS_enable ;
 #else
   /*  loop through all the HSM2 device models */
-  for ( ; model != NULL; model = model->HSM2nextModel ) {
+  for ( ; model != NULL; model = HSM2nextModel(model)) {
     /* loop through all the instances of the model */
 
     reltol = ckt->CKTreltol * BYP_TOL_FACTOR ; 
@@ -279,8 +316,8 @@ tm0 = gtodsecld() ;
     BYPASS_enable = (BYP_TOL_FACTOR > 0.0 && ckt->CKTbypass) ;
     model->HSM2_bypass_enable = BYPASS_enable ;
 
-    for (here = model->HSM2instances; here != NULL ;
-	 here = here->HSM2nextInstance) {
+    for (here = HSM2instances(model); here != NULL ;
+	 here = HSM2nextInstance(here)) {
 #endif
 /*      pParam = &here->pParam ;*/
       showPhysVal = 0;
@@ -410,7 +447,7 @@ tm0 = gtodsecld() ;
 	delvsbs = vsbs - *(ckt->CKTstate0 + here->HSM2vsbs);
 	delvdbd = vdbd - *(ckt->CKTstate0 + here->HSM2vdbd);
 	delvgd = vgd - vgdo;
-/*	delvged = vged - vgedo;*/
+	delvged = vged - vgedo;
 
 	delvbd_jct = (!here->HSM2_corbnet) ? delvbd : delvdbd;
 	delvbs_jct = (!here->HSM2_corbnet) ? delvbs : delvsbs;
@@ -816,7 +853,6 @@ tm0 = gtodsecld() ;
 	      isConv = 0;
 	    }
 	  }
-	}
 #endif /* NEWCONV */
       }
     }
@@ -847,7 +883,9 @@ tm0 = gtodsecld() ;
     
     if (!ChargeComputationNeeded) goto line850; 
     
- line755:
+#ifndef NOBYPASS
+line755:
+#endif
 
     ag0 = ckt->CKTag[0];
     if (here->HSM2_mode > 0) { /* NORMAL mode */
@@ -1455,7 +1493,7 @@ vsum0 = vsum ;
 #ifdef USE_OMP
 void HSM2LoadRhsMat(GENmodel *inModel, CKTcircuit *ckt)
 {
-    unsigned int InstCount, idx;
+    int InstCount, idx;
     HSM2instance **InstArray;
     HSM2instance *here;
     HSM2model *model = (HSM2model*)inModel;
@@ -1465,6 +1503,7 @@ void HSM2LoadRhsMat(GENmodel *inModel, CKTcircuit *ckt)
 
     for (idx = 0; idx < InstCount; idx++) {
        here = InstArray[idx];
+       model = HSM2modPtr(here);
         /* Update b for Ax = b */
         *(ckt->CKTrhs + here->HSM2dNodePrime) += here->HSM2rhsdPrime;
         *(ckt->CKTrhs + here->HSM2gNodePrime) -= here->HSM2rhsgPrime;

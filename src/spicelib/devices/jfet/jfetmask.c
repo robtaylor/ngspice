@@ -62,6 +62,9 @@ JFETmAsk(CKTcircuit *ckt, GENmodel *inModel, int which, IFvalue *value)
         case JFET_MOD_IS:
             value->rValue = model->JFETgateSatCurrent;
             return(OK);
+        case JFET_MOD_N:
+            value->rValue = model->JFETemissionCoeff;
+            return(OK);
         case JFET_MOD_FC:
             value->rValue = model->JFETdepletionCapCoeff;
             return(OK);
@@ -71,23 +74,35 @@ JFETmAsk(CKTcircuit *ckt, GENmodel *inModel, int which, IFvalue *value)
         case JFET_MOD_SOURCECONDUCT:
             value->rValue = model->JFETsourceConduct;
             return(OK);
-        case JFET_MOD_KF:
-            value->rValue = model->JFETfNcoef;
-            return(OK);
-        case JFET_MOD_AF:
-            value->rValue = model->JFETfNexp;
-            return(OK);
         case JFET_MOD_TCV:
             value->rValue = model->JFETtcv;
             return(OK);
+        case JFET_MOD_VTOTC:
+            value->rValue = model->JFETvtotc;
+            return(OK);
         case JFET_MOD_BEX:
             value->rValue = model->JFETbex;
+            return(OK);
+        case JFET_MOD_BETATCE:
+            value->rValue = model->JFETbetatce;
+            return(OK);
+        case JFET_MOD_XTI:
+            value->rValue = model->JFETxti;
+            return(OK);
+        case JFET_MOD_EG:
+            value->rValue = model->JFETeg;
             return(OK);
         case JFET_MOD_TYPE:
             if (model->JFETtype == NJF)
                 value->sValue = "njf";
             else
                 value->sValue = "pjf";
+            return(OK);
+        case JFET_MOD_KF:
+            value->rValue = model->JFETfNcoef;
+            return(OK);
+        case JFET_MOD_AF:
+            value->rValue = model->JFETfNexp;
             return(OK);
         case JFET_MOD_NLEV:
             value->iValue = model->JFETnlev;

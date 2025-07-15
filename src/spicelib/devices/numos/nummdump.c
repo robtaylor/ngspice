@@ -38,6 +38,7 @@ NUMOSdump(GENmodel *inModel, CKTcircuit *ckt)
   char *prefix;
   int *state_num;
   int anyOutput = 0;
+  bool writeAscii = TRUE;
 
   if (ckt->CKTmode & MODEDCOP) {
     prefix = "OP";
@@ -56,10 +57,10 @@ NUMOSdump(GENmodel *inModel, CKTcircuit *ckt)
     return;
   }
 
-  for (; model != NULL; model = model->NUMOSnextModel) {
+  for (; model != NULL; model = NUMOSnextModel(model)) {
     output = model->NUMOSoutputs;
-    for (inst = model->NUMOSinstances; inst != NULL;
-	inst = inst->NUMOSnextInstance) {
+    for (inst = NUMOSinstances(model); inst != NULL;
+         inst = NUMOSnextInstance(inst)) {
 
       if (inst->NUMOSprintGiven) {
 	if ((ckt->CKTmode & MODETRAN) &&
@@ -69,12 +70,16 @@ NUMOSdump(GENmodel *inModel, CKTcircuit *ckt)
 	anyOutput = 1;
 	sprintf(fileName, "%s%s.%d.%s", output->OUTProotFile, prefix,
 	    *state_num, inst->NUMOSname);
-	if ((fpState = fopen(fileName, "wb")) == NULL) {
+
+	writeAscii = compareFiletypeVar("ascii");
+
+	fpState = fopen(fileName, (writeAscii ? "w" : "wb"));
+	if (!fpState) {
 	  perror(fileName);
 	} else {
 	  NUMOSputHeader(fpState, ckt, inst);
 	  TWOprnSolution(fpState, inst->NUMOSpDevice,
-	      model->NUMOSoutputs);
+	      model->NUMOSoutputs, writeAscii, "numos");
 	  fclose(fpState);
 	  LOGmakeEntry(fileName, description);
 	}
@@ -157,10 +162,10 @@ NUMOSacct(GENmodel *inModel, CKTcircuit *ckt, FILE *file)
 
   NG_IGNORE(ckt);
 
-  for (; model != NULL; model = model->NUMOSnextModel) {
+  for (; model != NULL; model = NUMOSnextModel(model)) {
     output = model->NUMOSoutputs;
-    for (inst = model->NUMOSinstances; inst != NULL;
-	inst = inst->NUMOSnextInstance) {
+    for (inst = NUMOSinstances(model); inst != NULL;
+         inst = NUMOSnextInstance(inst)) {
 
       if (output->OUTPstats) {
 	TWOmemStats(file, inst->NUMOSpDevice);

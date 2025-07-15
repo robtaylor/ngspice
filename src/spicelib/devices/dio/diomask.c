@@ -29,6 +29,8 @@ DIOmAsk (CKTcircuit *ckt, GENmodel *inModel, int which, IFvalue *value)
             return (OK);
         case DIO_MOD_IS:
             value->rValue = model->DIOsatCur;
+            if (value->rValue < ckt->CKTepsmin)
+                value->rValue = ckt->CKTepsmin;
             return(OK);
         case DIO_MOD_JSW:
             value->rValue = model->DIOsatSWCur;
@@ -104,6 +106,12 @@ DIOmAsk (CKTcircuit *ckt, GENmodel *inModel, int which, IFvalue *value)
         case DIO_MOD_EG:
             value->rValue = model->DIOactivationEnergy;
             return (OK);
+        case DIO_MOD_GAP1:
+            value->rValue = model->DIOfirstBGcorrFactor;
+            return (OK);
+        case DIO_MOD_GAP2:
+            value->rValue = model->DIOsecndBGcorrFactor;
+            return (OK);
         case DIO_MOD_XTI:
             value->rValue = model->DIOsaturationCurrentExp;
             return(OK);
@@ -170,6 +178,56 @@ DIOmAsk (CKTcircuit *ckt, GENmodel *inModel, int which, IFvalue *value)
         case DIO_MOD_BV_MAX:
             value->rValue = model->DIObv_max;
             return(OK);
+        case DIO_MOD_ID_MAX:
+            value->rValue = model->DIOid_max;
+            return(OK);
+        case DIO_MOD_PD_MAX:
+            value->rValue = model->DIOpd_max;
+            return(OK);
+        case DIO_MOD_TE_MAX:
+            value->rValue = model->DIOte_max;
+            return(OK);
+        case DIO_MOD_ISR:
+            value->rValue = model->DIOrecSatCur;
+            return(OK);
+        case DIO_MOD_NR:
+            value->rValue = model->DIOrecEmissionCoeff;
+            return(OK);
+        case DIO_MOD_RTH0:
+            value->rValue = model->DIOrth0; 
+            return(OK);
+        case DIO_MOD_CTH0:
+            value->rValue = model->DIOcth0; 
+            return(OK);
+
+        case DIO_MOD_LM:
+            value->rValue = model->DIOlengthMetal;
+            return(OK);
+        case DIO_MOD_LP:
+            value->rValue = model->DIOlengthPoly;
+            return(OK);
+        case DIO_MOD_WM:
+            value->rValue = model->DIOwidthMetal;
+            return(OK);
+        case DIO_MOD_WP:
+            value->rValue = model->DIOwidthPoly;
+            return(OK);
+        case DIO_MOD_XOM:
+            value->rValue = model->DIOmetalOxideThick;
+            return(OK);
+        case DIO_MOD_XOI:
+            value->rValue = model->DIOpolyOxideThick;
+            return(OK);
+        case DIO_MOD_XM:
+            value->rValue = model->DIOmetalMaskOffset;
+            return(OK);
+        case DIO_MOD_XP:
+            value->rValue = model->DIOpolyMaskOffset;
+            return(OK);
+        case DIO_MOD_XW:
+            value->rValue = model->DIOmaskOffset;
+            return(OK);
+
         default:
             return(E_BADPARM);
         }
